@@ -1,0 +1,17 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The gate is `npm test`, not `npm run audit`: CLI entry-point guards are symlink-sensitive
+      # and can exit 0 having done nothing; the suite recomputes every CLI's effect in-process.
+      - run: npm test

@@ -77,6 +77,40 @@ analysis.
 
 - Counts, areas and populations aggregate **L50 only**. L75 and L90 nest inside L50;
   summing all three triple-counts.
+- **Four nesting artifacts are reproduced deliberately** — see §2.1.
+
+### 2.1 Nesting artifacts in the published figures
+
+L75 and L90 contours nest **inside** L50, so a spot appears as 1, 2 or 3 rows
+(53 / 8 / 124 spots respectively). Four derived fields aggregate over all rows rather
+than L50 only. All four were confirmed against the committed data on 2026-10-13 and are
+**reproduced on the study author's explicit decision**, so the dashboard keeps matching
+the published figures. Each has a call-site comment and a test whose name states the
+reason; a future reader who "corrects" one gets a red test with an explanation.
+
+| Field | Artifact | Effect |
+| --- | --- | --- |
+| `sig` (cities) | BH-significant count over all levels | inflated ~3× |
+| `persist` (cities) | persistent day+night count over all levels | inflated ~3× |
+| `n` (clusters) | row count, not spot count — cluster 1 is 12 rows from 6 spots | inflated ~2× |
+| `suhii`, `slope`, `hotdays` (cities) | **multiplicity-weighted means** | see below |
+
+The last is the consequential one. Those three fields are **constant within a spot**
+(0 of 185 vary across levels), so averaging across all rows weights a 3-level spot 3× a
+1-level spot. It changes the displayed value for **30 of 55 cities** (Akure 1.60 → 1.19,
+Oshogbo 1.43 → 1.82, Calabar 1.83 → 1.49) and, because the table sorts by `suhii`,
+**changes the top-10 ranking's membership and order** — Calabar #4 → #10, Akure out,
+Oshogbo in.
+
+`mean_lst` is *not* an artifact: it genuinely varies per level (132 of 185 spots), so
+averaging all rows is correct. `max_lst` is immune, since L90 ⊂ L75 ⊂ L50 makes the max
+identical under either scope.
+
+**Consequences for the UI.** No view may describe `sig`, `persist` or cluster `n` as a
+count of distinct spots. The city ranking by `suhii` is the dashboard's headline
+ordering and is multiplicity-weighted, so any copy calling it "hottest cities" needs a
+footnote. If the published figures are ever revised, this section is the first thing to
+correct — switching all four to L50-only is a one-line change per call site.
 - Proportional circles use **one shared sqrt scale** across hot and cold.
 - The year slider back-casts from each spot's Sen slope and **says so in the control**.
 - BH significance is **shown, not filtered**.
@@ -103,12 +137,12 @@ and Igbo coverage is known rather than assumed.
 
 | Role | Size | Weight | Tracking | Notes |
 | --- | --- | --- | --- | --- |
-| `display` | 34px | 800 | −0.03em | The headline sentence |
-| `figure` | 40px | 800 | −0.03em | KPI values; `tabular-nums` |
-| `title` | 22px | 700 | −0.015em | Page and drawer titles |
-| `section` | 13px | 700 | +0.07em, caps | Rail section headings |
+| `display` | 34px | 800 | −0.03em | The headline sentence; line-height 1.1 |
+| `figure` | 40px | 800 | −0.03em | KPI values; `tabular-nums`; line-height 1.1 |
+| `title` | 22px | 700 | −0.015em | Page and drawer titles; line-height 1.2 |
+| `section` | 13px | 700 | +0.07em, caps | Rail section headings; line-height 1.3 |
 | `body` | 14px | 400 | — | line-height 1.6 |
-| `label` | 12px | 600 | +0.07em, caps | **Floor for anything a non-expert reads** |
+| `label` | 12px | 600 | +0.07em, caps | **Floor for anything a non-expert reads**; line-height 1.3 |
 
 **Hard floor: 11px. Nothing below 11px ships.** The current prototype uses 8px KPI
 labels, 9px brief captions and 9.5px notes; this is the single largest change in the
@@ -593,7 +627,7 @@ If the contour data outgrows the browser, the answer is PMTiles — not an API.
 
 | # | Bug | Impact |
 | --- | --- | --- |
-| 1 | All 16 `clusters.json` typology strings are mojibake (`Grassland Â· 101â€“500 m Â· Metamorphic`) — double-encoded UTF-8 | Visible in the dropdown, cluster card, every city tooltip, compare cards and the report prose |
+| 1 | ~~All 16 `clusters.json` typology strings are mojibake~~ — **RETRACTED 2026-10-13. Not a defect.** The file is valid UTF-8 (`c2 b7` for `·`, `e2 80 93` for `–`) and parses to `Grassland · 101–500 m · Metamorphic`. The original finding came from reading the file with Python's default encoding, which is cp1252 on Windows; the corruption was in the reading, not the data. | none |
 | 2 | `buildRail()` hardcodes `data-on="true"`, so changing language desyncs toggle visuals from `state.layers` | Permanent wrong state |
 | 3 | Layer toggles are `<div onclick>` — no keyboard, no `role="switch"`, no `aria-checked` | Six controls unreachable without a mouse |
 | 4 | `openCity()` population bar divides by the magic number `230` | Wrong bar lengths |
@@ -607,10 +641,13 @@ If the contour data outgrows the browser, the answer is PMTiles — not an API.
 ### 9.2 Build-time guards
 
 - `scripts/derive.mjs` regenerates `cities.json` and `clusters.json` from the source
-  GeoJSON, implementing the L50-only aggregation rules. **Done when** it reproduces the
-  committed JSON byte-for-byte.
-- `scripts/palette.mjs` regenerates the ramps and **fails the build** on any pair below
-  4.5:1 (3:1 for large text). Success criterion 1 becomes a test, not an intention.
+  GeoJSON, implementing the L50-only aggregation rules. Its output was verified
+  **field-by-field against the pre-branch published values: 1,647 fields, exactly one
+  intended change (cluster 16's typology abbreviation)**. The byte-for-byte guard now binds
+  derive's own output going forward.
+- `scripts/palette.mjs` regenerates the ramps (it cannot fail anything).
+  `scripts/audit-contrast.mjs` **fails the build** on any text pair below 4.5:1, checking
+  every text token on all three grounds (`--bg`, `--surface`, `--surface-2`). Success criterion 1 becomes a test, not an intention.
 - A diacritic fixture renders every dictionary string in all four languages at every
   scale step and fails on a missing glyph.
 

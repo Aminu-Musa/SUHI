@@ -283,6 +283,11 @@ it('renders a null-encoded spot as neutral with its outline intact', () => {
 
 `stopFor(expression, value)` is a test helper in `src/map/style.test.ts` that evaluates a MapLibre `interpolate` expression against a value — write it alongside the tests.
 
+**Two implementation notes carried from plan 1's Task 6 review:**
+
+- **`interpolate` does not handle `null`.** Wrap it: `['case', ['==', ['get','lst_rel'], null], <--neutral-mid>, ['interpolate', ['linear'], ['get','lst_rel'], -4.5, …, 0, …, 4.5, …]]`. This is not hypothetical — `Bida|night` has no reference mean (its only L50 night spots carry `mean_lst: null`), so 2 of 441 features encode to `null` on the real data today.
+- **`buildReferenceMeans` must be called on the UNFILTERED feature set.** It derives each city/period mean from that set, so calling it after a city, level or cluster filter silently changes every colour on screen. Build the refs once at load, write `lst_rel` onto each feature's properties with `attachLstRel`, then filter.
+
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `npm test`
