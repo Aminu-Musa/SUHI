@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nigeria SUHI — hot & cold spot dashboard</title>
+<link rel="stylesheet" href="_ds/nocturne-4e7aa328-2ddc-4aa9-8123-bb8ee4d346b1/styles.css">
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+<style>
+:root{
+  --hot-1:#f6e08a; --hot-2:#f2c14e; --hot-3:#ec9a3c; --hot-4:#e06b2f; --hot-5:#c9382c;
+  --cold-1:#cfe4f7; --cold-2:#8fbfe8; --cold-3:#5793d1; --cold-4:#3467ad; --cold-5:#20407c;
+  --rail:330px;
+}
+html,body{height:100%}
+body{margin:0;overflow:hidden;font-size:13px}
+button{font-family:var(--font-body);color:inherit}
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* header */
+.top{display:flex;align-items:center;gap:var(--space-6);padding:0 var(--space-6);height:52px;flex:none;
+  border-bottom:1px solid var(--color-divider);background:var(--color-bg)}
+.brand{display:flex;align-items:baseline;gap:var(--space-3);font-family:var(--font-heading);font-weight:500}
+.brand b{font-size:14px;letter-spacing:-.01em}
+.brand span{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--color-neutral-500)}
+.tabs{display:flex;gap:var(--space-1);margin-left:var(--space-8)}
+.tab{background:none;border:0;padding:6px 11px;border-radius:var(--radius-sm);font-size:12.5px;
+  color:var(--color-neutral-400);cursor:pointer}
+.tab:hover{background:var(--color-neutral-900);color:var(--color-text)}
+.tab[aria-selected=true]{color:var(--color-text);background:color-mix(in srgb,var(--color-accent) 18%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-accent) 45%,transparent)}
+.top .sp{flex:1}
+.ghost{background:none;border:1px solid var(--color-neutral-800);border-radius:var(--radius-sm);
+  padding:5px 10px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.ghost:hover{border-color:var(--color-accent-600);background:color-mix(in srgb,var(--color-accent) 10%,transparent)}
+.ghost[aria-pressed=true]{border-color:var(--color-accent-500);color:var(--color-accent-300)}
+
+.body{flex:1;display:flex;min-height:0}
+
+/* rail */
+.rail{width:var(--rail);flex:none;border-right:1px solid var(--color-divider);overflow-y:auto;
+  padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-6);background:var(--color-bg)}
+.rail::-webkit-scrollbar{width:8px}.rail::-webkit-scrollbar-thumb{background:var(--color-neutral-800);border-radius:4px}
+.sec-h{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-500);
+  margin:0 0 var(--space-3);display:flex;justify-content:space-between;align-items:center}
+.search{width:100%;background:var(--color-neutral-900);border:1px solid var(--color-neutral-800);
+  border-radius:var(--radius-sm);padding:7px 10px;color:var(--color-text);font-size:12.5px;font-family:var(--font-body)}
+.search::placeholder{color:var(--color-neutral-600)}
+.search:focus{border-color:var(--color-accent-600)}
+
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
+.kpi{background:var(--color-neutral-900);border-radius:var(--radius-md);padding:var(--space-4);
+  box-shadow:inset 0 0 0 1px var(--color-neutral-800)}
+.kpi .lab{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:3px}
+.kpi .val{font-family:var(--font-heading);font-size:24px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi .sub{font-size:10.5px;color:var(--color-neutral-500);margin-top:4px}
+.kpi.hot .val{color:var(--hot-3)} .kpi.cold .val{color:var(--cold-2)}
+.kpi.wide{grid-column:1/-1}
+
+.bar{height:6px;border-radius:3px;background:var(--color-neutral-800);overflow:hidden;display:flex;margin-top:8px}
+.bar i{display:block;height:100%}
+
+.rowlist{display:flex;flex-direction:column;gap:1px}
+.rw{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:5px 7px;border-radius:var(--radius-sm);
+  cursor:pointer;font-size:12px}
+.rw:hover{background:var(--color-neutral-900)}
+.rw[data-on=true]{background:color-mix(in srgb,var(--color-accent) 14%,transparent)}
+.rw .n{color:var(--color-neutral-400);font-variant-numeric:tabular-nums}
+.rw .mini{grid-column:1/-1;height:3px;border-radius:2px;background:var(--color-neutral-800);overflow:hidden}
+.rw .mini i{display:block;height:100%}
+
+.layers{display:flex;flex-direction:column;gap:2px}
+.ly{display:flex;align-items:center;gap:9px;padding:6px 7px;border-radius:var(--radius-sm);cursor:pointer;font-size:12.5px}
+.ly:hover{background:var(--color-neutral-900)}
+.sw{width:26px;height:15px;border-radius:8px;background:var(--color-neutral-800);flex:none;position:relative;transition:.15s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;
+  background:var(--color-neutral-500);transition:.15s}
+.ly[data-on=true] .sw{background:color-mix(in srgb,var(--color-accent) 55%,transparent)}
+.ly[data-on=true] .sw::after{left:13px;background:var(--color-accent-200)}
+.ly .chip{margin-left:auto;font-size:9.5px;color:var(--color-neutral-600);border:1px solid var(--color-neutral-800);
+  border-radius:3px;padding:1px 5px}
+.ly .key{width:14px;height:3px;border-radius:2px;flex:none}
+
+.seg{display:flex;background:var(--color-neutral-900);border-radius:var(--radius-sm);padding:2px;gap:2px;
+  box-shadow:inset 0 0 0 1px var(--color-neutral-800)}
+.seg button{flex:1;background:none;border:0;padding:5px 4px;border-radius:3px;font-size:11.5px;
+  color:var(--color-neutral-400);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--color-neutral-800);color:var(--color-text)}
+.seg button:hover{color:var(--color-text)}
+
+input[type=range]{width:100%;accent-color:var(--color-accent);height:18px}
+
+.legend{display:flex;flex-direction:column;gap:var(--space-3)}
+.ramp{display:flex;height:9px;border-radius:2px;overflow:hidden}
+.ramp i{flex:1}
+.rampL{display:flex;justify-content:space-between;font-size:9.5px;color:var(--color-neutral-500);margin-top:3px;
+  font-variant-numeric:tabular-nums}
+
+/* map */
+.stage{flex:1;position:relative;min-width:0;display:flex;flex-direction:column}
+.stage.framed{padding:var(--space-6);gap:var(--space-4)}
+.mapwrap{position:relative;flex:1;overflow:hidden;background:
+  radial-gradient(120% 90% at 30% 15%, #1c1f31 0%, #14161f 55%, #101119 100%)}
+.stage.framed .mapwrap{border-radius:var(--radius-lg);box-shadow:var(--shadow-md)}
+svg.map{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+svg.map:active{cursor:grabbing}
+.nation{fill:#1a1d2b;stroke:var(--color-neutral-600);stroke-width:1.1;vector-effect:non-scaling-stroke}
+.state{fill:none;stroke:color-mix(in srgb,var(--color-neutral-500) 55%,transparent);stroke-width:.7;
+  stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.phys path{stroke:none}
+.spot{stroke-width:.6;vector-effect:non-scaling-stroke;cursor:pointer}
+.spot:hover{stroke:#fff;stroke-width:1.4}
+.citydot{cursor:pointer}
+.citylab{fill:var(--color-neutral-400);pointer-events:none;font-family:var(--font-body)}
+
+/* swipe */
+.swipe{position:absolute;top:0;bottom:0;width:2px;background:var(--color-accent-300);cursor:ew-resize;
+  box-shadow:0 0 14px color-mix(in srgb,var(--color-accent) 70%,transparent);z-index:5}
+.swipe .grab{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:26px;height:38px;
+  border-radius:var(--radius-sm);background:var(--color-neutral-900);box-shadow:var(--shadow-md);
+  display:flex;align-items:center;justify-content:center;color:var(--color-accent-300);font-size:11px}
+.swipetag{position:absolute;bottom:44px;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--color-neutral-400);background:rgba(16,17,25,.75);padding:3px 8px;border-radius:3px;z-index:4}
+
+.overlay{position:absolute;z-index:3;pointer-events:none}
+.ov-tl{top:12px;left:14px}
+.ov-bl{left:14px;bottom:14px}
+.ov-br{right:14px;bottom:14px;text-align:right}
+.ov-tr{top:12px;right:14px;pointer-events:auto;display:flex;gap:6px}
+.mapttl{font-family:var(--font-heading);font-size:17px;letter-spacing:-.015em;margin:0}
+.mapsub{font-size:11px;color:var(--color-neutral-500);margin:3px 0 0}
+.scalebar{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--color-neutral-500)}
+.scalebar .ln{height:1px;width:80px;background:var(--color-neutral-500);position:relative}
+.scalebar .ln::before,.scalebar .ln::after{content:"";position:absolute;width:1px;height:5px;
+  background:var(--color-neutral-500);bottom:0}.scalebar .ln::after{right:0}
+.zbtn{width:26px;height:26px;border-radius:var(--radius-sm);background:rgba(25,27,38,.9);
+  border:1px solid var(--color-neutral-800);color:var(--color-neutral-300);cursor:pointer;font-size:14px;line-height:1}
+.zbtn:hover{border-color:var(--color-accent-600)}
+
+/* tooltip + drawer */
+.tip{position:fixed;z-index:60;pointer-events:none;background:#1b1e2b;box-shadow:var(--shadow-md);
+  border-radius:var(--radius-md);padding:9px 11px;font-size:11.5px;max-width:230px;opacity:0;transition:opacity .1s}
+.tip b{font-family:var(--font-heading);font-size:13px;display:block;margin-bottom:3px}
+.tip dl{display:grid;grid-template-columns:auto auto;gap:2px 12px;margin:5px 0 0}
+.tip dt{color:var(--color-neutral-500)}.tip dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+
+.drawer{position:absolute;top:0;right:0;bottom:0;width:378px;background:#181a26;z-index:20;
+  box-shadow:-1px 0 0 var(--color-divider),-24px 0 50px rgba(0,0,0,.5);
+  transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding:var(--space-6)}
+.drawer[data-open=true]{transform:none}
+.drawer .x{position:absolute;top:12px;right:12px;background:none;border:0;color:var(--color-neutral-500);
+  cursor:pointer;font-size:16px;line-height:1}
+.dl2{display:grid;grid-template-columns:1fr auto;gap:5px 10px;font-size:12px;margin:0}
+.dl2 dt{color:var(--color-neutral-500)}
+.dl2 dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;
+  border-radius:99px;border:1px solid currentColor}
+
+/* panels (compare / table / report) */
+.panel{flex:1;overflow-y:auto;padding:var(--space-8) var(--space-8) 60px;display:none}
+.panel[data-on=true]{display:block}
+.panel h2{font-size:22px;margin:0 0 4px}
+.lede{color:var(--color-neutral-500);font-size:12.5px;margin:0 0 var(--space-8);max-width:60ch}
+table.dt{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+table.dt th{text-align:right;font-weight:500;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--color-neutral-500);padding:7px 10px;border-bottom:1px solid var(--color-neutral-800);cursor:pointer;white-space:nowrap}
+table.dt th:first-child,table.dt td:first-child{text-align:left}
+table.dt th:hover{color:var(--color-text)}
+table.dt td{padding:6px 10px;text-align:right;border-bottom:1px solid color-mix(in srgb,var(--color-neutral-800) 55%,transparent)}
+table.dt tbody tr:hover{background:var(--color-neutral-900)}
+.cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--space-6)}
+.card2{background:var(--color-neutral-900);border-radius:var(--radius-md);padding:var(--space-6);
+  box-shadow:inset 0 0 0 1px var(--color-neutral-800)}
+.cbar{display:grid;grid-template-columns:88px 1fr 58px;gap:9px;align-items:center;font-size:11.5px;margin-bottom:6px}
+.cbar .t{color:var(--color-neutral-500)}
+.cbar .track{height:7px;border-radius:4px;background:var(--color-neutral-800);overflow:hidden}
+.cbar .track i{display:block;height:100%}
+.cbar .v{text-align:right;font-variant-numeric:tabular-nums}
+.picker{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:var(--space-8)}
+.pk{border:1px solid var(--color-neutral-800);background:none;border-radius:99px;padding:4px 11px;font-size:11.5px;cursor:pointer;color:var(--color-neutral-400)}
+.pk[aria-pressed=true]{border-color:var(--color-accent-500);color:var(--color-accent-200);background:color-mix(in srgb,var(--color-accent) 14%,transparent)}
+.pk:hover{color:var(--color-text)}
+.note{font-size:11px;color:var(--color-neutral-600);line-height:1.5}
+.brief{width:640px;max-width:100%;background:#1b1e2b;border-radius:var(--radius-md);box-shadow:var(--shadow-md);
+  padding:34px 38px}
+.brief h3{font-size:19px;margin:0 0 2px}
+.rule{height:1px;background:linear-gradient(to right,var(--color-divider),transparent);margin:16px 0}
+.expgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:var(--space-4);margin-top:var(--space-6)}
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--color-neutral-600);font-size:12px;z-index:30}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><b>Nocturne&nbsp;SUHI</b><span>Nigeria · 2024 composite</span></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="map">Map</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="compare">Compare cities</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="table">Data table</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="report">Reports</button>
+    </nav>
+    <div class="sp"></div>
+    <button class="ghost" id="frameToggle" aria-pressed="false">Framed view</button>
+    <button class="ghost" id="drawBtn" aria-pressed="false">Select area</button>
+    <button class="ghost" id="exportBtn">Export</button>
+  </header>
+
+  <div class="body">
+    <aside class="rail" id="rail">
+      <div>
+        <input class="search" id="search" placeholder="Search city or spot ID…" autocomplete="off">
+        <div id="results" class="rowlist" style="margin-top:6px"></div>
+      </div>
+
+      <div>
+        <div class="sec-h"><span id="scopeLabel">National · 55 cities</span><span id="scopeReset" style="cursor:pointer;color:var(--color-accent-300);display:none">reset</span></div>
+        <div class="kpis" id="kpis"></div>
+      </div>
+
+      <div>
+        <div class="sec-h">Confidence · Gi* / BH-adjusted</div>
+        <div id="conf"></div>
+      </div>
+
+      <div>
+        <div class="sec-h">Contour level</div>
+        <div class="seg" id="contourSeg">
+          <button data-v="L50" aria-pressed="true">L50</button>
+          <button data-v="L75" aria-pressed="false">L75</button>
+          <button data-v="L90" aria-pressed="false">L90</button>
+        </div>
+        <p class="note" style="margin:6px 0 0">Percentile of the spot's intensity surface. L90 keeps only dense cores.</p>
+      </div>
+
+      <div>
+        <div class="sec-h"><span>Layers</span><span id="opacityVal">85%</span></div>
+        <div class="layers" id="layers"></div>
+        <input type="range" id="opacity" min="20" max="100" value="85" style="margin-top:6px">
+      </div>
+
+      <div>
+        <div class="sec-h">Cluster (k=25)</div>
+        <select id="cluster" class="search" style="appearance:none"></select>
+      </div>
+
+      <div>
+        <div class="sec-h"><span>Year</span><span id="yearVal">2024</span></div>
+        <input type="range" id="year" min="2015" max="2024" value="2024" step="1">
+        <p class="note" style="margin:4px 0 0">2024 observed. Earlier years back-cast from each spot's Sen slope (°C/decade).</p>
+      </div>
+
+      <div class="legend">
+        <div class="sec-h">Legend</div>
+        <div>
+          <div style="font-size:11px;margin-bottom:4px">Hot spots — SUHI intensity</div>
+          <div class="ramp"><i style="background:var(--hot-1)"></i><i style="background:var(--hot-2)"></i><i style="background:var(--hot-3)"></i><i style="background:var(--hot-4)"></i><i style="background:var(--hot-5)"></i></div>
+          <div class="rampL"><span>+0.0 °C</span><span>+1.8</span><span>+3.7 °C</span></div>
+        </div>
+        <div>
+          <div style="font-size:11px;margin-bottom:4px">Cold spots — SUHI deficit</div>
+          <div class="ramp"><i style="background:var(--cold-1)"></i><i style="background:var(--cold-2)"></i><i style="background:var(--cold-3)"></i><i style="background:var(--cold-4)"></i><i style="background:var(--cold-5)"></i></div>
+          <div class="rampL"><span>−0.0 °C</span><span>−0.8</span><span>−1.6 °C</span></div>
+        </div>
+        <p class="note">Hatched outline = not significant after Benjamini–Hochberg correction (p&nbsp;&gt;&nbsp;0.05).</p>
+      </div>
+    </aside>
+
+    <main class="stage" id="stage">
+      <div class="mapwrap" id="mapwrap">
+        <div class="loading" id="loading">Loading geometry…</div>
+        <svg class="map" id="map"></svg>
+        <div class="swipetag" id="tagDay">Day · LST</div>
+        <div class="swipetag" id="tagNight">Night · LST</div>
+        <div class="swipe" id="swipe" style="left:55%"><div class="grab">⇄</div></div>
+        <div class="overlay ov-tl">
+          <h1 class="mapttl" id="mapTitle">Surface urban heat island — hot &amp; cold spots</h1>
+          <p class="mapsub" id="mapSub">Getis-Ord Gi* contours, MODIS LST 2024 · 441 polygons · 55 cities</p>
+        </div>
+        <div class="overlay ov-bl">
+          <div class="scalebar"><div class="ln"></div><span id="scaleTxt">200 km</span></div>
+          <div class="note" style="margin-top:5px">EPSG:4326 · Web Mercator display</div>
+        </div>
+        <div class="overlay ov-br note" id="basemapNote">Basemap: Nocturne dark · Natural Earth 1:110m</div>
+        <div class="overlay ov-tr">
+          <button class="zbtn" id="zin">+</button>
+          <button class="zbtn" id="zout">−</button>
+          <button class="zbtn" id="zreset" style="width:auto;padding:0 8px;font-size:11px">Fit</button>
+        </div>
+        <aside class="drawer" id="drawer" data-open="false"></aside>
+      </div>
+    </main>
+
+    <section class="panel" id="panel-compare">
+      <h2>City to city</h2>
+      <p class="lede">Pick up to five cities. Bars are scaled against the national maximum for each measure, so lengths are comparable down a column but not across them.</p>
+      <div class="picker" id="cmpPicker"></div>
+      <div class="cmp" id="cmpGrid"></div>
+    </section>
+
+    <section class="panel" id="panel-table">
+      <h2>All cities</h2>
+      <p class="lede">One row per city, aggregated from L50 contours. Click a heading to sort; click a row to open it on the map.</p>
+      <table class="dt" id="tbl"><thead></thead><tbody></tbody></table>
+    </section>
+
+    <section class="panel" id="panel-report">
+      <h2>Reports &amp; export</h2>
+      <p class="lede">A one-page brief per city for circulation, or the underlying records for analysis.</p>
+      <div style="display:flex;gap:var(--space-8);flex-wrap:wrap;align-items:flex-start">
+        <div class="brief" id="brief"></div>
+        <div style="flex:1;min-width:260px">
+          <div class="sec-h">Data export</div>
+          <div class="expgrid" id="exports"></div>
+          <p class="note" style="margin-top:14px">Exports carry the active filters: contour level, cluster, year and any drawn selection.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+const HOT=['#f6e08a','#f2c14e','#ec9a3c','#e06b2f','#c9382c'];
+const COLD=['#cfe4f7','#8fbfe8','#5793d1','#3467ad','#20407c'];
+const hotScale=d3.scaleLinear().domain([0,0.9,1.8,2.7,3.7]).range(HOT).clamp(true);
+const coldScale=d3.scaleLinear().domain([0,-0.4,-0.8,-1.2,-1.65]).range(COLD).clamp(true);
+const fmt=(n,d=0)=>n==null?'—':d3.format(','+ '.'+d+'f')(n);
+const state={contour:'L50',year:2024,cluster:'all',opacity:.85,city:null,
+  layers:{spots:true,cities:true,states:true,phys:true,nation:true,labels:true}};
+
+let CITIES=[],SPOTS=null,NG=null,projection,path,svg,g,zoom,W=0,H=0,rad=()=>4;
+function scaleMarkers(){
+  const k=d3.zoomTransform(svg.node()).k;
+  g.selectAll('.citydot circle').attr('r',d=>rad(d.pop_hot)/k).attr('stroke-width',1/k);
+  g.selectAll('.citylab').style('font-size',(9.5/k)+'px').attr('x',d=>(rad(d.pop_hot)+4)/k).attr('y',3.2/k);
+}
+
+Promise.all([
+  d3.json('data/cities.json'),
+  d3.json('data/spots.geojson'),
+  d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json')
+]).then(([c,s,topo])=>{
+  CITIES=c; SPOTS=s;
+  const countries=topojson.feature(topo,topo.objects.countries);
+  NG=countries.features.find(f=>f.properties.name==='Nigeria');
+  document.getElementById('loading').remove();
+  buildRail(); initMap(); renderAll();
+}).catch(e=>{document.getElementById('loading').textContent='Could not load data: '+e.message;});
+
+/* ---------- map ---------- */
+function initMap(){
+  svg=d3.select('#map');
+  const wrap=document.getElementById('mapwrap');
+  W=0;H=0;
+  projection=d3.geoMercator();
+  path=d3.geoPath(projection);
+
+  const defs=svg.append('defs');
+  const hatch=defs.append('pattern').attr('id','ns').attr('width',5).attr('height',5)
+    .attr('patternUnits','userSpaceOnUse').attr('patternTransform','rotate(45)');
+  hatch.append('rect').attr('width',5).attr('height',5).attr('fill','none');
+  hatch.append('line').attr('y2',5).attr('stroke','#e9e9ed').attr('stroke-opacity',.55).attr('stroke-width',1.2);
+  const relief=defs.append('linearGradient').attr('id','relief').attr('x1',0).attr('y1',1).attr('x2',.35).attr('y2',0);
+  relief.append('stop').attr('offset',0).attr('stop-color','#1a2434');
+  relief.append('stop').attr('offset',.35).attr('stop-color','#232c39');
+  relief.append('stop').attr('offset',.7).attr('stop-color','#333630');
+  relief.append('stop').attr('offset',1).attr('stop-color','#45412f');
+  defs.append('clipPath').attr('id','clipNG').append('path').attr('d',path(NG));
+
+  g=svg.append('g');
+  g.append('path').attr('class','nation').attr('d',path(NG));
+  g.append('g').attr('class','phys');
+  g.append('path').attr('class','nationline').attr('d',path(NG))
+    .attr('fill','none').attr('stroke','var(--color-neutral-500)').attr('stroke-width',1.1)
+    .attr('vector-effect','non-scaling-stroke');
+  g.append('g').attr('class','states');
+  g.append('g').attr('class','clipDay').attr('clip-path','url(#clipDayR)');
+  g.append('g').attr('class','clipNight').attr('clip-path','url(#clipNightR)');
+  g.append('g').attr('class','cities');
+
+  defs.append('clipPath').attr('id','clipDayR').append('rect').attr('id','rDay');
+  defs.append('clipPath').attr('id','clipNightR').append('rect').attr('id','rNight');
+
+  zoom=d3.zoom().scaleExtent([1,60]).on('zoom',ev=>{
+    g.attr('transform',ev.transform);
+    scaleMarkers();
+    updateScale(ev.transform.k);
+  });
+  svg.call(zoom);
+  d3.select('#zin').on('click',()=>{const t=d3.zoomTransform(svg.node());
+    zoomTo(d3.zoomIdentity.translate(W/2,H/2).scale(Math.min(60,t.k*1.7)).translate((t.x-W/2)/t.k,(t.y-H/2)/t.k),300);});
+  d3.select('#zout').on('click',()=>{const t=d3.zoomTransform(svg.node());
+    zoomTo(d3.zoomIdentity.translate(W/2,H/2).scale(Math.max(1,t.k/1.7)).translate((t.x-W/2)/t.k,(t.y-H/2)/t.k),300);});
+  d3.select('#zreset').on('click',()=>{state.city=null;zoomTo(d3.zoomIdentity,500);renderAll();});
+
+  // physiographic placeholder: relief wash clipped to the nation
+  g.select('.phys').append('rect').attr('class','reliefRect')
+    .attr('fill','url(#relief)').attr('clip-path','url(#clipNG)').attr('opacity',.9);
+
+  initSwipe();
+  RO=new ResizeObserver(()=>refit());
+  RO.observe(wrap);
+  window.addEventListener('resize',refit);
+  refit();
+  let tries=0;
+  const iv=setInterval(()=>{
+    refit();
+    if(didFit||tries++>250) clearInterval(iv);
+  },120);
+}
+let RO=null;
+// d3 transitions run on requestAnimationFrame, which is paused while the
+// preview document is not rendered — animate only when rAF is alive.
+let rafAlive=false;
+requestAnimationFrame(()=>{rafAlive=true;});
+function zoomTo(t,ms){
+  if(rafAlive) svg.transition().duration(ms).call(zoom.transform,t);
+  else svg.call(zoom.transform,t);
+}
+
+let swipePct=.55,didFit=false;
+function refit(){
+  const w=document.getElementById('mapwrap');
+  if(!w) return;
+  const r=w.getBoundingClientRect();
+  if(r.width<40||r.height<40) return;
+  if(didFit&&Math.round(r.width)===W&&Math.round(r.height)===H) return;
+  didFit=true;
+  W=Math.round(r.width);H=Math.round(r.height);
+  projection.fitExtent([[36,44],[W-36,H-44]],NG);
+  svg.select('#clipNG path').attr('d',path(NG));
+  g.selectAll('.nation,.nationline').attr('d',path(NG));
+  g.select('.reliefRect').attr('x',-W*2).attr('y',-H*2).attr('width',W*5).attr('height',H*5);
+  setSwipe(swipePct*W);
+  renderAll();
+  updateScale(d3.zoomTransform(svg.node()).k);
+}
+
+function activeSpots(){
+  return SPOTS.features.filter(f=>{
+    const p=f.properties;
+    if(p.contour_level!==state.contour) return false;
+    if(state.cluster!=='all' && String(p.cluster25)!==state.cluster) return false;
+    if(state.city && p.city!==state.city) return false;
+    return true;
+  });
+}
+function spotValue(p){
+  const back=(2024-state.year)/10*(p.sen_slope_C_per_decade||0);
+  return (p.suhii||0)-back;
+}
+function spotFill(p){
+  const v=spotValue(p);
+  return p.spot_type==='hot'?hotScale(Math.max(0,v)):coldScale(Math.min(0,v));
+}
+
+function renderMap(){
+  const feats=activeSpots();
+  const L=state.layers;
+  g.select('.phys').attr('display',L.phys?null:'none');
+  g.selectAll('.nation,.nationline').attr('display',L.nation?null:'none');
+  g.select('.states').attr('display',L.states?null:'none');
+
+  // state boundaries — placeholder graticule until the real GeoJSON arrives
+  const grat=d3.geoGraticule().step([1.6,1.6]).extent(d3.geoBounds(NG));
+  g.select('.states').selectAll('path').data([grat()])
+    .join('path').attr('class','state').attr('d',path).attr('clip-path','url(#clipNG)');
+
+  const draw=(sel,period)=>{
+    sel.selectAll('path.spot').data(L.spots?feats.filter(f=>f.properties.period===period):[],d=>d.properties.spot_id)
+      .join('path')
+      .attr('class','spot')
+      .attr('d',path)
+      .attr('fill',d=>spotFill(d.properties))
+      .attr('fill-opacity',state.opacity)
+      .attr('stroke',d=>d.properties.bh_significant?'none':'url(#ns)')
+      .on('mousemove',(e,d)=>showTip(e,spotTip(d.properties)))
+      .on('mouseleave',hideTip)
+      .on('click',(e,d)=>{e.stopPropagation();openSpot(d.properties);});
+  };
+  draw(g.select('.clipDay'),'day');
+  draw(g.select('.clipNight'),'night');
+
+  const shown=state.city?CITIES.filter(c=>c.city===state.city):CITIES;
+  rad=d3.scaleSqrt().domain([0,d3.max(CITIES,c=>c.pop_hot)||1]).range([2.5,17]);
+  const cg=g.select('.cities').attr('display',L.cities?null:'none')
+    .selectAll('g.citydot').data(shown,d=>d.city)
+    .join(enter=>{const gg=enter.append('g').attr('class','citydot');gg.append('circle');gg.append('text');return gg;});
+  cg.attr('transform',d=>`translate(${projection([d.lon,d.lat])})`)
+    .on('mousemove',(e,d)=>showTip(e,cityTip(d)))
+    .on('mouseleave',hideTip)
+    .on('click',(e,d)=>{focusCity(d.city);});
+  cg.select('circle')
+    .attr('fill',d=>hotScale(d.suhii)).attr('fill-opacity',.16)
+    .attr('stroke',d=>d.suhii>=0?hotScale(d.suhii):coldScale(d.suhii));
+  cg.select('text').attr('class','citylab')
+    .attr('display',L.labels?null:'none')
+    .text(d=>d.city);
+  scaleMarkers();
+}
+
+function updateScale(k){
+  const c=d3.geoCentroid(NG);
+  const p1=projection(c),p2=[p1[0]+80,p1[1]];
+  const km=d3.geoDistance(projection.invert(p1),projection.invert([p1[0]+80/k,p1[1]]))*6371;
+  document.getElementById('scaleTxt').textContent=(km>=100?Math.round(km/10)*10:km>=10?Math.round(km):km.toFixed(1))+' km';
+}
+
+function focusCity(name){
+  state.city=name;
+  const feats=SPOTS.features.filter(f=>f.properties.city===name);
+  const fc={type:'FeatureCollection',features:feats};
+  const [[x0,y0],[x1,y1]]=path.bounds(fc);
+  const k=Math.min(60,.55*Math.min(W/(x1-x0||1),H/(y1-y0||1)));
+  const t=d3.zoomIdentity.translate(W/2,H/2).scale(k).translate(-(x0+x1)/2,-(y0+y1)/2);
+  zoomTo(t,650);
+  renderAll();
+  openCity(name);
+}
+
+/* ---------- swipe ---------- */
+function initSwipe(){
+  const el=document.getElementById('swipe');
+  let drag=false;
+  el.addEventListener('pointerdown',e=>{drag=true;el.setPointerCapture(e.pointerId);});
+  el.addEventListener('pointermove',e=>{if(!drag)return;
+    const r=document.getElementById('mapwrap').getBoundingClientRect();
+    setSwipe(Math.max(60,Math.min(r.width-60,e.clientX-r.left)));});
+  el.addEventListener('pointerup',()=>drag=false);
+}
+function setSwipe(x){
+  if(!W||!isFinite(x)) return;
+  swipePct=x/W;
+  document.getElementById('swipe').style.left=(swipePct*100)+'%';
+  document.getElementById('tagDay').style.right=(W-x+10)+'px';
+  document.getElementById('tagNight').style.left=(x+10)+'px';
+  d3.select('#rDay').attr('x',-W*40).attr('y',-H*40).attr('width',W*40+x).attr('height',H*80);
+  d3.select('#rNight').attr('x',x).attr('y',-H*40).attr('width',W*40).attr('height',H*80);
+}
+
+/* ---------- tooltips & drawer ---------- */
+const tip=document.getElementById('tip');
+function showTip(e,html){tip.innerHTML=html;tip.style.opacity=1;
+  tip.style.left=Math.min(window.innerWidth-250,e.clientX+14)+'px';
+  tip.style.top=(e.clientY+14)+'px';}
+function hideTip(){tip.style.opacity=0;}
+function spotTip(p){
+  const c=p.spot_type==='hot'?hotScale(Math.max(0,p.suhii)):coldScale(Math.min(0,p.suhii));
+  return `<b style="color:${c}">${p.city} · ${p.spot_type==='hot'?'Hot':'Cold'} spot</b>
+  <div class="note">${p.spot_id} · ${p.period} · ${p.contour_level}</div>
+  <dl><dt>SUHI</dt><dd>${p.suhii>0?'+':''}${p.suhii} °C</dd>
+  <dt>Mean LST</dt><dd>${fmt(p.mean_lst,1)} °C</dd>
+  <dt>Area</dt><dd>${fmt(p.area_km2,1)} km²</dd>
+  <dt>Population</dt><dd>${fmt(p.population)}</dd>
+  <dt>Gi* p</dt><dd>${p.mk_p_value==null?'—':p.mk_p_value.toFixed(3)}</dd></dl>`;
+}
+function cityTip(c){
+  return `<b>${c.city}</b><div class="note">${c.landcover} · ${c.elev}</div>
+  <dl><dt>Hot / cold spots</dt><dd><span style="color:var(--hot-3)">${c.hot}</span> / <span style="color:var(--cold-2)">${c.cold}</span></dd>
+  <dt>Mean SUHI</dt><dd>+${c.suhii} °C</dd>
+  <dt>Pop. in hot spots</dt><dd>${fmt(c.pop_hot)}</dd>
+  <dt>Hot area</dt><dd>${fmt(c.area_hot,1)} km² (${c.pct_hot}%)</dd></dl>`;
+}
+const drawer=document.getElementById('drawer');
+function closeDrawer(){drawer.dataset.open='false';}
+function openSpot(p){
+  const c=p.spot_type==='hot'?hotScale(Math.max(0,p.suhii)):coldScale(Math.min(0,p.suhii));
+  drawer.innerHTML=`<button class="x" onclick="closeDrawer()">✕</button>
+  <div class="pill" style="color:${c}">${p.spot_type} spot · ${p.period}</div>
+  <h3 style="margin:10px 0 2px;font-size:21px">${p.city}</h3>
+  <div class="note">${p.spot_id} · tier ${p.tier} · ${p.zone} · cluster ${p.cluster25}</div>
+  <div class="rule"></div>
+  <div class="kpis">
+    <div class="kpi ${p.spot_type}"><div class="lab">SUHI intensity</div><div class="val">${p.suhii>0?'+':''}${p.suhii}</div><div class="sub">°C vs rural background</div></div>
+    <div class="kpi"><div class="lab">Population</div><div class="val">${fmt(p.population)}</div><div class="sub">persons inside contour</div></div>
+  </div>
+  <div class="rule"></div>
+  <div class="sec-h">Thermal</div>
+  <dl class="dl2">
+    <dt>Mean LST</dt><dd>${fmt(p.mean_lst,2)} °C</dd>
+    <dt>Max / min LST</dt><dd>${fmt(p.max_lst,1)} / ${fmt(p.min_lst,1)} °C</dd>
+    <dt>Std dev</dt><dd>${fmt(p.std_lst,2)}</dd>
+    <dt>MODIS hot days</dt><dd>${p.n_modis_hot_days}</dd>
+    <dt>Persistent day+night</dt><dd>${p.persistent_dn?'Yes':'No'}</dd>
+  </dl>
+  <div class="rule"></div>
+  <div class="sec-h">Trend &amp; confidence</div>
+  <dl class="dl2">
+    <dt>Sen slope</dt><dd>${p.sen_slope_C_per_decade>0?'+':''}${fmt(p.sen_slope_C_per_decade,2)} °C/dec</dd>
+    <dt>Mann–Kendall</dt><dd>${p.mk_trend}</dd>
+    <dt>p-value</dt><dd>${p.mk_p_value==null?'—':p.mk_p_value.toFixed(4)}</dd>
+    <dt>BH-significant</dt><dd style="color:${p.bh_significant?'var(--hot-2)':'var(--color-neutral-500)'}">${p.bh_significant?'Yes':'No'}</dd>
+    <dt>Validation tier</dt><dd>${p.nb04_val_tier}</dd>
+  </dl>
+  <div class="rule"></div>
+  <div class="sec-h">Physiographic context</div>
+  <dl class="dl2">
+    <dt>Landcover</dt><dd>${p.landcover_class}</dd>
+    <dt>Elevation</dt><dd>${p.elevation_class}</dd>
+    <dt>Geology</dt><dd>${p.geology_class}</dd>
+    <dt>Climate</dt><dd>${p.climate_class}</dd>
+    <dt>Area (${p.contour_level})</dt><dd>${fmt(p.area_km2,2)} km²</dd>
+    <dt>Dense core</dt><dd>${p.dense_core_pct==null?'—':p.dense_core_pct+'%'}</dd>
+  </dl>
+  <div style="display:flex;gap:6px;margin-top:16px">
+    <button class="ghost" onclick="focusCity('${p.city.replace(/'/g,"\\'")}')">Zoom to city</button>
+    <button class="ghost">Add to report</button>
+  </div>`;
+  drawer.dataset.open='true';
+}
+function openCity(name){
+  const c=CITIES.find(x=>x.city===name);if(!c)return;
+  const spots=SPOTS.features.filter(f=>f.properties.city===name&&f.properties.contour_level==='L50').map(f=>f.properties);
+  drawer.innerHTML=`<button class="x" onclick="closeDrawer()">✕</button>
+  <div class="pill" style="color:var(--color-accent-300)">City</div>
+  <h3 style="margin:10px 0 2px;font-size:21px">${c.city}</h3>
+  <div class="note">${c.climate} · ${c.elev} · ${c.geol}</div>
+  <div class="rule"></div>
+  <div class="kpis">
+    <div class="kpi hot"><div class="lab">Hot spots</div><div class="val">${c.hot}</div><div class="sub">${fmt(c.area_hot,0)} km² · ${c.pct_hot}% of city</div></div>
+    <div class="kpi cold"><div class="lab">Cold spots</div><div class="val">${c.cold}</div><div class="sub">${fmt(c.area_cold,0)} km²</div></div>
+    <div class="kpi wide"><div class="lab">Population inside hot spots</div><div class="val">${fmt(c.pop_hot)}</div>
+      <div class="bar"><i style="width:${Math.min(100,c.pop_hot/230)}%;background:linear-gradient(90deg,var(--hot-2),var(--hot-5))"></i></div></div>
+  </div>
+  <div class="rule"></div>
+  <dl class="dl2">
+    <dt>Mean SUHI</dt><dd>+${c.suhii} °C</dd>
+    <dt>Mean / max LST</dt><dd>${fmt(c.mean_lst,1)} / ${fmt(c.max_lst,1)} °C</dd>
+    <dt>Warming trend</dt><dd>${c.slope>0?'+':''}${c.slope} °C/dec</dd>
+    <dt>MODIS hot days</dt><dd>${c.hotdays}</dd>
+    <dt>City area</dt><dd>${fmt(c.city_area,0)} km²</dd>
+    <dt>Urban core</dt><dd>${fmt(c.uc_area,0)} km²</dd>
+    <dt>Persistent day+night</dt><dd>${c.persist} contours</dd>
+    <dt>BH-significant</dt><dd>${c.sig}</dd>
+  </dl>
+  <div class="rule"></div>
+  <div class="sec-h">Spots at L50</div>
+  <div class="rowlist">${spots.map(s=>`<div class="rw" onclick='openSpot(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
+    <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:6px;background:${s.spot_type==='hot'?hotScale(Math.max(0,s.suhii)):coldScale(Math.min(0,s.suhii))}"></span>${s.spot_id}</span>
+    <span class="n">${s.suhii>0?'+':''}${s.suhii}°</span></div>`).join('')}</div>`;
+  drawer.dataset.open='true';
+}
+
+/* ---------- rail ---------- */
+function buildRail(){
+  const L=[['spots','Hot &amp; cold spots','441','linear-gradient(90deg,var(--cold-3),var(--hot-4))'],
+    ['cities','City centres','55','var(--color-accent-400)'],
+    ['phys','Physiographic relief','placeholder','linear-gradient(90deg,#232a35,#33342f)'],
+    ['states','State boundaries','placeholder','var(--color-neutral-500)'],
+    ['nation','National boundary','1','var(--color-neutral-300)'],
+    ['labels','City labels','','transparent']];
+  document.getElementById('layers').innerHTML=L.map(([k,n,c,col])=>
+    `<div class="ly" data-k="${k}" data-on="true"><span class="sw"></span><span class="key" style="background:${col}"></span><span>${n}</span><span class="chip">${c}</span></div>`).join('');
+  document.querySelectorAll('.ly').forEach(el=>el.onclick=()=>{
+    const k=el.dataset.k;state.layers[k]=!state.layers[k];el.dataset.on=state.layers[k];renderMap();});
+
+  const cl=document.getElementById('cluster');
+  const ids=[...new Set(SPOTS.features.map(f=>f.properties.cluster25))].sort((a,b)=>a-b);
+  cl.innerHTML='<option value="all">All 25 clusters</option>'+ids.map(i=>`<option value="${i}">Cluster ${i}</option>`).join('');
+  cl.onchange=()=>{state.cluster=cl.value;renderAll();};
+
+  document.querySelectorAll('#contourSeg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#contourSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+    state.contour=b.dataset.v;renderAll();});
+
+  const op=document.getElementById('opacity');
+  op.oninput=()=>{state.opacity=op.value/100;document.getElementById('opacityVal').textContent=op.value+'%';
+    g.selectAll('path.spot').attr('fill-opacity',state.opacity);};
+
+  const yr=document.getElementById('year');
+  yr.oninput=()=>{state.year=+yr.value;document.getElementById('yearVal').textContent=yr.value;renderMap();renderKPIs();};
+
+  const se=document.getElementById('search');
+  se.oninput=()=>{
+    const q=se.value.trim().toLowerCase();const res=document.getElementById('results');
+    if(!q){res.innerHTML='';return;}
+    const hits=CITIES.filter(c=>c.city.toLowerCase().includes(q)).slice(0,6);
+    res.innerHTML=hits.map(c=>`<div class="rw" data-c="${c.city}"><span>${c.city}</span><span class="n">+${c.suhii}°</span></div>`).join('')
+      ||'<div class="note" style="padding:4px 7px">No match</div>';
+    res.querySelectorAll('[data-c]').forEach(el=>el.onclick=()=>{se.value='';res.innerHTML='';focusCity(el.dataset.c);});
+  };
+  document.getElementById('scopeReset').onclick=()=>{state.city=null;
+    zoomTo(d3.zoomIdentity,500);renderAll();closeDrawer();};
+
+  document.getElementById('frameToggle').onclick=e=>{
+    const on=e.currentTarget.getAttribute('aria-pressed')!=='true';
+    e.currentTarget.setAttribute('aria-pressed',on);
+    document.getElementById('stage').classList.toggle('framed',on);
+    setTimeout(refit,260);};
+  document.getElementById('drawBtn').onclick=e=>{
+    const on=e.currentTarget.getAttribute('aria-pressed')!=='true';
+    e.currentTarget.setAttribute('aria-pressed',on);
+    document.getElementById('map').style.cursor=on?'crosshair':'grab';};
+  document.getElementById('exportBtn').onclick=()=>selectTab('report');
+
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));
+}
+
+function selectTab(name){
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===name));
+  document.getElementById('stage').style.display=name==='map'?'':'none';
+  document.getElementById('rail').style.display=name==='map'?'':'none';
+  ['compare','table','report'].forEach(p=>document.getElementById('panel-'+p).dataset.on=(p===name));
+  if(name==='map')setTimeout(refit,30);
+}
+
+function renderKPIs(){
+  const feats=activeSpots();
+  const hot=feats.filter(f=>f.properties.spot_type==='hot'),cold=feats.filter(f=>f.properties.spot_type==='cold');
+  const pop=d3.sum(hot,f=>f.properties.population||0);
+  const ah=d3.sum(hot,f=>f.properties.area_km2||0),ac=d3.sum(cold,f=>f.properties.area_km2||0);
+  const scope=state.city?CITIES.find(c=>c.city===state.city):null;
+  const cityArea=scope?scope.city_area:d3.sum(CITIES,c=>c.city_area);
+  const pctHot=ah/cityArea*100, pctCold=ac/cityArea*100;
+  const clusters=new Set(feats.map(f=>f.properties.cluster25)).size;
+  const meanS=d3.mean(hot,f=>spotValue(f.properties));
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi hot"><div class="lab">Hot spots</div><div class="val">${hot.length}</div><div class="sub">${fmt(ah,0)} km²</div></div>
+    <div class="kpi cold"><div class="lab">Cold spots</div><div class="val">${cold.length}</div><div class="sub">${fmt(ac,0)} km²</div></div>
+    <div class="kpi wide"><div class="lab">Share of studied area</div>
+      <div class="val" style="font-size:19px"><span style="color:var(--hot-3)">${pctHot.toFixed(2)}%</span>
+      <span style="color:var(--color-neutral-600);font-size:14px"> hot · </span>
+      <span style="color:var(--cold-2)">${pctCold.toFixed(2)}%</span>
+      <span style="color:var(--color-neutral-600);font-size:14px"> cold</span></div>
+      <div class="bar"><i style="width:${Math.min(50,pctHot*6)}%;background:linear-gradient(90deg,var(--hot-2),var(--hot-5))"></i>
+      <i style="width:${Math.min(50,pctCold*6)}%;background:linear-gradient(90deg,var(--cold-4),var(--cold-2))"></i></div></div>
+    <div class="kpi wide"><div class="lab">Population inside hot spots</div><div class="val">${fmt(pop)}</div>
+      <div class="sub">persons · ${fmt(meanS,2)} °C mean SUHI · ${clusters} cluster${clusters===1?'':'s'}</div></div>`;
+  document.getElementById('scopeLabel').textContent=state.city?state.city+' · scoped':'National · 55 cities';
+  document.getElementById('scopeReset').style.display=state.city?'':'none';
+
+  // confidence distribution
+  const bins=[['p < 0.01',f=>f.properties.mk_p_value<0.01],['0.01–0.05',f=>f.properties.mk_p_value>=0.01&&f.properties.mk_p_value<0.05],
+    ['0.05–0.10',f=>f.properties.mk_p_value>=0.05&&f.properties.mk_p_value<0.10],['≥ 0.10',f=>f.properties.mk_p_value>=0.10]];
+  const cols=['var(--hot-5)','var(--hot-3)','var(--hot-1)','var(--color-neutral-700)'];
+  const max=d3.max(bins,b=>feats.filter(b[1]).length)||1;
+  document.getElementById('conf').innerHTML=bins.map((b,i)=>{
+    const n=feats.filter(b[1]).length;
+    return `<div class="cbar"><span class="t">${b[0]}</span><span class="track"><i style="width:${n/max*100}%;background:${cols[i]}"></i></span><span class="v">${n}</span></div>`;
+  }).join('')+`<p class="note">${feats.filter(f=>f.properties.bh_significant).length} of ${feats.length} survive BH correction.</p>`;
+}
+
+/* ---------- compare ---------- */
+let picked=['Ibadan','Lagos','Kano','Maiduguri'];
+function renderCompare(){
+  document.getElementById('cmpPicker').innerHTML=CITIES.map(c=>
+    `<button class="pk" data-c="${c.city}" aria-pressed="${picked.includes(c.city)}">${c.city}</button>`).join('');
+  document.querySelectorAll('#cmpPicker .pk').forEach(b=>b.onclick=()=>{
+    const c=b.dataset.c;
+    if(picked.includes(c))picked=picked.filter(x=>x!==c);
+    else if(picked.length<5)picked=[...picked,c];
+    renderCompare();});
+  const measures=[
+    ['SUHI intensity','suhii','°C',1,'hot'],
+    ['Mean LST','mean_lst','°C',1,'hot'],
+    ['Max LST','max_lst','°C',1,'hot'],
+    ['Pop. in hot spots','pop_hot','',0,'hot'],
+    ['Hot-spot area','area_hot','km²',0,'hot'],
+    ['Hot share of city','pct_hot','%',2,'hot'],
+    ['Cold-spot area','area_cold','km²',0,'cold'],
+    ['Warming trend','slope','°C/dec',2,'hot']];
+  const sel=picked.map(p=>CITIES.find(c=>c.city===p)).filter(Boolean);
+  document.getElementById('cmpGrid').innerHTML=sel.map(c=>`
+    <div class="card2">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h4 style="margin:0 0 2px;font-size:17px">${c.city}</h4>
+        <span class="n" style="color:${hotScale(c.suhii)};font-size:13px">+${c.suhii} °C</span></div>
+      <div class="note" style="margin-bottom:12px">${c.landcover} · ${c.elev} · ${c.climate}</div>
+      ${measures.map(([lab,k,u,d,kind])=>{
+        const max=d3.max(CITIES,x=>Math.abs(x[k]))||1;
+        const col=kind==='hot'?`linear-gradient(90deg,${HOT[1]},${HOT[4]})`:`linear-gradient(90deg,${COLD[3]},${COLD[1]})`;
+        return `<div class="cbar"><span class="t">${lab}</span><span class="track"><i style="width:${Math.abs(c[k])/max*100}%;background:${col}"></i></span><span class="v">${fmt(c[k],d)}${u?' '+u:''}</span></div>`;
+      }).join('')}
+      <div style="display:flex;gap:16px;margin-top:12px;padding-top:10px;border-top:1px solid var(--color-neutral-800)">
+        <div><div class="lab" style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500)">Hot</div>
+        <div style="font-family:var(--font-heading);font-size:19px;color:var(--hot-3)">${c.hot}</div></div>
+        <div><div class="lab" style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500)">Cold</div>
+        <div style="font-family:var(--font-heading);font-size:19px;color:var(--cold-2)">${c.cold}</div></div>
+        <div><div class="lab" style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500)">Hot days</div>
+        <div style="font-family:var(--font-heading);font-size:19px">${c.hotdays}</div></div>
+      </div>
+    </div>`).join('')||'<p class="note">Pick a city above.</p>';
+}
+
+/* ---------- table ---------- */
+let sortKey='suhii',sortDir=-1;
+const COLS=[['city','City'],['hot','Hot'],['cold','Cold'],['suhii','SUHI °C'],['mean_lst','Mean LST'],
+  ['max_lst','Max LST'],['pop_hot','Pop. in hot'],['area_hot','Hot km²'],['pct_hot','% hot'],
+  ['area_cold','Cold km²'],['slope','°C/dec'],['hotdays','Hot days'],['landcover','Landcover'],['elev','Elevation']];
+function renderTable(){
+  document.querySelector('#tbl thead').innerHTML='<tr>'+COLS.map(([k,l])=>
+    `<th data-k="${k}">${l}${sortKey===k?(sortDir<0?' ↓':' ↑'):''}</th>`).join('')+'</tr>';
+  const rows=[...CITIES].sort((a,b)=>typeof a[sortKey]==='string'?a[sortKey].localeCompare(b[sortKey])*-sortDir:(a[sortKey]-b[sortKey])*sortDir);
+  document.querySelector('#tbl tbody').innerHTML=rows.map(c=>`<tr data-c="${c.city}">
+    <td>${c.city}</td><td style="color:var(--hot-3)">${c.hot}</td><td style="color:var(--cold-2)">${c.cold}</td>
+    <td style="color:${hotScale(c.suhii)}">${c.suhii>0?'+':''}${c.suhii}</td>
+    <td>${fmt(c.mean_lst,1)}</td><td>${fmt(c.max_lst,1)}</td><td>${fmt(c.pop_hot)}</td>
+    <td>${fmt(c.area_hot,0)}</td><td>${c.pct_hot}</td><td>${fmt(c.area_cold,0)}</td>
+    <td style="color:${c.slope>0?'var(--hot-2)':'var(--cold-2)'}">${c.slope>0?'+':''}${c.slope}</td>
+    <td>${c.hotdays}</td><td style="color:var(--color-neutral-400)">${c.landcover}</td>
+    <td style="color:var(--color-neutral-400)">${c.elev}</td></tr>`).join('');
+  document.querySelectorAll('#tbl th').forEach(th=>th.onclick=()=>{
+    if(sortKey===th.dataset.k)sortDir*=-1;else{sortKey=th.dataset.k;sortDir=-1;}renderTable();});
+  document.querySelectorAll('#tbl tbody tr').forEach(tr=>tr.onclick=()=>{selectTab('map');focusCity(tr.dataset.c);});
+}
+
+/* ---------- report ---------- */
+function renderReport(){
+  const c=CITIES.find(x=>x.city===(state.city||'Ibadan'))||CITIES[0];
+  document.getElementById('brief').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div><h3>${c.city}</h3><div class="note">Surface urban heat island brief · 2024 composite</div></div>
+      <div class="note" style="text-align:right">Nocturne SUHI<br>Nigeria</div>
+    </div>
+    <div class="rule"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+      ${[['Hot spots',c.hot,'var(--hot-3)'],['Cold spots',c.cold,'var(--cold-2)'],
+         ['% area hot',c.pct_hot+'%','var(--hot-4)'],['Pop. in hot spots',fmt(c.pop_hot),'']].map(([l,v,col])=>
+        `<div><div class="lab" style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500)">${l}</div>
+        <div style="font-family:var(--font-heading);font-size:23px;color:${col||'inherit'};letter-spacing:-.02em">${v}</div></div>`).join('')}
+    </div>
+    <div class="rule"></div>
+    <p style="font-size:12.5px;color:var(--color-neutral-300);line-height:1.6">
+      ${c.city} records a mean surface urban heat island intensity of +${c.suhii} °C against its rural background,
+      with a maximum land surface temperature of ${fmt(c.max_lst,1)} °C across ${c.hotdays} MODIS hot days.
+      Hot spots cover ${fmt(c.area_hot,0)} km² — ${c.pct_hot}% of the ${fmt(c.city_area,0)} km² study extent — and
+      contain ${fmt(c.pop_hot)} people. The Sen slope over the record is ${c.slope>0?'+':''}${c.slope} °C per decade.
+      Dominant landcover inside the contours is ${c.landcover.toLowerCase()}; the terrain is ${c.elev.toLowerCase()} on ${c.geol.toLowerCase()}.
+    </p>
+    <div class="rule"></div>
+    <div class="note">Method: Getis-Ord Gi* on MODIS LST, Benjamini–Hochberg corrected. Contours at L50/L75/L90 percentiles.
+      ${c.sig} of this city's contours are significant after correction.</div>`;
+  document.getElementById('exports').innerHTML=[
+    ['City brief (PDF)','One page per selected city, ready to circulate.'],
+    ['Full report (PDF)','All 55 cities with national summary and method note.'],
+    ['Spot records (CSV)','441 rows · 30 attribute fields.'],
+    ['Contours (GeoJSON)','EPSG:4326, filtered to the current view.'],
+    ['City aggregates (CSV)','55 rows · roll-ups shown in the table.']
+  ].map(([t,d])=>`<div class="card2" style="padding:var(--space-4) var(--space-6)">
+    <div style="font-family:var(--font-heading);font-size:13px;margin-bottom:2px">${t}</div>
+    <div class="note">${d}</div>
+    <button class="ghost" style="margin-top:9px">Download</button></div>`).join('');
+}
+
+function renderAll(){if(didFit)renderMap();renderKPIs();renderCompare();renderTable();renderReport();updateScale(d3.zoomTransform(svg.node()).k);}
+document.getElementById('map').addEventListener('click',closeDrawer);
+</script>
+</body>
+</html>

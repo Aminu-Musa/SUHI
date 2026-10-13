@@ -1,0 +1,14 @@
+# Brainstorming companion session files (mockups, server state)
+.superpowers/
+
+# Dependencies
+node_modules/
+dist/
+.vite/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

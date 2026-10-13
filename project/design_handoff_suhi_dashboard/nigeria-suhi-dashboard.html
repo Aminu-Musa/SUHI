@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nocturne">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nigeria SUHI — hot &amp; cold spot dashboard</title>
+
+<!-- both design systems load; the active one is selected by html[data-theme] -->
+<link rel="stylesheet" href="_ds/nocturne-4e7aa328-2ddc-4aa9-8123-bb8ee4d346b1/styles.css">
+<link rel="stylesheet" href="_ds/modernist-d5e8375d-9e34-4bca-b8f9-2fafa7569ce0/styles.css">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+
+<style>
+/* ── theme blocks. html[data-theme] outranks each system's :root ────────── */
+html[data-theme="nocturne"]{
+  --color-bg:#161826;--color-surface:#232532;--color-text:#e9e9ed;--color-accent:#9184d9;
+  --color-divider:color-mix(in srgb,#e9e9ed 16%,transparent);
+  --color-neutral-100:#f3f5fe;--color-neutral-200:#e4e7f5;--color-neutral-300:#cfd3e5;
+  --color-neutral-400:#b2b6ca;--color-neutral-500:#9397ab;--color-neutral-600:#75798c;
+  --color-neutral-700:#595d6c;--color-neutral-800:#3f424d;--color-neutral-900:#292b31;
+  --color-accent-200:#e7e5fe;--color-accent-300:#d2cefd;--color-accent-400:#b5abfc;
+  --color-accent-500:#968ae0;--color-accent-600:#796cbf;
+  --font-heading:"Inter",system-ui,sans-serif;--font-heading-weight:500;
+  --font-body:"Inter",system-ui,sans-serif;
+  --space-1:2.8px;--space-2:5.6px;--space-3:8.4px;--space-4:11.2px;--space-6:16.8px;--space-8:22.4px;
+  --radius-sm:4px;--radius-md:8px;--radius-lg:14px;
+  --shadow-sm:0 0 0 1px #3f424d;--shadow-md:0 0 0 1px #595d6c,0 6px 18px rgba(0,0,0,.55);
+  --shadow-lg:0 0 0 1px #9397ab,0 16px 40px rgba(0,0,0,.65);
+  /* local semantics */
+  --ui-panel:#1c1e2b;--ui-panel-2:#292b31;--ui-line:#3f424d;--ui-line-strong:#595d6c;
+  --ui-muted:#9397ab;--ui-rule:1px;--ui-tip:#1b1e2b;--ui-scrim:rgba(16,17,25,.78);
+  --hot-1:#f6e08a;--hot-2:#f2c14e;--hot-3:#ec9a3c;--hot-4:#e06b2f;--hot-5:#c9382c;
+  --cold-1:#cfe4f7;--cold-2:#8fbfe8;--cold-3:#5793d1;--cold-4:#3467ad;--cold-5:#20407c;
+  --spot-stroke:#e9e9ed;
+}
+html[data-theme="modernist"]{
+  --color-bg:#f3f2f2;--color-surface:#eae9e9;--color-text:#201e1d;--color-accent:#ec3013;
+  --color-divider:color-mix(in srgb,#201e1d 40%,transparent);
+  --color-neutral-100:#f8f4f4;--color-neutral-200:#eae7e7;--color-neutral-300:#d7d3d3;
+  --color-neutral-400:#bab6b6;--color-neutral-500:#9b9797;--color-neutral-600:#7d7979;
+  --color-neutral-700:#605d5d;--color-neutral-800:#444141;--color-neutral-900:#2d2b2b;
+  --color-accent-200:#ffe0d9;--color-accent-300:#ffc4b8;--color-accent-400:#ff9783;
+  --color-accent-500:#ff563c;--color-accent-600:#dd2b0f;
+  --font-heading:"Archivo",system-ui,sans-serif;--font-heading-weight:800;
+  --font-body:"Archivo",system-ui,sans-serif;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;
+  --radius-sm:0px;--radius-md:0px;--radius-lg:0px;
+  --shadow-sm:0 1px 2px color-mix(in srgb,#2d2b2b 14%,transparent);
+  --shadow-md:0 3px 10px color-mix(in srgb,#2d2b2b 16%,transparent);
+  --shadow-lg:0 12px 32px color-mix(in srgb,#2d2b2b 22%,transparent);
+  --ui-panel:#eae9e9;--ui-panel-2:#e2e0e0;--ui-line:#201e1d;--ui-line-strong:#201e1d;
+  --ui-muted:#605d5d;--ui-rule:2px;--ui-tip:#ffffff;--ui-scrim:rgba(243,242,242,.9);
+  /* ramps deepened for contrast on a light ground */
+  --hot-1:#e9b420;--hot-2:#e0902a;--hot-3:#d6691f;--hot-4:#c03c1a;--hot-5:#8e1408;
+  --cold-1:#a8cfe8;--cold-2:#6ba6d8;--cold-3:#3d79bd;--cold-4:#23539b;--cold-5:#12306b;
+  --spot-stroke:#201e1d;
+}
+
+html,body{height:100%}
+body{margin:0;overflow:hidden;font-size:13px;background:var(--color-bg);color:var(--color-text);
+  font-family:var(--font-body)}
+button,select,input{font-family:var(--font-body);color:inherit}
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* header */
+.top{display:flex;align-items:center;gap:var(--space-4);padding:0 var(--space-6);height:54px;flex:none;
+  border-bottom:var(--ui-rule) solid var(--ui-line);background:var(--color-bg);position:relative;z-index:800}
+.brand{display:flex;align-items:baseline;gap:var(--space-3);font-family:var(--font-heading);
+  font-weight:var(--font-heading-weight)}
+.brand b{font-size:14px;letter-spacing:-.01em}
+.brand span{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ui-muted)}
+.tabs{display:flex;gap:var(--space-1);margin-left:var(--space-6)}
+.tab{background:none;border:0;padding:6px 11px;border-radius:var(--radius-sm);font-size:12.5px;
+  color:var(--ui-muted);cursor:pointer;font-family:var(--font-body)}
+.tab:hover{background:var(--ui-panel-2);color:var(--color-text)}
+.tab[aria-selected=true]{color:var(--color-text);background:color-mix(in srgb,var(--color-accent) 18%,transparent);
+  box-shadow:inset 0 0 0 var(--ui-rule) var(--color-accent)}
+.top .sp{flex:1}
+.ghost{background:none;border:var(--ui-rule) solid var(--ui-line);border-radius:var(--radius-sm);
+  padding:5px 10px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  white-space:nowrap}
+.ghost:hover{border-color:var(--color-accent);background:color-mix(in srgb,var(--color-accent) 10%,transparent)}
+.ghost:active{background:color-mix(in srgb,var(--color-accent) 22%,transparent)}
+.ghost[aria-pressed=true]{border-color:var(--color-accent);color:var(--color-accent)}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+a{color:var(--color-accent)}a:hover{color:var(--color-accent-600)}
+
+.pickers{display:flex;gap:var(--space-2);align-items:center}
+.mini-sel{background:none;border:var(--ui-rule) solid var(--ui-line);border-radius:var(--radius-sm);
+  padding:5px 8px;font-size:12px;cursor:pointer;appearance:none;padding-right:22px;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 12px) 12px,calc(100% - 8px) 12px;background-size:4px 4px;background-repeat:no-repeat}
+.mini-sel:hover{border-color:var(--color-accent)}
+
+.body{flex:1;display:flex;min-height:0}
+
+/* rail */
+.rail{width:332px;flex:none;border-right:var(--ui-rule) solid var(--ui-line);overflow-y:auto;
+  padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-6);background:var(--color-bg)}
+.rail::-webkit-scrollbar{width:8px}
+.rail::-webkit-scrollbar-thumb{background:var(--color-neutral-500);border-radius:4px}
+.sec-h{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ui-muted);
+  margin:0 0 var(--space-3);display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--font-heading);font-weight:var(--font-heading-weight)}
+.search{width:100%;background:var(--ui-panel-2);border:var(--ui-rule) solid var(--ui-line);
+  border-radius:var(--radius-sm);padding:7px 10px;color:var(--color-text);font-size:12.5px}
+.search::placeholder{color:var(--ui-muted)}
+.search:focus{border-color:var(--color-accent)}
+
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
+.kpi{background:var(--ui-panel-2);border-radius:var(--radius-md);padding:var(--space-4);
+  box-shadow:inset 0 0 0 var(--ui-rule) var(--ui-line)}
+.kpi .lab{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ui-muted);margin-bottom:3px}
+.kpi .val{font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:24px;line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi .sub{font-size:10.5px;color:var(--ui-muted);margin-top:4px}
+.kpi.hot .val{color:var(--hot-4)}.kpi.cold .val{color:var(--cold-4)}
+.kpi.wide{grid-column:1/-1}
+.bar{height:6px;border-radius:var(--radius-sm);background:var(--color-neutral-400);overflow:hidden;display:flex;margin-top:8px}
+.bar i{display:block;height:100%}
+
+.rowlist{display:flex;flex-direction:column;gap:1px}
+.rw{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:5px 7px;
+  border-radius:var(--radius-sm);cursor:pointer;font-size:12px}
+.rw:hover{background:var(--ui-panel-2)}
+.layers{display:flex;flex-direction:column;gap:2px}
+.ly{display:flex;align-items:center;gap:9px;padding:6px 7px;border-radius:var(--radius-sm);cursor:pointer;font-size:12.5px}
+.ly:hover{background:var(--ui-panel-2)}
+.sw{width:26px;height:15px;border-radius:var(--radius-lg);background:var(--color-neutral-400);flex:none;
+  position:relative;transition:.15s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:var(--radius-lg);
+  background:var(--color-bg);transition:.15s}
+.ly[data-on=true] .sw{background:var(--color-accent)}
+.ly[data-on=true] .sw::after{left:13px}
+.ly .chip{margin-left:auto;font-size:9.5px;color:var(--ui-muted);border:1px solid var(--ui-line);
+  border-radius:var(--radius-sm);padding:1px 5px}
+.ly .key{width:14px;height:3px;flex:none}
+
+.seg{display:flex;background:var(--ui-panel-2);border-radius:var(--radius-sm);padding:2px;gap:2px;
+  box-shadow:inset 0 0 0 var(--ui-rule) var(--ui-line)}
+.seg button{flex:1;background:none;border:0;padding:5px 4px;border-radius:var(--radius-sm);font-size:11.5px;
+  color:var(--ui-muted);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--color-accent);color:#fff}
+.seg button:hover:not([aria-pressed=true]){color:var(--color-text)}
+input[type=range]{width:100%;accent-color:var(--color-accent);height:18px}
+
+.ramp{display:flex;height:9px;overflow:hidden;border-radius:var(--radius-sm)}
+.ramp i{flex:1}
+.rampL{display:flex;justify-content:space-between;font-size:9.5px;color:var(--ui-muted);margin-top:3px;
+  font-variant-numeric:tabular-nums}
+.note{font-size:11px;color:var(--ui-muted);line-height:1.5}
+
+/* map */
+.stage{flex:1;position:relative;min-width:0;display:flex;flex-direction:column}
+.stage.framed{padding:var(--space-6);gap:var(--space-4)}
+.mapwrap{position:relative;flex:1;overflow:hidden;background:var(--ui-panel)}
+.stage.framed .mapwrap{border:var(--ui-rule) solid var(--ui-line)}
+#map{position:absolute;inset:0}
+.leaflet-container{background:var(--ui-panel);font-family:var(--font-body)}
+.leaflet-control-attribution{background:var(--ui-scrim)!important;color:var(--ui-muted)!important;
+  font-size:9.5px!important}
+.leaflet-control-attribution a{color:var(--ui-muted)!important}
+.spotpath{cursor:pointer}
+.citylabel{font-size:10px;color:var(--color-text);white-space:nowrap;text-shadow:0 0 3px var(--color-bg),0 0 3px var(--color-bg);
+  pointer-events:none;font-family:var(--font-body)}
+
+.swipe{position:absolute;top:0;bottom:0;width:2px;background:var(--color-accent);cursor:ew-resize;z-index:700}
+.swipe .grab{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:26px;height:38px;
+  border-radius:var(--radius-sm);background:var(--color-bg);border:var(--ui-rule) solid var(--color-accent);
+  display:flex;align-items:center;justify-content:center;color:var(--color-accent);font-size:11px}
+.swipetag{position:absolute;bottom:34px;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--color-text);background:var(--ui-scrim);padding:3px 8px;border-radius:var(--radius-sm);z-index:690}
+
+.ovl{position:absolute;z-index:650;pointer-events:none}
+.ov-tl{top:12px;left:14px;max-width:60%}
+.ov-tr{top:12px;right:14px;pointer-events:auto;display:flex;flex-direction:column;gap:5px}
+.mapttl{font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:16px;
+  letter-spacing:-.015em;margin:0;background:var(--ui-scrim);padding:3px 7px;display:inline-block}
+.mapsub{font-size:11px;color:var(--ui-muted);margin:3px 0 0;background:var(--ui-scrim);padding:2px 7px;display:inline-block}
+.zbtn{width:28px;height:28px;border-radius:var(--radius-sm);background:var(--color-bg);
+  border:var(--ui-rule) solid var(--ui-line);color:var(--color-text);cursor:pointer;font-size:14px;line-height:1}
+.zbtn:hover{border-color:var(--color-accent);color:var(--color-accent)}
+
+.tip{position:fixed;z-index:2000;pointer-events:none;background:var(--ui-tip);box-shadow:var(--shadow-md);
+  border:var(--ui-rule) solid var(--ui-line);border-radius:var(--radius-md);padding:9px 11px;font-size:11.5px;
+  max-width:240px;opacity:0;transition:opacity .1s}
+.tip b{font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:13px;display:block;margin-bottom:3px}
+.tip dl,.dl2{display:grid;grid-template-columns:1fr auto;gap:3px 12px;margin:5px 0 0}
+.tip dt,.dl2 dt{color:var(--ui-muted)}
+.tip dd,.dl2 dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.dl2{font-size:12px;margin:0}
+
+.drawer{position:absolute;top:0;right:0;bottom:0;width:378px;background:var(--color-bg);z-index:900;
+  border-left:var(--ui-rule) solid var(--ui-line);box-shadow:var(--shadow-lg);
+  transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding:var(--space-6)}
+.drawer[data-open=true]{transform:none}
+.drawer .x{position:absolute;top:12px;right:12px;background:none;border:0;color:var(--ui-muted);cursor:pointer;font-size:16px}
+.pill{display:inline-block;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;
+  border-radius:var(--radius-lg);border:var(--ui-rule) solid currentColor}
+.rule{height:var(--ui-rule);background:var(--ui-line);margin:16px 0;opacity:.55}
+
+.panel{flex:1;overflow-y:auto;padding:var(--space-8) var(--space-8) 60px;display:none}
+.panel[data-on=true]{display:block}
+.panel h2{font-size:22px;margin:0 0 4px;font-family:var(--font-heading);font-weight:var(--font-heading-weight)}
+.lede{color:var(--ui-muted);font-size:12.5px;margin:0 0 var(--space-8);max-width:62ch}
+table.dt{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+table.dt th{text-align:right;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ui-muted);
+  padding:7px 10px;border-bottom:var(--ui-rule) solid var(--ui-line);cursor:pointer;white-space:nowrap;
+  font-family:var(--font-heading);font-weight:var(--font-heading-weight)}
+table.dt th:first-child,table.dt td:first-child{text-align:left}
+table.dt th:hover{color:var(--color-text)}
+table.dt td{padding:6px 10px;text-align:right;border-bottom:1px solid color-mix(in srgb,var(--ui-line) 45%,transparent)}
+table.dt tbody tr{cursor:pointer}
+table.dt tbody tr:hover{background:var(--ui-panel-2)}
+.cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--space-6)}
+.card2{background:var(--ui-panel-2);border-radius:var(--radius-md);padding:var(--space-6);
+  box-shadow:inset 0 0 0 var(--ui-rule) var(--ui-line)}
+.cbar{display:grid;grid-template-columns:92px 1fr 62px;gap:9px;align-items:center;font-size:11.5px;margin-bottom:6px}
+.cbar .t{color:var(--ui-muted)}
+.cbar .track{height:7px;border-radius:var(--radius-sm);background:var(--color-neutral-400);overflow:hidden}
+.cbar .track i{display:block;height:100%}
+.cbar .v{text-align:right;font-variant-numeric:tabular-nums}
+.picker{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:var(--space-8)}
+.pk{border:var(--ui-rule) solid var(--ui-line);background:none;border-radius:var(--radius-lg);padding:4px 11px;
+  font-size:11.5px;cursor:pointer;color:var(--ui-muted)}
+.pk[aria-pressed=true]{border-color:var(--color-accent);color:var(--color-accent);
+  background:color-mix(in srgb,var(--color-accent) 12%,transparent)}
+.pk:hover{color:var(--color-text)}
+.brief{width:640px;max-width:100%;background:var(--ui-panel-2);border-radius:var(--radius-md);
+  box-shadow:inset 0 0 0 var(--ui-rule) var(--ui-line);padding:34px 38px}
+.brief h3{font-size:19px;margin:0 0 2px;font-family:var(--font-heading);font-weight:var(--font-heading-weight)}
+.expgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:var(--space-4);margin-top:var(--space-6)}
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--ui-muted);font-size:12px;z-index:1000;background:var(--color-bg)}
+.i18nnote{font-size:10.5px;color:var(--ui-muted);border-top:1px solid var(--ui-line);padding-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><b>SUHI&nbsp;Nigeria</b><span data-i18n="composite">2024 composite</span></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="map" data-i18n="tab_map">Map</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="compare" data-i18n="tab_compare">Compare cities</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="table" data-i18n="tab_table">Data table</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="report" data-i18n="tab_report">Reports</button>
+    </nav>
+    <div class="sp"></div>
+    <div class="pickers">
+      <select class="mini-sel" id="lang" title="Language">
+        <option value="en">English</option>
+        <option value="ha">Hausa</option>
+        <option value="ig">Igbo</option>
+        <option value="yo">Yorùbá</option>
+      </select>
+      <select class="mini-sel" id="theme" title="Theme">
+        <option value="nocturne">Nocturne · dark</option>
+        <option value="modernist">Modernist · light</option>
+      </select>
+    </div>
+    <button class="ghost" id="frameToggle" aria-pressed="false" data-i18n="framed">Framed</button>
+    <button class="ghost" id="exportBtn" data-i18n="export">Export</button>
+  </header>
+
+  <div class="body">
+    <aside class="rail" id="rail">
+      <div>
+        <input class="search" id="search" data-i18n-ph="search_ph" placeholder="Search city or spot ID…" autocomplete="off">
+        <div id="results" class="rowlist" style="margin-top:6px"></div>
+      </div>
+
+      <div>
+        <div class="sec-h"><span id="scopeLabel">National · 55 cities</span>
+          <span id="scopeReset" style="cursor:pointer;color:var(--color-accent);display:none" data-i18n="reset">reset</span></div>
+        <div class="kpis" id="kpis"></div>
+      </div>
+
+      <div>
+        <div class="sec-h"><span data-i18n="confidence">Confidence</span><span>Gi* / BH</span></div>
+        <div id="conf"></div>
+      </div>
+
+      <div>
+        <div class="sec-h" data-i18n="basemap">Basemap</div>
+        <div class="seg" id="baseSeg"></div>
+        <p class="note" style="margin:6px 0 0" data-i18n="basemap_note">Esri and Carto tile services — free, no key required.</p>
+      </div>
+
+      <div>
+        <div class="sec-h" data-i18n="contour">Contour level</div>
+        <div class="seg" id="contourSeg">
+          <button data-v="L50" aria-pressed="true">L50</button>
+          <button data-v="L75" aria-pressed="false">L75</button>
+          <button data-v="L90" aria-pressed="false">L90</button>
+        </div>
+        <p class="note" style="margin:6px 0 0" data-i18n="contour_note">Percentile of the spot's intensity surface. L90 keeps only dense cores.</p>
+      </div>
+
+      <div>
+        <div class="sec-h"><span data-i18n="layers">Layers</span><span id="opacityVal">85%</span></div>
+        <div class="layers" id="layers"></div>
+        <input type="range" id="opacity" min="20" max="100" value="85" style="margin-top:6px">
+      </div>
+
+      <div>
+        <div class="sec-h"><span data-i18n="cluster_typology">Cluster typology</span><span id="clusterCount"></span></div>
+        <select id="cluster" class="search"></select>
+        <div id="clusterCard" style="margin-top:var(--space-3)"></div>
+      </div>
+
+      <div>
+        <div class="sec-h"><span data-i18n="pop_circles">Population circles</span></div>
+        <div class="seg" id="popSeg">
+          <button data-v="both" aria-pressed="true" data-i18n="both">Both</button>
+          <button data-v="hot" aria-pressed="false" data-i18n="hotspots">Hot</button>
+          <button data-v="cold" aria-pressed="false" data-i18n="coldspots">Cold</button>
+        </div>
+        <div id="popLegend" style="margin-top:var(--space-3)"></div>
+      </div>
+
+      <div>
+        <div class="sec-h"><span data-i18n="year">Year</span><span id="yearVal">2024</span></div>
+        <input type="range" id="year" min="2015" max="2024" value="2024" step="1">
+        <p class="note" style="margin:4px 0 0" data-i18n="year_note">2024 observed. Earlier years back-cast from each spot's Sen slope (°C/decade).</p>
+      </div>
+
+      <div>
+        <div class="sec-h" data-i18n="legend">Legend</div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <div>
+            <div style="font-size:11px;margin-bottom:4px"><span data-i18n="hotspots">Hot spots</span> — SUHI °C</div>
+            <div class="ramp"><i style="background:var(--hot-1)"></i><i style="background:var(--hot-2)"></i><i style="background:var(--hot-3)"></i><i style="background:var(--hot-4)"></i><i style="background:var(--hot-5)"></i></div>
+            <div class="rampL"><span>+0.0</span><span>+1.8</span><span>+3.7</span></div>
+          </div>
+          <div>
+            <div style="font-size:11px;margin-bottom:4px"><span data-i18n="coldspots">Cold spots</span> — SUHI °C</div>
+            <div class="ramp"><i style="background:var(--cold-1)"></i><i style="background:var(--cold-2)"></i><i style="background:var(--cold-3)"></i><i style="background:var(--cold-4)"></i><i style="background:var(--cold-5)"></i></div>
+            <div class="rampL"><span>−0.0</span><span>−0.8</span><span>−1.6</span></div>
+          </div>
+          <p class="note" data-i18n="legend_note">Dashed outline = not significant after Benjamini–Hochberg correction.</p>
+        </div>
+      </div>
+      <p class="i18nnote" data-i18n="i18n_note">Hausa, Igbo and Yorùbá labels are a first pass and need native review. Scientific terms stay in English by design.</p>
+    </aside>
+
+    <main class="stage" id="stage">
+      <div class="mapwrap" id="mapwrap">
+        <div id="map"></div>
+        <div class="loading" id="loading">Loading geometry…</div>
+        <div class="swipetag" id="tagDay">Day · LST</div>
+        <div class="swipetag" id="tagNight">Night · LST</div>
+        <div class="swipe" id="swipe" style="left:55%"><div class="grab">⇄</div></div>
+        <div class="ovl ov-tl">
+          <h1 class="mapttl" data-i18n="map_title">Surface urban heat island — hot &amp; cold spots</h1><br>
+          <p class="mapsub" id="mapSub">Getis-Ord Gi* contours · MODIS LST 2024</p>
+        </div>
+        <div class="ovl ov-tr">
+          <button class="zbtn" id="zin">+</button>
+          <button class="zbtn" id="zout">−</button>
+          <button class="zbtn" id="zreset" style="width:auto;padding:0 8px;font-size:10.5px" data-i18n="fit">Fit</button>
+        </div>
+        <aside class="drawer" id="drawer" data-open="false"></aside>
+      </div>
+    </main>
+
+    <section class="panel" id="panel-compare">
+      <h2 data-i18n="tab_compare">Compare cities</h2>
+      <p class="lede" data-i18n="cmp_lede">Pick up to five cities. Bars scale against the national maximum for each measure, so lengths compare down a column but not across them.</p>
+      <div class="picker" id="cmpPicker"></div>
+      <div class="cmp" id="cmpGrid"></div>
+    </section>
+
+    <section class="panel" id="panel-table">
+      <h2 data-i18n="tbl_title">All cities</h2>
+      <p class="lede" data-i18n="tbl_lede">One row per city, aggregated from L50 contours. Click a heading to sort; click a row to open it on the map.</p>
+      <table class="dt" id="tbl"><thead></thead><tbody></tbody></table>
+    </section>
+
+    <section class="panel" id="panel-report">
+      <h2 data-i18n="rep_title">Reports &amp; export</h2>
+      <p class="lede" data-i18n="rep_lede">A one-page brief per city for circulation, or the underlying records for analysis.</p>
+      <div style="display:flex;gap:var(--space-8);flex-wrap:wrap;align-items:flex-start">
+        <div class="brief" id="brief"></div>
+        <div style="flex:1;min-width:260px">
+          <div class="sec-h" data-i18n="data_export">Data export</div>
+          <div class="expgrid" id="exports"></div>
+          <p class="note" style="margin-top:14px" data-i18n="export_note">Exports carry the active filters: contour level, cluster and year.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+/* ══ i18n ══════════════════════════════════════════════════════════════════
+   A hand-built dictionary, not a translation service: it works offline, has
+   no key, no quota and no layout surprises. UI chrome only — city names,
+   numbers and the scientific vocabulary (SUHI, LST, Gi*, MODIS, Sen slope)
+   stay in English on purpose.                                             */
+const D={
+ composite:['2024 composite','Haɗin 2024','Nchikota 2024','Àkópọ̀ 2024'],
+ tab_map:['Map','Taswira','Maapụ','Àwòrán'],
+ tab_compare:['Compare cities','Kwatanta birane','Tụlee obodo','Fi ìlú wé ìlú'],
+ tab_table:['Data table','Teburin bayanai','Tebụl data','Tábìlì dátà'],
+ tab_report:['Reports','Rahotanni','Akụkọ','Ìròyìn'],
+ export:['Export','Fitarwa','Mbupụ','Ìtàjáde'],
+ framed:['Framed','Cikin firam','N\'ime etiti','Nínú férémù'],
+ search_ph:['Search city or spot ID…','Nemi birni ko ID…','Chọọ obodo ma ọ bụ ID…','Wá ìlú tàbí ID…'],
+ reset:['reset','sake saita','tọghata','tún ṣe'],
+ confidence:['Confidence','Amincewa','Ntụkwasị obi','Ìgbẹ́kẹ̀lé'],
+ basemap:['Basemap','Taswirar tushe','Maapụ ntọala','Àwòrán ìpìlẹ̀'],
+ basemap_note:['Esri and Carto tile services — free, no key required.',
+   'Sabis na Esri da Carto — kyauta, ba sai maɓalli.',
+   'Ọrụ Esri na Carto — n\'efu, achọghị igodo.',
+   'Ìṣẹ́ Esri àti Carto — ọ̀fẹ́, kò nílò kọ́kọ́rọ́.'],
+ contour:['Contour level','Matakin kwane','Ọkwa contour','Ìpele contour'],
+ contour_note:['Percentile of the spot\'s intensity surface. L90 keeps only dense cores.',
+   'Kaso na ƙarfin wurin. L90 yana riƙe cibiyoyi masu yawa kawai.',
+   'Pasent nke ike ebe ahụ. L90 na-ejide naanị etiti siri ike.',
+   'Ìpín ipa agbègbè náà. L90 pa àárín tí ó nípọn nìkan mọ́.'],
+ layers:['Layers','Yadudduka','Nkewa','Ìpele'],
+ cluster:['Cluster','Gungu','Ụyọkọ','Ìdìpọ̀'],
+ year:['Year','Shekara','Afọ','Ọdún'],
+ year_note:['2024 observed. Earlier years back-cast from each spot\'s Sen slope (°C/decade).',
+   'An lura da 2024. Shekarun baya an ƙiyasta daga Sen slope (°C/shekaru goma).',
+   'A hụrụ 2024. Afọ gara aga sitere na Sen slope (°C/afọ iri).',
+   'A rí 2024. Àwọn ọdún tẹ́lẹ̀ láti Sen slope (°C/ẹ̀wádún).'],
+ legend:['Legend','Bayanin taswira','Nkọwa maapụ','Àlàyé àwòrán'],
+ legend_note:['Dashed outline = not significant after Benjamini–Hochberg correction.',
+   'Layi mai ɗigo = ba mai muhimmanci ba bayan gyaran Benjamini–Hochberg.',
+   'Ahịrị nkeji = adịghị mkpa mgbe Benjamini–Hochberg gbanwere.',
+   'Ìlà onígba = kò ṣe pàtàkì lẹ́yìn àtúnṣe Benjamini–Hochberg.'],
+ i18n_note:['Hausa, Igbo and Yorùbá labels are a first pass and need native review. Scientific terms stay in English by design.',
+   'Lakabin Hausa, Igbo da Yorùbá na farko ne — suna buƙatar dubawa daga masu jin harshen. Kalmomin kimiyya sun kasance a Turanci.',
+   'Aha Hausa, Igbo na Yorùbá bụ nnwale mbụ — chọrọ nyocha ndị nwe asụsụ. Okwu sayensị nọgidere na Bekee.',
+   'Àwọn àkọlé Hausa, Igbo àti Yorùbá jẹ́ ìdánwò àkọ́kọ́ — ó nílò àyẹ̀wò ọ̀mọ̀wé èdè. Ọ̀rọ̀ ìmọ̀-ìjìnlẹ̀ wà ní Gẹ̀ẹ́sì.'],
+ pop_in_cold:['Population inside cold spots','Yawan mutane a wuraren sanyi','Ọnụọgụ ndị mmadụ n\'ebe oyi','Iye ènìyàn nínú ibi tútù'],
+ pop_circles:['Population circles','Da\'irorin yawan jama\'a','Okirikiri ọnụọgụ mmadụ','Àwọn òbírí iye ènìyàn'],
+ pop_circles_note:['Circle area is proportional to population; hot and cold share one scale. City totals await a WorldPop / GRID3 join.',
+   'Girman da\'ira yana daidai da yawan mutane; zafi da sanyi suna amfani da ma\'auni ɗaya. Jimillar birni na jiran WorldPop / GRID3.',
+   'Nha okirikiri dabere na ọnụọgụ mmadụ; ọkụ na oyi na-eji otu ọtụtụ. Nchikota obodo na-eche WorldPop / GRID3.',
+   'Ìwọ̀n òbírí bá iye ènìyàn mu; gbóná àti tútù pín ìwọ̀n kan. Àpapọ̀ ìlú ń retí WorldPop / GRID3.'],
+ city_pop_pending:['city totals pending WorldPop / GRID3','jimillar birni na jiran WorldPop / GRID3','nchikota obodo na-eche WorldPop / GRID3','àpapọ̀ ìlú ń retí WorldPop / GRID3'],
+ cluster_typology:['Cluster typology','Nau\'in gungu','Ụdị ụyọkọ','Ìdí ìdìpọ̀'],
+ typology_mix:['Typology & confidence','Nau\'i da amincewa','Ụdị na ntụkwasị obi','Ìdí àti ìgbẹ́kẹ̀lé'],
+ both:['Both','Duka','Abụọ','Méjèèjì'],
+ all_clusters:['All typologies','Dukan nau\'ika','Ụdị niile','Gbogbo ìdí'],
+ top_typologies:['Most common typologies (cities)','Nau\'ikan da suka fi yawa (birane)','Ụdị kacha (obodo)','Ìdí tí ó wọ́pọ̀ (ìlú)'],
+ hotspots:['Hot spots','Wuraren zafi','Ebe ọkụ','Ibi gbóná'],
+ coldspots:['Cold spots','Wuraren sanyi','Ebe oyi','Ibi tútù'],
+ share_area:['Share of studied area','Kason yankin bincike','Òkè mpaghara nyocha','Ìpín agbègbè ìwádìí'],
+ pop_in_hot:['Population inside hot spots','Yawan mutane a wuraren zafi','Ọnụọgụ ndị mmadụ n\'ebe ọkụ','Iye ènìyàn nínú ibi gbóná'],
+ persons:['persons','mutane','mmadụ','ènìyàn'],
+ hot:['hot','zafi','ọkụ','gbóná'],
+ cold:['cold','sanyi','oyi','tútù'],
+ clusters:['clusters','gungu','ụyọkọ','ìdìpọ̀'],
+ national:['National','Ƙasa','Mba','Orílẹ̀-èdè'],
+ cities:['cities','birane','obodo','ìlú'],
+ scoped:['scoped','an mayar da hankali','elekwasịrị','àfojúsùn'],
+ city:['City','Birni','Obodo','Ìlú'],
+ day:['Day','Rana','Ehihie','Ọ̀sán'],
+ night:['Night','Dare','Abalị','Òru'],
+ fit:['Fit','Daidaita','Dozie','Bá a mu'],
+ map_title:['Surface urban heat island — hot & cold spots',
+   'Tsibirin zafin birni — wuraren zafi da sanyi',
+   'Àgwàetiti okpomọkụ obodo — ebe ọkụ na oyi',
+   'Erékùṣù ooru ìlú — ibi gbóná àti tútù'],
+ thermal:['Thermal','Zafi','Okpomọkụ','Ooru'],
+ trendconf:['Trend & confidence','Yanayi da amincewa','Ọnọdụ na ntụkwasị obi','Ìtẹ̀síwájú àti ìgbẹ́kẹ̀lé'],
+ physctx:['Physiographic context','Yanayin ƙasa','Ọnọdụ ala','Àyíká ilẹ̀'],
+ landcover:['Landcover','Rufin ƙasa','Mkpuchi ala','Ìbòrí ilẹ̀'],
+ elevation:['Elevation','Tsawo','Ịdị elu','Gíga'],
+ geology:['Geology','Ilimin ƙasa','Nkà ala','Ẹ̀kọ́ ilẹ̀'],
+ climate:['Climate','Yanayi','Ihu igwe','Ojú-ọjọ́'],
+ population:['Population','Yawan jama\'a','Ọnụọgụ mmadụ','Iye ènìyàn'],
+ area:['Area','Girman yanki','Nha mpaghara','Ìwọ̀n ààyè'],
+ mean_lst:['Mean LST','Matsakaicin LST','LST nkezi','LST ìdábùú'],
+ max_lst:['Max LST','Mafi LST','LST kacha','LST gíga'],
+ minmax_lst:['Max / min LST','Mafi / mafi ƙarancin LST','LST kacha / obere','LST gíga / kékeré'],
+ hotdays:['Hot days','Kwanakin zafi','Ụbọchị ọkụ','Ọjọ́ gbóná'],
+ warming:['Warming trend','Yanayin ɗumamawa','Ọnọdụ ịba ọkụ','Ìtẹ̀síwájú ìgbóná'],
+ hot_area:['Hot-spot area','Girman wurin zafi','Nha ebe ọkụ','Ìwọ̀n ibi gbóná'],
+ cold_area:['Cold-spot area','Girman wurin sanyi','Nha ebe oyi','Ìwọ̀n ibi tútù'],
+ hot_share:['Hot share of city','Kason zafi na birni','Òkè ọkụ nke obodo','Ìpín gbóná ìlú'],
+ suhi_int:['SUHI intensity','Ƙarfin SUHI','Ike SUHI','Ipa SUHI'],
+ city_area:['City area','Girman birni','Nha obodo','Ìwọ̀n ìlú'],
+ urban_core:['Urban core','Cibiyar birni','Etiti obodo','Àárín ìlú'],
+ persistent:['Persistent day+night','Mai dawwama rana+dare','Na-adịgide ehihie+abalị','Tí ó dúró ọ̀sán+òru'],
+ significant:['BH-significant','Mai muhimmanci (BH)','Dị mkpa (BH)','Pàtàkì (BH)'],
+ zoom_city:['Zoom to city','Kusanci birni','Bawanye obodo','Súnmọ̀ ìlú'],
+ add_report:['Add to report','Ƙara a rahoto','Tinye n\'akụkọ','Fi kún ìròyìn'],
+ spots_at:['Spots at','Wurare a','Ebe na','Ibi ní'],
+ download:['Download','Sauke','Budata','Gbà sílẹ̀'],
+ data_export:['Data export','Fitar da bayanai','Mbupụ data','Ìtàjáde dátà'],
+ export_note:['Exports carry the active filters: contour level, cluster and year.',
+   'Fitarwa na ɗauke da matattarar da ke aiki: matakin kwane, gungu da shekara.',
+   'Mbupụ na-ebu nzacha dị ndụ: ọkwa contour, ụyọkọ na afọ.',
+   'Ìtàjáde gbé àwọn ààtò tí ń ṣiṣẹ́: ìpele contour, ìdìpọ̀ àti ọdún.'],
+ cmp_lede:['Pick up to five cities. Bars scale against the national maximum for each measure, so lengths compare down a column but not across them.',
+   'Zaɓi har birane biyar. Ma\'aunin an daidaita su da mafi girma na ƙasa, don haka tsayi yana kwatanci a kan shafi ɗaya.',
+   'Họrọ ruo obodo ise. A na-atụ ogologo n\'usoro kacha nke mba, ya mere ha na-atụnyere n\'ime otu kọlụm.',
+   'Yan ìlú márùn-ún. A ń wọn ìlà sí gíga orílẹ̀-èdè, nítorí náà ó ṣe àfiwé nínú ọwọ̀n kan.'],
+ tbl_title:['All cities','Dukan birane','Obodo niile','Gbogbo ìlú'],
+ tbl_lede:['One row per city, aggregated from L50 contours. Click a heading to sort; click a row to open it on the map.',
+   'Layi ɗaya ga kowane birni, daga kwanen L50. Danna kai don tsarawa; danna layi don buɗewa a taswira.',
+   'Otu ahịrị maka obodo ọ bụla, site na contour L50. Pịa isi maka nhazi; pịa ahịrị imepe na maapụ.',
+   'Ìlà kan fún ìlú kọ̀ọ̀kan, láti contour L50. Tẹ àkọlé láti tò; tẹ ìlà láti ṣí i lórí àwòrán.'],
+ rep_title:['Reports & export','Rahotanni da fitarwa','Akụkọ na mbupụ','Ìròyìn àti ìtàjáde'],
+ rep_lede:['A one-page brief per city for circulation, or the underlying records for analysis.',
+   'Takaitaccen shafi ɗaya ga kowane birni, ko bayanan asali don bincike.',
+   'Peeji otu maka obodo ọ bụla, ma ọ bụ ndekọ maka nyocha.',
+   'Ìwé ojú-ìwé kan fún ìlú kọ̀ọ̀kan, tàbí àkọsílẹ̀ fún ìwádìí.'],
+ studied:['of studied area','na yankin bincike','nke mpaghara nyocha','ti agbègbè ìwádìí'],
+ layer_spots:['Hot & cold spots','Wuraren zafi da sanyi','Ebe ọkụ na oyi','Ibi gbóná àti tútù'],
+ layer_cities:['City centres','Cibiyoyin birane','Etiti obodo','Àárín ìlú'],
+ layer_states:['State boundaries','Iyakokin jihohi','Oke steeti','Ààlà ìpínlẹ̀'],
+ layer_nation:['National boundary','Iyakar ƙasa','Oke mba','Ààlà orílẹ̀-èdè'],
+ layer_labels:['City labels','Sunayen birane','Aha obodo','Àkọlé ìlú'],
+ placeholder:['placeholder','wucin gadi','nnọchi','ìdúró'],
+ spot:['spot','wuri','ebe','ibi'],
+ method:['Method','Hanya','Usoro','Ọ̀nà'],
+ pop_note:['persons inside contour','mutane cikin kwane','mmadụ n\'ime contour','ènìyàn nínú contour'],
+ vs_rural:['°C vs rural background','°C daga karkara','°C ka ime obodo','°C ju ìgbèríko']
+};
+const LANGS=['en','ha','ig','yo'];
+let lang=localStorage.getItem('suhi.lang')||'en';
+const T=k=>{const r=D[k];if(!r)return k;return r[LANGS.indexOf(lang)]||r[0];};
+function applyI18n(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.innerHTML=T(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>el.placeholder=T(el.dataset.i18nPh));
+  document.getElementById('tagDay').textContent=T('day')+' · LST';
+  document.getElementById('tagNight').textContent=T('night')+' · LST';
+}
+
+/* ══ theme ══ */
+let theme=localStorage.getItem('suhi.theme')||'nocturne';
+function applyTheme(){
+  document.documentElement.dataset.theme=theme;
+  document.getElementById('theme').value=theme;
+  if(!userPickedBase){ setBase(theme==='nocturne'?'dark':'topo'); }
+  else { renderBaseSeg(); }
+  if(map){renderSpots();renderCities();}
+}
+
+/* ══ data + scales ══ */
+const HOT=['--hot-1','--hot-2','--hot-3','--hot-4','--hot-5'];
+const COLD=['--cold-1','--cold-2','--cold-3','--cold-4','--cold-5'];
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const hotScale=v=>d3.scaleLinear().domain([0,.9,1.8,2.7,3.7]).range(HOT.map(cssv)).clamp(true)(v);
+const coldScale=v=>d3.scaleLinear().domain([0,-.4,-.8,-1.2,-1.65]).range(COLD.map(cssv)).clamp(true)(v);
+const fmt=(n,d=0)=>n==null?'—':d3.format(',.'+d+'f')(n);
+const state={contour:'L50',year:2024,cluster:'all',opacity:.85,city:null,popMode:'both',
+  layers:{spots:true,cities:true,states:true,nation:true,labels:true}};
+
+let CITIES=[],CLUSTERS=[],SPOTS=null,NG=null,map=null,spotLayer={},cityLayer=null,natLayer=null,stateLayer=null;
+let baseKey='dark',userPickedBase=false,baseTile=null;
+
+const BASES={
+  dark:{label:'Esri Dark',url:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attr:'Tiles &copy; Esri — Esri, DeLorme, NAVTEQ',max:16},
+  topo:{label:'Esri Topo',url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attr:'Tiles &copy; Esri — Esri, DeLorme, NAVTEQ',max:19},
+  relief:{label:'Esri Relief',url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
+    attr:'Tiles &copy; Esri — Source: Esri',max:13},
+  gray:{label:'Esri Gray',url:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attr:'Tiles &copy; Esri — Esri, DeLorme, NAVTEQ',max:16},
+  imagery:{label:'Esri Imagery',url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attr:'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics',max:19}
+};
+
+Promise.all([
+  d3.json('data/cities.json'),
+  d3.json('data/clusters.json'),
+  d3.json('data/spots.geojson'),
+  d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json')
+]).then(([c,k,s,topo])=>{
+  CITIES=c;CLUSTERS=k;SPOTS=s;
+  NG=topojson.feature(topo,topo.objects.countries).features.find(f=>f.properties.name==='Nigeria');
+  document.getElementById('loading').remove();
+  document.getElementById('lang').value=lang;
+  applyI18n();
+  buildRail();
+  initMap();
+  applyTheme();
+  renderAll();
+}).catch(e=>{document.getElementById('loading').textContent='Could not load data: '+e.message;});
+
+/* ══ map ══ */
+function initMap(){
+  map=L.map('map',{zoomControl:false,attributionControl:true,minZoom:5,maxZoom:16,
+    preferCanvas:false}).setView([9.1,8.7],5.6);
+  map.createPane('phys');map.getPane('phys').style.zIndex=250;
+  map.createPane('bounds');map.getPane('bounds').style.zIndex=400;
+  map.createPane('dayPane');map.getPane('dayPane').style.zIndex=420;
+  map.createPane('nightPane');map.getPane('nightPane').style.zIndex=421;
+  map.createPane('cityPane');map.getPane('cityPane').style.zIndex=460;
+  map.createPane('labelPane');map.getPane('labelPane').style.zIndex=470;
+  map.getPane('labelPane').style.pointerEvents='none';
+
+  natLayer=L.geoJSON(NG,{pane:'bounds',interactive:false,
+    style:()=>({fill:false,color:cssv('--ui-line-strong'),weight:2,opacity:.9})}).addTo(map);
+  stateLayer=L.geoJSON(d3.geoGraticule().step([1.6,1.6]).extent(d3.geoBounds(NG))(),
+    {pane:'bounds',interactive:false,
+     style:()=>({fill:false,color:cssv('--ui-muted'),weight:1,opacity:.5,dashArray:'3 4'})}).addTo(map);
+
+  spotLayer.day=L.geoJSON(null,{pane:'dayPane',...spotOpts()}).addTo(map);
+  spotLayer.night=L.geoJSON(null,{pane:'nightPane',...spotOpts()}).addTo(map);
+  cityLayer=L.layerGroup([],{pane:'cityPane'}).addTo(map);
+
+  map.on('click',closeDrawer);
+  map.on('move zoom resize',positionSwipe);
+  d3.select('#zin').on('click',()=>map.zoomIn());
+  d3.select('#zout').on('click',()=>map.zoomOut());
+  d3.select('#zreset').on('click',()=>{state.city=null;fitNation();renderAll();closeDrawer();});
+  initSwipe();
+
+  // Leaflet needs a sized container; timers keep running in a hidden document
+  let n=0;
+  const iv=setInterval(()=>{
+    const r=document.getElementById('mapwrap').getBoundingClientRect();
+    if(r.width>40&&r.height>40){map.invalidateSize();positionSwipe();if(n++>2)clearInterval(iv);}
+    else if(n++>250) clearInterval(iv);
+  },140);
+  fitNation();
+}
+function fitNation(){
+  const b=d3.geoBounds(NG);
+  map.fitBounds([[b[0][1],b[0][0]],[b[1][1],b[1][0]]],{padding:[16,16],animate:false});
+}
+function setBase(key){
+  baseKey=key;
+  if(baseTile) map.removeLayer(baseTile);
+  const b=BASES[key];
+  baseTile=L.tileLayer(b.url,{attribution:b.attr,maxZoom:16,maxNativeZoom:b.max,
+    subdomains:b.sub||'abc',crossOrigin:true}).addTo(map);
+  baseTile.setZIndex(100);
+  renderBaseSeg();
+}
+function renderBaseSeg(){
+  document.getElementById('baseSeg').innerHTML=Object.entries(BASES).map(([k,b])=>
+    `<button data-v="${k}" aria-pressed="${k===baseKey}" style="font-size:10.5px">${b.label.split(' ')[1]}</button>`).join('');
+  document.querySelectorAll('#baseSeg button').forEach(b=>b.onclick=()=>{userPickedBase=true;setBase(b.dataset.v);});
+}
+
+function spotOpts(){
+  return {
+    style:f=>{const p=f.properties;return{
+      className:'spotpath',
+      fillColor:spotFill(p),fillOpacity:state.opacity,
+      color:p.bh_significant?spotFill(p):cssv('--spot-stroke'),
+      weight:p.bh_significant?1:1.2,opacity:p.bh_significant?.9:.8,
+      dashArray:p.bh_significant?null:'3 3'};},
+    onEachFeature:(f,l)=>{
+      l.on('mousemove',e=>showTip(e.originalEvent,spotTip(f.properties)));
+      l.on('mouseout',hideTip);
+      l.on('click',e=>{L.DomEvent.stopPropagation(e);openSpot(f.properties);});
+    }};
+}
+function activeSpots(period){
+  return SPOTS.features.filter(f=>{const p=f.properties;
+    return p.contour_level===state.contour && p.period===period
+      && (state.cluster==='all'||String(p.cluster25)===state.cluster)
+      && (!state.city||p.city===state.city);});
+}
+const spotValue=p=>(p.suhii||0)-(2024-state.year)/10*(p.sen_slope_C_per_decade||0);
+function spotFill(p){const v=spotValue(p);
+  return p.spot_type==='hot'?hotScale(Math.max(0,v)):coldScale(Math.min(0,v));}
+
+function renderSpots(){
+  ['day','night'].forEach(per=>{
+    const lyr=spotLayer[per];
+    lyr.clearLayers();
+    if(state.layers.spots) lyr.addData({type:'FeatureCollection',features:activeSpots(per)});
+    lyr.setStyle(spotOpts().style);
+  });
+}
+// One shared sqrt scale across hot and cold, so two circles of equal area
+// mean equal population — the point of proportional symbols.
+function popScale(){
+  const m=d3.max(CITIES,c=>Math.max(c.pop_hot,c.pop_cold))||1;
+  return d3.scaleSqrt().domain([0,m]).range([2,20]);
+}
+function renderCities(){
+  cityLayer.clearLayers();
+  if(!state.layers.cities) return;
+  const rad=popScale(),mode=state.popMode;
+  (state.city?CITIES.filter(c=>c.city===state.city):CITIES).forEach(c=>{
+    const rings=[];
+    if(mode!=='hot') rings.push({r:rad(c.pop_cold),col:cssv('--cold-3')});
+    if(mode!=='cold') rings.push({r:rad(c.pop_hot),col:hotScale(Math.max(0,c.suhii))});
+    rings.sort((a,b)=>b.r-a.r);
+    rings.forEach((ring,i)=>{
+      const m=L.circleMarker([c.lat,c.lon],{pane:'cityPane',radius:Math.max(2,ring.r),
+        fillColor:ring.col,fillOpacity:i===rings.length-1?.32:.14,color:ring.col,weight:1.3});
+      m.on('mousemove',e=>showTip(e.originalEvent,cityTip(c)));
+      m.on('mouseout',hideTip);
+      m.on('click',e=>{L.DomEvent.stopPropagation(e);focusCity(c.city);});
+      cityLayer.addLayer(m);
+    });
+    if(state.layers.labels){
+      const off=Math.max(...rings.map(r=>r.r),3)+4;
+      cityLayer.addLayer(L.marker([c.lat,c.lon],{pane:'labelPane',interactive:false,
+        icon:L.divIcon({className:'citylabel',html:c.city,iconSize:null,iconAnchor:[-off,7]})}));
+    }
+  });
+}
+function renderPopLegend(){
+  const rad=popScale(),vals=[500,5000,23000],max=rad(vals[2]);
+  const circles=vals.map((v,i)=>{const r=rad(v),cx=24+i*74;
+    return '<circle cx="'+cx+'" cy="'+(max+2)+'" r="'+r+'" fill="none" stroke="'+cssv('--ui-muted')+'"/>'+
+      '<text x="'+cx+'" y="'+(max*2+16)+'" text-anchor="middle" font-size="9.5" fill="'+cssv('--ui-muted')+'">'+
+      d3.format(',')(v)+'</text>';}).join('');
+  document.getElementById('popLegend').innerHTML=
+    '<svg width="100%" height="'+(max*2+22)+'" viewBox="0 0 240 '+(max*2+22)+'">'+circles+'</svg>'+
+    '<p class="note" style="margin:2px 0 0">'+T('pop_circles_note')+'</p>';
+}
+function renderClusterCard(){
+  const el=document.getElementById('clusterCard');
+  if(state.cluster==='all'){
+    const byT={};CLUSTERS.forEach(k=>{byT[k.typology]=(byT[k.typology]||0)+k.n_cities;});
+    const rows=Object.entries(byT).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const max=rows[0][1];
+    el.innerHTML='<div class="note" style="margin-bottom:5px">'+T('top_typologies')+'</div>'+
+      rows.map(([t,n])=>'<div class="cbar"><span class="t" style="font-size:10.5px">'+t.split(' · ')[0]+
+      '</span><span class="track"><i style="width:'+(n/max*100)+'%;background:var(--color-accent)"></i></span>'+
+      '<span class="v">'+n+'</span></div>').join('');
+    return;
+  }
+  const k=CLUSTERS.find(x=>String(x.id)===String(state.cluster));
+  if(!k){el.innerHTML='';return;}
+  el.innerHTML='<div class="card2" style="padding:var(--space-4)">'+
+    '<div style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:12.5px;margin-bottom:6px">'+k.typology+'</div>'+
+    '<dl class="dl2" style="font-size:11.5px">'+
+    '<dt>'+T('landcover')+'</dt><dd>'+k.landcover+'</dd>'+
+    '<dt>'+T('elevation')+'</dt><dd>'+k.elev+'</dd>'+
+    '<dt>'+T('geology')+'</dt><dd>'+k.geol+'</dd>'+
+    '<dt>'+T('climate')+'</dt><dd>'+k.climate+'</dd>'+
+    '<dt>'+T('suhi_int')+'</dt><dd>'+(k.suhii>0?'+':'')+k.suhii+' °C</dd>'+
+    '<dt>'+T('warming')+'</dt><dd>'+(k.slope>0?'+':'')+k.slope+' °C/dec</dd>'+
+    '<dt>'+T('pop_in_hot')+'</dt><dd style="color:var(--hot-4)">'+fmt(k.pop_hot)+'</dd>'+
+    '<dt>'+T('pop_in_cold')+'</dt><dd style="color:var(--cold-4)">'+fmt(k.pop_cold)+'</dd></dl>'+
+    '<div class="note" style="margin-top:7px">'+k.n_cities+' '+T('cities')+': '+k.cities.join(', ')+'</div></div>';
+}
+function focusCity(name){
+  state.city=name;
+  const feats=SPOTS.features.filter(f=>f.properties.city===name);
+  renderAll();
+  const l=L.geoJSON({type:'FeatureCollection',features:feats});
+  map.fitBounds(l.getBounds().pad(.6),{animate:false,maxZoom:13});
+  openCity(name);
+}
+
+/* ══ day/night swipe — clip the two Leaflet panes ══ */
+let swipePct=.55;
+function initSwipe(){
+  const el=document.getElementById('swipe');let drag=false;
+  el.addEventListener('pointerdown',e=>{drag=true;el.setPointerCapture(e.pointerId);});
+  el.addEventListener('pointermove',e=>{if(!drag)return;
+    const r=document.getElementById('mapwrap').getBoundingClientRect();
+    swipePct=Math.max(.08,Math.min(.92,(e.clientX-r.left)/r.width));positionSwipe();});
+  el.addEventListener('pointerup',()=>drag=false);
+  positionSwipe();
+}
+function positionSwipe(){
+  const wrap=document.getElementById('mapwrap');if(!wrap||!map)return;
+  const w=wrap.clientWidth;if(!w)return;
+  const x=swipePct*w;
+  document.getElementById('swipe').style.left=(swipePct*100)+'%';
+  document.getElementById('tagDay').style.right=(w-x+10)+'px';
+  document.getElementById('tagNight').style.left=(x+10)+'px';
+  const pd=map.getPane('dayPane'),pn=map.getPane('nightPane');
+  // panes are translated by Leaflet; clip in the pane's own coordinate space
+  const off=pd.getBoundingClientRect().left-wrap.getBoundingClientRect().left;
+  pd.style.clipPath=`inset(0 ${w-x-off}px 0 0)`;
+  pn.style.clipPath=`inset(0 0 0 ${x-off}px)`;
+}
+
+/* ══ tooltip + drawer ══ */
+const tip=document.getElementById('tip');
+function showTip(e,html){tip.innerHTML=html;tip.style.opacity=1;
+  tip.style.left=Math.min(window.innerWidth-256,e.clientX+14)+'px';
+  tip.style.top=Math.min(window.innerHeight-190,e.clientY+14)+'px';}
+function hideTip(){tip.style.opacity=0;}
+function spotTip(p){
+  return `<b style="color:${spotFill(p)}">${p.city} · ${p.spot_type==='hot'?T('hotspots'):T('coldspots')}</b>
+  <div class="note">${p.spot_id} · ${p.period==='day'?T('day'):T('night')} · ${p.contour_level}</div>
+  <dl><dt>SUHI</dt><dd>${p.suhii>0?'+':''}${p.suhii} °C</dd>
+  <dt>${T('mean_lst')}</dt><dd>${fmt(p.mean_lst,1)} °C</dd>
+  <dt>${T('area')}</dt><dd>${fmt(p.area_km2,1)} km²</dd>
+  <dt>${T('population')}</dt><dd>${fmt(p.population)}</dd></dl>`;
+}
+function cityTip(c){
+  return `<b>${c.city}</b><div class="note">${c.landcover} · ${c.elev} · ${c.geol}</div>
+  <div class="note" style="color:var(--color-accent)">${T('cluster')} ${c.cluster} — ${(CLUSTERS.find(k=>k.id===c.cluster)||{}).typology||''}</div>
+  <dl><dt>${T('hotspots')} / ${T('coldspots')}</dt>
+  <dd><span style="color:${cssv('--hot-4')}">${c.hot}</span> / <span style="color:${cssv('--cold-4')}">${c.cold}</span></dd>
+  <dt>${T('suhi_int')}</dt><dd>+${c.suhii} °C</dd>
+  <dt>${T('pop_in_hot')}</dt><dd>${fmt(c.pop_hot)}</dd>
+  <dt>${T('pop_in_cold')}</dt><dd>${fmt(c.pop_cold)}</dd>
+  <dt>${T('hot_area')}</dt><dd>${fmt(c.area_hot,1)} km² (${c.pct_hot}%)</dd></dl>`;
+}
+const drawer=document.getElementById('drawer');
+function closeDrawer(){drawer.dataset.open='false';}
+function openSpot(p){
+  drawer.innerHTML=`<button class="x" onclick="closeDrawer()">✕</button>
+  <div class="pill" style="color:${spotFill(p)}">${p.spot_type==='hot'?T('hotspots'):T('coldspots')} · ${p.period==='day'?T('day'):T('night')}</div>
+  <h3 style="margin:10px 0 2px;font-size:21px;font-family:var(--font-heading)">${p.city}</h3>
+  <div class="note">${p.spot_id} · tier ${p.tier} · ${p.zone} · ${T('cluster').split(' ')[0]} ${p.cluster25}</div>
+  <div class="rule"></div>
+  <div class="kpis">
+    <div class="kpi ${p.spot_type}"><div class="lab">${T('suhi_int')}</div>
+      <div class="val">${p.suhii>0?'+':''}${p.suhii}</div><div class="sub">${T('vs_rural')}</div></div>
+    <div class="kpi"><div class="lab">${T('population')}</div><div class="val">${fmt(p.population)}</div>
+      <div class="sub">${T('pop_note')}</div></div>
+  </div>
+  <div class="rule"></div><div class="sec-h">${T('thermal')}</div>
+  <dl class="dl2">
+    <dt>${T('mean_lst')}</dt><dd>${fmt(p.mean_lst,2)} °C</dd>
+    <dt>${T('minmax_lst')}</dt><dd>${fmt(p.max_lst,1)} / ${fmt(p.min_lst,1)} °C</dd>
+    <dt>Std dev</dt><dd>${fmt(p.std_lst,2)}</dd>
+    <dt>MODIS ${T('hotdays').toLowerCase()}</dt><dd>${p.n_modis_hot_days}</dd>
+    <dt>${T('persistent')}</dt><dd>${p.persistent_dn?'✓':'—'}</dd></dl>
+  <div class="rule"></div><div class="sec-h">${T('trendconf')}</div>
+  <dl class="dl2">
+    <dt>Sen slope</dt><dd>${p.sen_slope_C_per_decade>0?'+':''}${fmt(p.sen_slope_C_per_decade,2)} °C/dec</dd>
+    <dt>Mann–Kendall</dt><dd>${p.mk_trend}</dd>
+    <dt>p-value</dt><dd>${p.mk_p_value==null?'—':p.mk_p_value.toFixed(4)}</dd>
+    <dt>${T('significant')}</dt><dd style="color:${p.bh_significant?cssv('--hot-4'):cssv('--ui-muted')}">${p.bh_significant?'✓':'—'}</dd>
+    <dt>Validation</dt><dd>${p.nb04_val_tier}</dd></dl>
+  <div class="rule"></div><div class="sec-h">${T('physctx')}</div>
+  <dl class="dl2">
+    <dt>${T('landcover')}</dt><dd>${p.landcover_class}</dd>
+    <dt>${T('elevation')}</dt><dd>${p.elevation_class}</dd>
+    <dt>${T('geology')}</dt><dd>${p.geology_class}</dd>
+    <dt>${T('climate')}</dt><dd>${p.climate_class}</dd>
+    <dt>${T('area')} (${p.contour_level})</dt><dd>${fmt(p.area_km2,2)} km²</dd>
+    <dt>Dense core</dt><dd>${p.dense_core_pct==null?'—':p.dense_core_pct+'%'}</dd></dl>
+  <div style="display:flex;gap:6px;margin-top:16px">
+    <button class="ghost" onclick="focusCity('${p.city.replace(/'/g,"\\'")}')">${T('zoom_city')}</button>
+    <button class="ghost">${T('add_report')}</button></div>`;
+  drawer.dataset.open='true';
+}
+function openCity(name){
+  const c=CITIES.find(x=>x.city===name);if(!c)return;
+  const spots=SPOTS.features.filter(f=>f.properties.city===name&&f.properties.contour_level==='L50')
+    .map(f=>f.properties);
+  drawer.innerHTML=`<button class="x" onclick="closeDrawer()">✕</button>
+  <div class="pill" style="color:var(--color-accent)">${T('city')}</div>
+  <h3 style="margin:10px 0 2px;font-size:21px;font-family:var(--font-heading)">${c.city}</h3>
+  <div class="note">${c.climate} · ${c.elev} · ${c.geol}</div>
+  <div class="rule"></div>
+  <div class="kpis">
+    <div class="kpi hot"><div class="lab">${T('hotspots')}</div><div class="val">${c.hot}</div>
+      <div class="sub">${fmt(c.area_hot,0)} km² · ${c.pct_hot}%</div></div>
+    <div class="kpi cold"><div class="lab">${T('coldspots')}</div><div class="val">${c.cold}</div>
+      <div class="sub">${fmt(c.area_cold,0)} km²</div></div>
+    <div class="kpi wide"><div class="lab">${T('pop_in_hot')}</div><div class="val">${fmt(c.pop_hot)}</div>
+      <div class="bar"><i style="width:${Math.min(100,c.pop_hot/230)}%;background:linear-gradient(90deg,var(--hot-2),var(--hot-5))"></i></div></div>
+  </div>
+  <div class="rule"></div>
+  <dl class="dl2">
+    <dt>${T('suhi_int')}</dt><dd>+${c.suhii} °C</dd>
+    <dt>${T('mean_lst')} / ${T('max_lst')}</dt><dd>${fmt(c.mean_lst,1)} / ${fmt(c.max_lst,1)} °C</dd>
+    <dt>${T('warming')}</dt><dd>${c.slope>0?'+':''}${c.slope} °C/dec</dd>
+    <dt>MODIS ${T('hotdays').toLowerCase()}</dt><dd>${c.hotdays}</dd>
+    <dt>${T('city_area')}</dt><dd>${fmt(c.city_area,0)} km²</dd>
+    <dt>${T('urban_core')}</dt><dd>${fmt(c.uc_area,0)} km²</dd>
+    <dt>${T('persistent')}</dt><dd>${c.persist}</dd>
+    <dt>${T('significant')}</dt><dd>${c.sig}</dd>
+    <dt>${T('pop_in_cold')}</dt><dd>${fmt(c.pop_cold)}</dd>
+    <dt>${T('cluster')}</dt><dd>${c.cluster}</dd>
+    <dt>${T('geology')}</dt><dd>${c.geol}</dd></dl>
+  <div class="note" style="margin-top:6px;color:var(--color-accent)">${(CLUSTERS.find(k=>k.id===c.cluster)||{}).typology||''}</div>
+  <div class="rule"></div><div class="sec-h">${T('spots_at')} L50</div>
+  <div class="rowlist">${spots.map(s=>`<div class="rw" data-sid="${s.spot_id}">
+    <span><span style="display:inline-block;width:8px;height:8px;margin-right:6px;background:${spotFill(s)}"></span>${s.spot_id}</span>
+    <span class="n">${s.suhii>0?'+':''}${s.suhii}°</span></div>`).join('')}</div>`;
+  drawer.querySelectorAll('[data-sid]').forEach(el=>el.onclick=()=>{
+    const p=spots.find(s=>s.spot_id===el.dataset.sid);if(p)openSpot(p);});
+  drawer.dataset.open='true';
+}
+
+/* ══ rail ══ */
+function buildRail(){
+  const L2=[['spots','layer_spots','441'],['cities','layer_cities','55'],
+    ['states','layer_states','placeholder'],['nation','layer_nation','1'],['labels','layer_labels','']];
+  document.getElementById('layers').innerHTML=L2.map(([k,tk,c])=>
+    `<div class="ly" data-k="${k}" data-on="true"><span class="sw"></span><span>${T(tk)}</span>
+     <span class="chip">${c==='placeholder'?T('placeholder'):c}</span></div>`).join('');
+  document.querySelectorAll('.ly').forEach(el=>el.onclick=()=>{
+    const k=el.dataset.k;state.layers[k]=!state.layers[k];el.dataset.on=state.layers[k];
+    if(k==='nation')state.layers[k]?natLayer.addTo(map):map.removeLayer(natLayer);
+    else if(k==='states')state.layers[k]?stateLayer.addTo(map):map.removeLayer(stateLayer);
+    else {renderSpots();renderCities();}});
+
+  const cl=document.getElementById('cluster');
+  cl.innerHTML='<option value="all">'+T('all_clusters')+'</option>'+CLUSTERS.map(k=>
+    '<option value="'+k.id+'">'+k.id+' — '+k.typology+'</option>').join('');
+  cl.value=state.cluster;
+  cl.onchange=()=>{state.cluster=cl.value;renderAll();};
+  document.getElementById('clusterCount').textContent='k=25 · '+CLUSTERS.length+' occupied';
+  document.querySelectorAll('#popSeg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#popSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+    state.popMode=b.dataset.v;renderCities();renderPopLegend();});
+
+  document.querySelectorAll('#contourSeg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#contourSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+    state.contour=b.dataset.v;renderAll();});
+
+  const op=document.getElementById('opacity');
+  op.oninput=()=>{state.opacity=op.value/100;document.getElementById('opacityVal').textContent=op.value+'%';
+    renderSpots();};
+  const yr=document.getElementById('year');
+  yr.oninput=()=>{state.year=+yr.value;document.getElementById('yearVal').textContent=yr.value;
+    renderSpots();renderKPIs();};
+
+  const se=document.getElementById('search');
+  se.oninput=()=>{
+    const q=se.value.trim().toLowerCase(),res=document.getElementById('results');
+    if(!q){res.innerHTML='';return;}
+    const hits=CITIES.filter(c=>c.city.toLowerCase().includes(q)).slice(0,6);
+    res.innerHTML=hits.map(c=>`<div class="rw" data-c="${c.city}"><span>${c.city}</span><span class="n">+${c.suhii}°</span></div>`).join('')
+      ||`<div class="note" style="padding:4px 7px">—</div>`;
+    res.querySelectorAll('[data-c]').forEach(el=>el.onclick=()=>{se.value='';res.innerHTML='';focusCity(el.dataset.c);});
+  };
+  document.getElementById('scopeReset').onclick=()=>{state.city=null;fitNation();renderAll();closeDrawer();};
+  document.getElementById('frameToggle').onclick=e=>{
+    const on=e.currentTarget.getAttribute('aria-pressed')!=='true';
+    e.currentTarget.setAttribute('aria-pressed',on);
+    document.getElementById('stage').classList.toggle('framed',on);
+    setTimeout(()=>{map.invalidateSize();positionSwipe();},240);};
+  document.getElementById('exportBtn').onclick=()=>selectTab('report');
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));
+
+  document.getElementById('lang').onchange=e=>{lang=e.target.value;
+    localStorage.setItem('suhi.lang',lang);applyI18n();buildRail();renderAll();closeDrawer();};
+  document.getElementById('theme').onchange=e=>{theme=e.target.value;
+    localStorage.setItem('suhi.theme',theme);applyTheme();renderAll();};
+}
+
+function selectTab(name){
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===name));
+  document.getElementById('stage').style.display=name==='map'?'':'none';
+  document.getElementById('rail').style.display=name==='map'?'':'none';
+  ['compare','table','report'].forEach(p=>document.getElementById('panel-'+p).dataset.on=(p===name));
+  if(name==='map')setTimeout(()=>{map.invalidateSize();positionSwipe();},40);
+}
+
+function renderKPIs(){
+  const feats=[...activeSpots('day'),...activeSpots('night')];
+  const hot=feats.filter(f=>f.properties.spot_type==='hot'),cold=feats.filter(f=>f.properties.spot_type==='cold');
+  const pop=d3.sum(hot,f=>f.properties.population||0);
+  const popC=d3.sum(cold,f=>f.properties.population||0);
+  const ah=d3.sum(hot,f=>f.properties.area_km2||0),ac=d3.sum(cold,f=>f.properties.area_km2||0);
+  const scope=state.city?CITIES.find(c=>c.city===state.city):null;
+  const cityArea=scope?scope.city_area:d3.sum(CITIES,c=>c.city_area);
+  const pctHot=ah/cityArea*100,pctCold=ac/cityArea*100;
+  const clusters=new Set(feats.map(f=>f.properties.cluster25)).size;
+  const meanS=d3.mean(hot,f=>spotValue(f.properties));
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi hot"><div class="lab">${T('hotspots')}</div><div class="val">${hot.length}</div><div class="sub">${fmt(ah,0)} km²</div></div>
+    <div class="kpi cold"><div class="lab">${T('coldspots')}</div><div class="val">${cold.length}</div><div class="sub">${fmt(ac,0)} km²</div></div>
+    <div class="kpi wide"><div class="lab">${T('share_area')}</div>
+      <div class="val" style="font-size:19px"><span style="color:var(--hot-4)">${pctHot.toFixed(2)}%</span>
+      <span style="color:var(--ui-muted);font-size:13px"> ${T('hot')} · </span>
+      <span style="color:var(--cold-4)">${pctCold.toFixed(2)}%</span>
+      <span style="color:var(--ui-muted);font-size:13px"> ${T('cold')}</span></div>
+      <div class="bar"><i style="width:${Math.min(50,pctHot*6)}%;background:linear-gradient(90deg,var(--hot-2),var(--hot-5))"></i>
+      <i style="width:${Math.min(50,pctCold*6)}%;background:linear-gradient(90deg,var(--cold-4),var(--cold-2))"></i></div></div>
+    <div class="kpi hot"><div class="lab">${T('pop_in_hot')}</div><div class="val" style="font-size:20px">${fmt(pop)}</div>
+      <div class="sub">${T('persons')}</div></div>
+    <div class="kpi cold"><div class="lab">${T('pop_in_cold')}</div><div class="val" style="font-size:20px">${fmt(popC)}</div>
+      <div class="sub">${T('persons')}</div></div>
+    <div class="kpi wide"><div class="lab">${T('typology_mix')}</div>
+      <div class="sub" style="margin-top:2px">${fmt(meanS,2)} °C · ${clusters} ${T('clusters')} · ${T('city_pop_pending')}</div></div>`;
+  document.getElementById('scopeLabel').textContent=state.city
+    ? state.city+' · '+T('scoped') : T('national')+' · 55 '+T('cities');
+  document.getElementById('scopeReset').style.display=state.city?'':'none';
+
+  const bins=[['p < 0.01',f=>f.properties.mk_p_value<.01],['0.01–0.05',f=>f.properties.mk_p_value>=.01&&f.properties.mk_p_value<.05],
+    ['0.05–0.10',f=>f.properties.mk_p_value>=.05&&f.properties.mk_p_value<.1],['≥ 0.10',f=>f.properties.mk_p_value>=.1]];
+  const cols=['--hot-5','--hot-3','--hot-1','--color-neutral-500'].map(cssv);
+  const max=d3.max(bins,b=>feats.filter(b[1]).length)||1;
+  document.getElementById('conf').innerHTML=bins.map((b,i)=>{
+    const n=feats.filter(b[1]).length;
+    return `<div class="cbar"><span class="t">${b[0]}</span><span class="track"><i style="width:${n/max*100}%;background:${cols[i]}"></i></span><span class="v">${n}</span></div>`;
+  }).join('')+`<p class="note">${feats.filter(f=>f.properties.bh_significant).length} / ${feats.length} — BH</p>`;
+}
+
+/* ══ compare ══ */
+let picked=['Ibadan','Lagos','Kano','Maiduguri'];
+function renderCompare(){
+  document.getElementById('cmpPicker').innerHTML=CITIES.map(c=>
+    `<button class="pk" data-c="${c.city}" aria-pressed="${picked.includes(c.city)}">${c.city}</button>`).join('');
+  document.querySelectorAll('#cmpPicker .pk').forEach(b=>b.onclick=()=>{
+    const c=b.dataset.c;
+    if(picked.includes(c))picked=picked.filter(x=>x!==c);else if(picked.length<5)picked=[...picked,c];
+    renderCompare();});
+  const measures=[['suhi_int','suhii','°C',1,'hot'],['mean_lst','mean_lst','°C',1,'hot'],
+    ['max_lst','max_lst','°C',1,'hot'],['pop_in_hot','pop_hot','',0,'hot'],
+    ['pop_in_cold','pop_cold','',0,'cold'],
+    ['hot_area','area_hot','km²',0,'hot'],['hot_share','pct_hot','%',2,'hot'],
+    ['cold_area','area_cold','km²',0,'cold'],['warming','slope','°C/dec',2,'hot']];
+  const sel=picked.map(p=>CITIES.find(c=>c.city===p)).filter(Boolean);
+  document.getElementById('cmpGrid').innerHTML=sel.map(c=>`
+    <div class="card2">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h4 style="margin:0 0 2px;font-size:17px;font-family:var(--font-heading)">${c.city}</h4>
+        <span style="color:${hotScale(c.suhii)};font-size:13px;font-variant-numeric:tabular-nums">+${c.suhii} °C</span></div>
+      <div class="note" style="margin-bottom:4px">${c.landcover} · ${c.elev} · ${c.geol}</div>
+      <div class="note" style="margin-bottom:12px;color:var(--color-accent)">${T('cluster')} ${c.cluster} — ${(CLUSTERS.find(k=>k.id===c.cluster)||{}).typology||''}</div>
+      ${measures.map(([tk,k,u,d,kind])=>{
+        const max=d3.max(CITIES,x=>Math.abs(x[k]))||1;
+        const col=kind==='hot'?`linear-gradient(90deg,var(--hot-2),var(--hot-5))`:`linear-gradient(90deg,var(--cold-4),var(--cold-2))`;
+        return `<div class="cbar"><span class="t">${T(tk)}</span><span class="track"><i style="width:${Math.abs(c[k])/max*100}%;background:${col}"></i></span><span class="v">${fmt(c[k],d)}${u?' '+u:''}</span></div>`;
+      }).join('')}
+      <div style="display:flex;gap:18px;margin-top:12px;padding-top:10px;border-top:var(--ui-rule) solid var(--ui-line)">
+        ${[[T('hotspots'),c.hot,'var(--hot-4)'],[T('coldspots'),c.cold,'var(--cold-4)'],[T('hotdays'),c.hotdays,'']].map(([l,v,col])=>
+          `<div><div style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ui-muted)">${l}</div>
+          <div style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:19px;color:${col||'inherit'}">${v}</div></div>`).join('')}
+      </div></div>`).join('')||`<p class="note">—</p>`;
+}
+
+/* ══ table ══ */
+let sortKey='suhii',sortDir=-1;
+function renderTable(){
+  const COLS=[['city',T('city')],['hot',T('hot')],['cold',T('cold')],['suhii','SUHI °C'],
+    ['mean_lst',T('mean_lst')],['max_lst',T('max_lst')],['pop_hot',T('pop_in_hot')],
+    ['pop_cold',T('pop_in_cold')],['area_hot',T('hot_area')],['pct_hot','% '+T('hot')],
+    ['area_cold',T('cold_area')],['slope','°C/dec'],['hotdays',T('hotdays')],
+    ['cluster',T('cluster')],['landcover',T('landcover')],['elev',T('elevation')],['geol',T('geology')]];
+  document.querySelector('#tbl thead').innerHTML='<tr>'+COLS.map(([k,l])=>
+    `<th data-k="${k}">${l}${sortKey===k?(sortDir<0?' ↓':' ↑'):''}</th>`).join('')+'</tr>';
+  const rows=[...CITIES].sort((a,b)=>typeof a[sortKey]==='string'
+    ?a[sortKey].localeCompare(b[sortKey])*-sortDir:(a[sortKey]-b[sortKey])*sortDir);
+  document.querySelector('#tbl tbody').innerHTML=rows.map(c=>`<tr data-c="${c.city}">
+    <td>${c.city}</td><td style="color:var(--hot-4)">${c.hot}</td><td style="color:var(--cold-4)">${c.cold}</td>
+    <td style="color:${hotScale(c.suhii)}">${c.suhii>0?'+':''}${c.suhii}</td>
+    <td>${fmt(c.mean_lst,1)}</td><td>${fmt(c.max_lst,1)}</td><td>${fmt(c.pop_hot)}</td>
+    <td>${fmt(c.pop_cold)}</td><td>${fmt(c.area_hot,0)}</td><td>${c.pct_hot}</td>
+    <td>${fmt(c.area_cold,0)}</td>
+    <td style="color:${c.slope>0?cssv('--hot-3'):cssv('--cold-3')}">${c.slope>0?'+':''}${c.slope}</td>
+    <td>${c.hotdays}</td><td style="color:var(--color-accent)">${c.cluster}</td>
+    <td style="color:var(--ui-muted)">${c.landcover}</td>
+    <td style="color:var(--ui-muted)">${c.elev}</td>
+    <td style="color:var(--ui-muted)">${c.geol}</td></tr>`).join('');
+  document.querySelectorAll('#tbl th').forEach(th=>th.onclick=()=>{
+    if(sortKey===th.dataset.k)sortDir*=-1;else{sortKey=th.dataset.k;sortDir=-1;}renderTable();});
+  document.querySelectorAll('#tbl tbody tr').forEach(tr=>tr.onclick=()=>{selectTab('map');focusCity(tr.dataset.c);});
+}
+
+/* ══ report ══ */
+function renderReport(){
+  const c=CITIES.find(x=>x.city===(state.city||'Ibadan'))||CITIES[0];
+  document.getElementById('brief').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div><h3>${c.city}</h3><div class="note">SUHI · 2024 ${T('composite').split(' ').slice(1).join(' ')||''}</div></div>
+      <div class="note" style="text-align:right">SUHI Nigeria</div></div>
+    <div class="rule"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+      ${[[T('hotspots'),c.hot,'var(--hot-4)'],[T('coldspots'),c.cold,'var(--cold-4)'],
+         ['% '+T('hot'),c.pct_hot+'%','var(--hot-5)'],[T('pop_in_hot'),fmt(c.pop_hot),'']].map(([l,v,col])=>
+        `<div><div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ui-muted)">${l}</div>
+        <div style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:23px;color:${col||'inherit'};letter-spacing:-.02em">${v}</div></div>`).join('')}
+    </div>
+    <div class="rule"></div>
+    <p style="font-size:12.5px;line-height:1.6">
+      ${c.city} records a mean surface urban heat island intensity of +${c.suhii} °C against its rural background,
+      with a maximum land surface temperature of ${fmt(c.max_lst,1)} °C across ${c.hotdays} MODIS hot days.
+      Hot spots cover ${fmt(c.area_hot,0)} km² — ${c.pct_hot}% of the ${fmt(c.city_area,0)} km² study extent — and
+      contain ${fmt(c.pop_hot)} people. The Sen slope over the record is ${c.slope>0?'+':''}${c.slope} °C per decade.
+      Dominant landcover inside the contours is ${c.landcover.toLowerCase()}; the terrain is ${c.elev.toLowerCase()}
+      on ${c.geol.toLowerCase()}. It falls in cluster ${c.cluster} — ${(CLUSTERS.find(k=>k.id===c.cluster)||{}).typology||''} —
+      the typology it shares with ${((CLUSTERS.find(k=>k.id===c.cluster)||{}).n_cities||1)-1} other cities in this study.</p>
+    <div class="rule"></div>
+    <div class="note">${T('method')}: Getis-Ord Gi* on MODIS LST, Benjamini–Hochberg corrected.
+      Contours at L50/L75/L90. ${c.sig} significant after correction.</div>`;
+  document.getElementById('exports').innerHTML=[
+    ['City brief (PDF)','One page per selected city.'],
+    ['Full report (PDF)','All 55 cities with national summary.'],
+    ['Spot records (CSV)','441 rows · 30 fields.'],
+    ['Contours (GeoJSON)','EPSG:4326, current view.'],
+    ['Contours (TopoJSON)','Compact geometry for the web.'],
+    ['City aggregates (CSV)','55 rows.']
+  ].map(([t,d])=>`<div class="card2" style="padding:var(--space-4) var(--space-6)">
+    <div style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:13px;margin-bottom:2px">${t}</div>
+    <div class="note">${d}</div>
+    <button class="ghost" style="margin-top:9px">${T('download')}</button></div>`).join('');
+}
+
+function renderAll(){
+  if(!map)return;
+  natLayer.setStyle({color:cssv('--ui-line-strong')});
+  stateLayer.setStyle({color:cssv('--ui-muted')});
+  renderSpots();renderCities();renderPopLegend();renderClusterCard();
+  renderKPIs();renderCompare();renderTable();renderReport();positionSwipe();
+}
+</script>
+</body>
+</html>
