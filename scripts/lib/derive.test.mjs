@@ -469,7 +469,7 @@ describe('data/spots.topo.json', () => {
     expect(worst).toBeLessThan(12);
   });
 
-  it('retains all 30 attributes per feature', async () => {
+  it('retains at least 30 attributes per feature (31 exist)', async () => {
     const topo = await readTopo();
     const back = feature(topo, topo.objects.spots);
     for (const f of back.features) expect(Object.keys(f.properties).length).toBeGreaterThanOrEqual(30);

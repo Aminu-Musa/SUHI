@@ -75,6 +75,9 @@ const round = (x, digits) => (x === null ? null : Number(x.toFixed(digits)));
 const numbers = (rows, key) =>
   rows.map((r) => r[key]).filter((v) => typeof v === 'number' && Number.isFinite(v));
 
+// NOTE: an all-null group sums to 0, whereas `mean` returns null. Safe today only because all 26
+// null populations sit in L75/L90 rows and population sums are taken over L50 rows only. If an
+// upstream refresh nulls an L50 population, "unknown" would display as `0 people`: revisit then.
 const sum = (rows, key) => numbers(rows, key).reduce((s, v) => s + v, 0);
 
 /**
@@ -280,6 +283,9 @@ export function deriveClusters(fc) {
       geol,
       climate: modal(all, 'climate_class'),
       typology: typologyString(landcover, elev, geol),
+      // `suhii` and `slope` are the same multiplicity-weighted means as in deriveCities, and
+      // deliberately so: see the DELIBERATE comment on the city table. Do NOT de-duplicate here,
+      // or cluster SUHI figures will silently disagree with city figures.
       suhii: round(mean(all, 'suhii'), 2),
       slope: round(mean(all, 'sen_slope_C_per_decade'), 2),
       pop_hot: round(sum(hot, 'population'), 0),

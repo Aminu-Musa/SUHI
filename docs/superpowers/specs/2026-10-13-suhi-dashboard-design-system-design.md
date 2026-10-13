@@ -137,12 +137,12 @@ and Igbo coverage is known rather than assumed.
 
 | Role | Size | Weight | Tracking | Notes |
 | --- | --- | --- | --- | --- |
-| `display` | 34px | 800 | −0.03em | The headline sentence |
-| `figure` | 40px | 800 | −0.03em | KPI values; `tabular-nums` |
-| `title` | 22px | 700 | −0.015em | Page and drawer titles |
-| `section` | 13px | 700 | +0.07em, caps | Rail section headings |
+| `display` | 34px | 800 | −0.03em | The headline sentence; line-height 1.1 |
+| `figure` | 40px | 800 | −0.03em | KPI values; `tabular-nums`; line-height 1.1 |
+| `title` | 22px | 700 | −0.015em | Page and drawer titles; line-height 1.2 |
+| `section` | 13px | 700 | +0.07em, caps | Rail section headings; line-height 1.3 |
 | `body` | 14px | 400 | — | line-height 1.6 |
-| `label` | 12px | 600 | +0.07em, caps | **Floor for anything a non-expert reads** |
+| `label` | 12px | 600 | +0.07em, caps | **Floor for anything a non-expert reads**; line-height 1.3 |
 
 **Hard floor: 11px. Nothing below 11px ships.** The current prototype uses 8px KPI
 labels, 9px brief captions and 9.5px notes; this is the single largest change in the
@@ -641,10 +641,13 @@ If the contour data outgrows the browser, the answer is PMTiles — not an API.
 ### 9.2 Build-time guards
 
 - `scripts/derive.mjs` regenerates `cities.json` and `clusters.json` from the source
-  GeoJSON, implementing the L50-only aggregation rules. **Done when** it reproduces the
-  committed JSON byte-for-byte.
-- `scripts/palette.mjs` regenerates the ramps and **fails the build** on any pair below
-  4.5:1 (3:1 for large text). Success criterion 1 becomes a test, not an intention.
+  GeoJSON, implementing the L50-only aggregation rules. Its output was verified
+  **field-by-field against the pre-branch published values: 1,647 fields, exactly one
+  intended change (cluster 16's typology abbreviation)**. The byte-for-byte guard now binds
+  derive's own output going forward.
+- `scripts/palette.mjs` regenerates the ramps (it cannot fail anything).
+  `scripts/audit-contrast.mjs` **fails the build** on any text pair below 4.5:1, checking
+  every text token on all three grounds (`--bg`, `--surface`, `--surface-2`). Success criterion 1 becomes a test, not an intention.
 - A diacritic fixture renders every dictionary string in all four languages at every
   scale step and fails on a missing glyph.
 

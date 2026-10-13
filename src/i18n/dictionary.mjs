@@ -10,7 +10,8 @@
 // The Hausa, Igbo and Yorùbá strings are a FIRST PASS awaiting native-speaker
 // review. The scientific vocabulary (SUHI, LST, MODIS, Gi*, Sen slope,
 // Mann–Kendall, Benjamini–Hochberg) stays in English on purpose, so the numbers
-// can be checked against the paper.
+// can be checked against the paper. (MODIS and Gi* appear in no dictionary value: they reach
+// the UI through markup and concatenation, so dictionary.test.mjs cannot enforce them.)
 
 export const LANGS = ['en', 'ha', 'ig', 'yo'];
 

@@ -62,6 +62,11 @@ describe('encoding contract', () => {
   });
 
   it('keeps a symmetric diverging domain so the ramp midpoint stays neutral', () => {
+    const d = ENCODE_DOMAIN;
+    expect(d[0]).toBe(-d[1]);
+  });
+
+  it('pins the current diverging domain value (retune here deliberately)', () => {
     expect(ENCODE_DOMAIN).toEqual([-4.5, 4.5]);
   });
 });
