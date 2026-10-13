@@ -66,8 +66,15 @@ describe('suhi-tokens.css', () => {
     expect(css).toContain('npm run palette');
   });
 
-  it('renders SCALE_TOKENS verbatim in :root', () => {
+  it('renders SCALE_TOKENS verbatim in :root, with exactly those keys', () => {
     for (const [k, v] of Object.entries(SCALE_TOKENS)) expect(blocks[':root'][k]).toBe(v);
+    expect(Object.keys(blocks[':root']).sort()).toEqual(Object.keys(SCALE_TOKENS).sort());
+  });
+
+  it('has each selector exactly once', () => {
+    const body = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@import[^;]*;/g, '');
+    const sels = [...body.matchAll(/([^{}]+)\{/g)].map(m => m[1].trim());
+    expect(new Set(sels).size).toBe(sels.length);
   });
 
   it('spells out the spec values', () => {
@@ -87,6 +94,9 @@ describe('suhi-tokens.css', () => {
         if (k === '--neutral-mid') continue; // generated into _ramps.css
         expect(block[k]).toBe(v);
       }
+      // Exact key set: a stray --hot-N or --neutral-mid here would silently override _ramps.css.
+      const expected = Object.keys(THEME_TOKENS[t]).filter(k => k !== '--neutral-mid').sort();
+      expect(Object.keys(block).sort()).toEqual(expected);
     }
     for (const sel of Object.keys(blocks)) {
       const body = css.split(sel + ' {')[1]?.split('}')[0] ?? '';
