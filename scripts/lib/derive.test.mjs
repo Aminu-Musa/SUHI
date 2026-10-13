@@ -190,3 +190,12 @@ describe('serialize', () => {
     expect(s.endsWith('\n')).toBe(true);
   });
 });
+
+// The guard. From here on the committed JSON is derive's own output, so any change to an
+// aggregation rule, a rounding decision or the serializer shows up as a red test until
+// `npm run derive` is re-run and the result reviewed. It cannot reproduce the pre-derive
+// files, which were minified by an unknown producer and carried no trailing newline.
+it('reproduces the committed JSON byte for byte', async () => {
+  expect(serialize(deriveCities(fc))).toBe(await readFile(dataPath('cities.json'), 'utf8'));
+  expect(serialize(deriveClusters(fc))).toBe(await readFile(dataPath('clusters.json'), 'utf8'));
+});
