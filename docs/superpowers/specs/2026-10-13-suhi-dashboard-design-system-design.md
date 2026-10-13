@@ -77,6 +77,14 @@ analysis.
 
 - Counts, areas and populations aggregate **L50 only**. L75 and L90 nest inside L50;
   summing all three triple-counts.
+- **Two documented exceptions**, confirmed against the committed data on 2026-10-13:
+  `sig` (BH-significant count) and `persist` (persistent day+night count) in
+  `cities.json` are counted over **all three contour levels**, so both are inflated
+  roughly 3× by the nesting. Every other count in the file is correctly L50-only.
+  **This is reproduced deliberately, by the study author's decision**, so the dashboard
+  continues to match the published figures. Any UI surfacing either column must not
+  describe it as a count of distinct spots. If the published figures are ever revised,
+  this is the first thing to correct.
 - Proportional circles use **one shared sqrt scale** across hot and cold.
 - The year slider back-casts from each spot's Sen slope and **says so in the control**.
 - BH significance is **shown, not filtered**.
@@ -593,7 +601,7 @@ If the contour data outgrows the browser, the answer is PMTiles — not an API.
 
 | # | Bug | Impact |
 | --- | --- | --- |
-| 1 | All 16 `clusters.json` typology strings are mojibake (`Grassland Â· 101â€“500 m Â· Metamorphic`) — double-encoded UTF-8 | Visible in the dropdown, cluster card, every city tooltip, compare cards and the report prose |
+| 1 | ~~All 16 `clusters.json` typology strings are mojibake~~ — **RETRACTED 2026-10-13. Not a defect.** The file is valid UTF-8 (`c2 b7` for `·`, `e2 80 93` for `–`) and parses to `Grassland · 101–500 m · Metamorphic`. The original finding came from reading the file with Python's default encoding, which is cp1252 on Windows; the corruption was in the reading, not the data. | none |
 | 2 | `buildRail()` hardcodes `data-on="true"`, so changing language desyncs toggle visuals from `state.layers` | Permanent wrong state |
 | 3 | Layer toggles are `<div onclick>` — no keyboard, no `role="switch"`, no `aria-checked` | Six controls unreachable without a mouse |
 | 4 | `openCity()` population bar divides by the magic number `230` | Wrong bar lengths |
