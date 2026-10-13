@@ -22,3 +22,19 @@ it.each(['nocturne', 'modernist'])('keeps every %s step >= 0.07 apart in lightne
     }
   }
 });
+
+// Direction guard — the spacing test above uses Math.abs, so an inverted ramp would pass it.
+// Rule: salience rises with intensity in both themes. On dark that means lightness climbs;
+// on light it means lightness descends. (The previous dashboard shipped the dark ramp inverted.)
+describe('ramp direction', () => {
+  const lightness = (p) => buildRamp(p).map(h => hexToOklch(h).L);
+  const strictly = (ls, sign) => ls.every((l, i) => i === 0 || sign * (l - ls[i - 1]) > 0);
+
+  it.each(['hot', 'cold'])('nocturne %s ramp strictly increases in lightness', (family) => {
+    expect(strictly(lightness(RAMPS.nocturne[family]), +1)).toBe(true);
+  });
+
+  it.each(['hot', 'cold'])('modernist %s ramp strictly decreases in lightness', (family) => {
+    expect(strictly(lightness(RAMPS.modernist[family]), -1)).toBe(true);
+  });
+});
