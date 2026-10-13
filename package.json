@@ -1,0 +1,14 @@
+{
+  "name": "nigeria-hotspot-dashboard-design",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "palette": "node scripts/palette.mjs",
+    "derive": "node scripts/derive.mjs",
+    "audit": "node scripts/audit-contrast.mjs"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}
