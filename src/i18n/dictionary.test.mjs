@@ -25,25 +25,23 @@ describe('dictionary', () => {
     }
   });
 
-  it('pins precomposed NFC so a toolchain pass cannot silently decompose dot-below and tone marks', () => {
-    // 'ọ́' has no single code point (ọ + acute stays combining under NFC); the
-    // guard is that NFC is a fixed point, so decomposition would be caught.
+  it('contains real combining marks, so the NFC test is exercising something', () => {
+    // 'ọ́' has no single precomposed code point; NFC being a fixed point is what
+    // the all-strings NFC test checks. Here we only prove the fixture has marks.
     const s = D.method[3]; // 'Ọ̀nà'
     expect(s.normalize('NFC')).toBe(s);
-    expect(s.normalize('NFD')).not.toBe(s); // proves the fixture really contains marks
+    expect(s.normalize('NFD')).not.toBe(s);
   });
 
+  // MODIS and Gi* are deliberately NOT listed: they reach the UI through markup
+  // and concatenation ('MODIS ' + T('hotdays'), Gi* in the HTML), not as
+  // dictionary values, so there is nothing here to enforce.
   it('leaves scientific vocabulary untranslated so numbers can be checked against the paper', () => {
-    for (const term of ['SUHI', 'LST', 'MODIS', 'Gi*', 'Benjamini']) {
-      for (const v of Object.values(D)) {
-        if (v[0].includes(term)) for (const s of v) expect(s).toContain(term);
-      }
+    for (const term of ['SUHI', 'LST', 'Benjamini', 'Hochberg', 'Sen']) {
+      const hits = Object.values(D).filter((v) => v[0].includes(term));
+      expect(hits.length, term + ' no longer appears in any English string').toBeGreaterThan(0);
+      for (const v of hits) for (const s of v) expect(s, term).toContain(term);
     }
-  });
-
-  it('actually exercises the scientific-vocabulary rule (not vacuous)', () => {
-    const hits = Object.values(D).filter((v) => /SUHI|LST|MODIS|Gi\*/.test(v[0]));
-    expect(hits.length).toBeGreaterThan(0);
   });
 
   it('renders the headline template in all four languages', () => {
