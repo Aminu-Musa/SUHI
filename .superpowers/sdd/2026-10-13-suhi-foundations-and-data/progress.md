@@ -307,3 +307,27 @@ nesting documentation are design-independent. Only the token stylesheet (Task 3)
 audit's colour pairs (Task 4) are Field-specific; the audit machinery retargets cheaply.
 Spec §3-§5 and §7, and all of plan 2, need revising. Cost if wrong: the redesign work in
 §3-§7 of the spec becomes reference material rather than a build target.
+
+FINAL REVIEW: MERGE, nothing blocks. 6 Important (all additive), triaged 18 deferred minors,
+reviewed all 22 rulings and reversed none. Fix wave: 9/9 items addressed across 943a763,
+72564bb, b2b0cf8. Scoped re-review: all 9 ADDRESSED, no new Critical/Important. 81/81 green,
+audit exit 0, data untouched.
+
+Ruling 23: do NOT delete this workspace, contrary to the skill's default. Final-review item 6
+deliberately made the ledger and task reports TRACKED files (only review-*.diff stays
+ignored), because the 1,647-field verification evidence and the 24 rulings were otherwise
+working-tree-only and would die on clone. Deleting the workspace would now delete committed
+decision records. Cost if wrong: ~200 KB of markdown in the repo, against losing the reasoning
+behind every number on the dashboard.
+
+Ruling 24: PARKED two residual findings rather than opening a second fix wave (the process
+allows one). Both bite only at the retarget, which starts next, so they are carried into it
+rather than lost:
+  (a) ramps.test.mjs "classifies at least one dark and one light ground" asserts exactly 2
+      distinct signs. A single-theme rebuild — plausible under the pixel-for-pixel pivot —
+      fails it FALSELY. Relax to >= 1, or require both polarities only while >1 theme exists.
+  (b) signFor uses an absolute relativeLuminance(bg) < 0.2 cutoff. A mid-tone ground, which
+      the original prototype's palette could well have, classifies arbitrarily. Comparing ramp
+      endpoint luminance directly against the --bg luminance is the robust form.
+  Cost if wrong: a false red at retarget time that someone deletes the guard to silence —
+  which is exactly how the inverted-ramp bug would return. Both are first items of the retarget.
