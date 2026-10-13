@@ -77,14 +77,40 @@ analysis.
 
 - Counts, areas and populations aggregate **L50 only**. L75 and L90 nest inside L50;
   summing all three triple-counts.
-- **Two documented exceptions**, confirmed against the committed data on 2026-10-13:
-  `sig` (BH-significant count) and `persist` (persistent day+night count) in
-  `cities.json` are counted over **all three contour levels**, so both are inflated
-  roughly 3× by the nesting. Every other count in the file is correctly L50-only.
-  **This is reproduced deliberately, by the study author's decision**, so the dashboard
-  continues to match the published figures. Any UI surfacing either column must not
-  describe it as a count of distinct spots. If the published figures are ever revised,
-  this is the first thing to correct.
+- **Four nesting artifacts are reproduced deliberately** — see §2.1.
+
+### 2.1 Nesting artifacts in the published figures
+
+L75 and L90 contours nest **inside** L50, so a spot appears as 1, 2 or 3 rows
+(53 / 8 / 124 spots respectively). Four derived fields aggregate over all rows rather
+than L50 only. All four were confirmed against the committed data on 2026-10-13 and are
+**reproduced on the study author's explicit decision**, so the dashboard keeps matching
+the published figures. Each has a call-site comment and a test whose name states the
+reason; a future reader who "corrects" one gets a red test with an explanation.
+
+| Field | Artifact | Effect |
+| --- | --- | --- |
+| `sig` (cities) | BH-significant count over all levels | inflated ~3× |
+| `persist` (cities) | persistent day+night count over all levels | inflated ~3× |
+| `n` (clusters) | row count, not spot count — cluster 1 is 12 rows from 6 spots | inflated ~2× |
+| `suhii`, `slope`, `hotdays` (cities) | **multiplicity-weighted means** | see below |
+
+The last is the consequential one. Those three fields are **constant within a spot**
+(0 of 185 vary across levels), so averaging across all rows weights a 3-level spot 3× a
+1-level spot. It changes the displayed value for **30 of 55 cities** (Akure 1.60 → 1.19,
+Oshogbo 1.43 → 1.82, Calabar 1.83 → 1.49) and, because the table sorts by `suhii`,
+**changes the top-10 ranking's membership and order** — Calabar #4 → #10, Akure out,
+Oshogbo in.
+
+`mean_lst` is *not* an artifact: it genuinely varies per level (132 of 185 spots), so
+averaging all rows is correct. `max_lst` is immune, since L90 ⊂ L75 ⊂ L50 makes the max
+identical under either scope.
+
+**Consequences for the UI.** No view may describe `sig`, `persist` or cluster `n` as a
+count of distinct spots. The city ranking by `suhii` is the dashboard's headline
+ordering and is multiplicity-weighted, so any copy calling it "hottest cities" needs a
+footnote. If the published figures are ever revised, this section is the first thing to
+correct — switching all four to L50-only is a one-line change per call site.
 - Proportional circles use **one shared sqrt scale** across hot and cold.
 - The year slider back-casts from each spot's Sen slope and **says so in the control**.
 - BH significance is **shown, not filtered**.
