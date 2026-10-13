@@ -590,9 +590,9 @@ const BASES={
 };
 
 Promise.all([
-  d3.json('data/cities.json'),
-  d3.json('data/clusters.json'),
-  d3.json('data/spots.geojson'),
+  d3.json('../data/cities.json'),
+  d3.json('../data/clusters.json'),
+  d3.json('../data/spots.geojson'),
   d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json')
 ]).then(([c,k,s,topo])=>{
   CITIES=c;CLUSTERS=k;SPOTS=s;
