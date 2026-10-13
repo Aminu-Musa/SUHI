@@ -230,6 +230,52 @@ describe('modal tie-break', () => {
   });
 });
 
+// The class fields are modal over ALL levels, not over L50. The real data cannot show the
+// difference -- the two scopes agree for all 55 cities x 5 class fields -- so narrowing the
+// scope to `l50` passes the whole corpus suite including the byte guard. This synthetic
+// collection is built so the two scopes disagree, and pins the documented one.
+it('takes dominant class fields over all levels, not just L50', () => {
+  const ring = [[[0, 0], [0, 1], [1, 1], [0, 0]]];
+  const row = (spotId, level, overrides) => ({
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: ring },
+    properties: {
+      spot_id: spotId, city: 'Scopeville', period: 'day', spot_type: 'hot',
+      contour_level: level, cluster25: 1, area_km2: 1, population: 1,
+      suhii: 1, mean_lst: 20, max_lst: 21, sen_slope_C_per_decade: 1,
+      n_modis_hot_days: 1, bh_significant: false, persistent_dn: false,
+      city_area_km2: 100, uc_area_km2: 10,
+      landcover_class: 'Cropland', elevation_class: 'Low (101-500m)',
+      geology_class: 'Metamorphic formation', climate_class: 'Tropical wet',
+      ...overrides,
+    },
+  });
+  // Spot A contributes one L50 row of Cropland; spot B contributes two non-L50 rows of
+  // Grassland. All levels -> Grassland wins 2-1. L50 only -> Cropland wins 1-0.
+  const grassland = {
+    landcover_class: 'Grassland', elevation_class: 'Very Low (0-100m)',
+    geology_class: 'Sedimentary formation', climate_class: 'Tropical wet and dry',
+  };
+  const synthetic = {
+    type: 'FeatureCollection',
+    features: [
+      row('a_001', 'L50', {}),
+      row('b_001', 'L75', grassland),
+      row('b_001', 'L90', grassland),
+    ],
+  };
+
+  const [scopeville] = deriveCities(synthetic);
+  expect(scopeville.landcover).toBe('Grassland');
+  expect(scopeville.elev).toBe('Very Low (0-100m)');
+  expect(scopeville.geol).toBe('Sedimentary formation');
+  expect(scopeville.climate).toBe('Tropical wet and dry');
+  // An L50-scoped implementation would report Cropland here, so this assertion is the pin.
+  expect(scopeville.landcover).not.toBe('Cropland');
+  // And the cluster table derives its classes the same way.
+  expect(deriveClusters(synthetic)[0].landcover).toBe('Grassland');
+});
+
 it('takes dominant class fields as the modal value by feature count', () => {
   const ibadan = city('Ibadan');
   expect(ibadan.landcover).toBe('Grassland');
