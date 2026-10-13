@@ -222,7 +222,45 @@ levels, not five:
 Every text use — KPI figures, table cells, compare values, tooltip headings — reads
 `-ink`. Fills are for geometry and legend strips only.
 
-### 5.4 Contrast audit
+### 5.4 Bars — track-anchored gradients
+
+Every measure bar (Compare matrix, KPI split bar, confidence distribution, cluster
+card) fills with the ramp as a **gradient anchored to the track, not to the bar**.
+
+```css
+.bar-fill {
+  background-image: linear-gradient(90deg, var(--hot-1), var(--hot-5));
+  background-size: calc(100% * var(--track-ratio)) 100%;  /* 1 / bar fraction */
+  background-repeat: no-repeat;
+  border-right: 2px solid var(--text);                    /* the end cap */
+}
+```
+
+**Why anchored to the track.** If the gradient spans the bar's own width, every bar —
+at 20% or at 100% — runs the complete ramp and ends in the hottest colour. Colour then
+carries no information while appearing to, and a city with 6,420 people in hot spots
+terminates in the same alarm-red as one with 30,653. Anchored to the track, a 20% bar
+shows only the first 20% of the ramp, so colour at any horizontal position means the
+same thing on every row and the bar's tip reads as a position on the scale. It also
+matches the map legend exactly, which a flat fill does not.
+
+**Why the end cap is mandatory.** No single track colour contrasts with a full-range
+ramp. Measured against four candidate Nocturne tracks, the weakest ramp step lands at
+1.04–1.24:1 — a bar whose tip falls near that step has an invisible end, and "very
+small" becomes indistinguishable from "zero". The 2px `--text` cap makes the extent
+explicit regardless of fill colour. It is not decoration; **a bar without it is not
+readable and must not ship.**
+
+| Token | Nocturne | Modernist |
+| --- | --- | --- |
+| `--track` | `#b6bdc9` (9.68:1 vs `--bg`) | `#c2c8cf` |
+| bar end cap | 2px `var(--text)` | 2px `var(--text)` |
+
+The light track on the dark ground is deliberate and is what makes the corrected
+Nocturne ramp usable: that ramp runs deep red → bright yellow, so a bar *starts* dark
+and would vanish into a dark trough.
+
+### 5.5 Contrast audit
 
 Live failures and their replacements:
 
@@ -384,6 +422,12 @@ Capped at **four** cities — five made columns too narrow for the bars to read.
 
 Rows: population in hot spots, SUHI intensity, % of city hot, population in cold spots,
 warming trend. Typology line in the footer.
+
+Bars use the track-anchored gradient and the mandatory end cap from §5.4. Because the
+gradient is anchored to the track and the track is scaled to the selected set, a bar's
+tip encodes two things at once — its length against the other chosen cities, and its
+colour position on the same ramp the map uses. The clustered bar charts in §7.5.3 take
+the identical treatment, so the whole Compare tab reads as one system.
 
 #### 7.5.3 The chart layer
 
@@ -622,6 +666,7 @@ series (there is no time series in the data), and no backend service.
 | Compare chart | **A1 — horizontal clustered bars, day vs night** | Slope chart; diverging single bar (A2) |
 | Chart axes | Day/night, contour level, city rank | Any time axis — would be a straight line by construction |
 | Reports | Brief two-thirds; exports as one select + Download | Six equal export cards |
+| Bar fill | **Gradient anchored to the track, 2px end cap, light track** | Gradient per bar (colour would mean nothing); flat ink |
 
 ---
 

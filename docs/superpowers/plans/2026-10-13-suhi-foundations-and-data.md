@@ -207,6 +207,11 @@ git commit -m "feat: generate data ramps from OKLCH parameters"
 | `--hot-ink` | `#f2b64e` | `#ac4a11` |
 | `--cold-ink` | `#98c9eb` | `#3563a4` |
 | `--neutral-mid` | `#39404b` | `#d9dcdf` |
+| `--track` | `#b6bdc9` | `#c2c8cf` |
+
+Also `--bar-cap: 2px` (spec §5.4) — the end cap on every bar fill, drawn in `--text`.
+It is mandatory: no track colour contrasts with a full-range ramp, so without it a bar
+whose tip lands near the track colour has an invisible end.
 
 Type scale as `--font-display: 800 34px/1.1`, `--font-figure`, `--font-title`, `--font-section`, `--font-body`, `--font-label` per spec §4.1. `--font-family: Archivo, system-ui, sans-serif`.
 
