@@ -3,11 +3,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildRamp, RAMPS } from './lib/ramps.mjs';
 import { THEME_TOKENS } from './lib/tokens.mjs';
 
-const THEMES = ['nocturne', 'modernist'];
-
 /** Render the generated ramp stylesheet: --hot-1..5, --cold-1..5, --neutral-mid per theme. */
 export function renderRampsCss() {
-  const blocks = THEMES.map((theme) => {
+  const blocks = Object.keys(THEME_TOKENS).map((theme) => {
     const decls = [];
     for (const family of ['hot', 'cold']) {
       buildRamp(RAMPS[theme][family]).forEach((hex, i) =>

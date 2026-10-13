@@ -3,11 +3,7 @@
  * `scripts/palette.mjs` and `src/styles/suhi-tokens.css` render these; Task 4's contrast
  * audit imports them. Change a value here first, then in the CSS (a test checks they agree).
  */
-
-const deepFreeze = (o) => {
-  for (const v of Object.values(o)) if (v && typeof v === 'object') deepFreeze(v);
-  return Object.freeze(o);
-};
+import { deepFreeze } from './freeze.mjs';
 
 export const THEME_TOKENS = deepFreeze({
   nocturne: {

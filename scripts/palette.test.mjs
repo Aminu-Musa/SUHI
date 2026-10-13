@@ -51,7 +51,7 @@ describe('token module', () => {
     const names = ['--bg', '--surface', '--surface-2', '--rule-color', '--rule-strong-color',
       '--text', '--text-muted', '--accent', '--on-accent', '--hot-ink', '--cold-ink',
       '--neutral-mid', '--track'];
-    for (const t of ['nocturne', 'modernist']) {
+    for (const t of Object.keys(THEME_TOKENS)) {
       expect(Object.keys(THEME_TOKENS[t]).sort()).toEqual([...names].sort());
     }
   });
@@ -88,7 +88,7 @@ describe('suhi-tokens.css', () => {
   });
 
   it('declares each per-theme token as in THEME_TOKENS, once per block', () => {
-    for (const t of ['nocturne', 'modernist']) {
+    for (const t of Object.keys(THEME_TOKENS)) {
       const block = blocks[`html[data-theme="${t}"]`];
       for (const [k, v] of Object.entries(THEME_TOKENS[t])) {
         if (k === '--neutral-mid') continue; // generated into _ramps.css

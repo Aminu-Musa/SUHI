@@ -1,4 +1,5 @@
 import { oklchToHex } from './color.mjs';
+import { deepFreeze } from './freeze.mjs';
 
 const DEG = Math.PI / 180;
 
@@ -14,11 +15,6 @@ export function buildRamp({ L0, L1, C0, C1, H0, H1, steps = 5 }) {
   }
   return out;
 }
-
-const deepFreeze = (o) => {
-  for (const v of Object.values(o)) if (v && typeof v === 'object') deepFreeze(v);
-  return Object.freeze(o);
-};
 
 export const RAMPS = deepFreeze({
   nocturne: {

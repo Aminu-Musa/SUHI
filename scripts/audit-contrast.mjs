@@ -6,23 +6,28 @@ import { buildRamp, RAMPS } from './lib/ramps.mjs';
 const TEXT_FLOOR = 4.5;
 const FILL_FLOOR = 1.0; // fills are geometry, not text: recorded for visibility, never failed on
 
-const TEXT_ON_SURFACE = ['--text', '--text-muted', '--accent', '--hot-ink', '--cold-ink'];
+const GROUNDS = ['--bg', '--surface', '--surface-2'];
+const TEXT_TOKENS = ['--text', '--text-muted', '--accent', '--hot-ink', '--cold-ink'];
 
 /**
  * Audit every text pair in every theme.
- * `overrides` is a test seam: { 'theme/--token': '#hex' } replaces that row's foreground.
+ * Text tokens are checked on every ground in GROUNDS, so the worst-case pair is found by the
+ * audit rather than assumed. Row ids are `theme/--token@--ground`.
+ * `overrides` is a test seam: { 'theme/--token': '#hex' } replaces that token's foreground on all grounds.
  */
 export function auditPairs({ overrides = {} } = {}) {
   const rows = [];
   const add = (use, fg, bg, floor) => {
-    const fgHex = overrides[use] ?? fg;
+    const fgHex = overrides[use] ?? overrides[use.split('@')[0]] ?? fg;
     const ratio = contrastRatio(fgHex, bg);
     rows.push({ use, fg: fgHex, bg, ratio, floor, pass: ratio >= floor });
   };
 
   for (const theme of Object.keys(THEME_TOKENS)) {
     const t = THEME_TOKENS[theme];
-    for (const name of TEXT_ON_SURFACE) add(`${theme}/${name}`, t[name], t['--surface-2'], TEXT_FLOOR);
+    for (const ground of GROUNDS) {
+      for (const name of TEXT_TOKENS) add(`${theme}/${name}@${ground}`, t[name], t[ground], TEXT_FLOOR);
+    }
     add(`${theme}/--on-accent`, t['--on-accent'], t['--accent'], TEXT_FLOOR);
     for (const family of ['hot', 'cold']) {
       buildRamp(RAMPS[theme][family]).forEach((hex, i) =>

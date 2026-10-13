@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { buildRamp, RAMPS } from './ramps.mjs';
-import { hexToOklch } from './color.mjs';
+import { hexToOklch, relativeLuminance } from './color.mjs';
+import { THEME_TOKENS } from './tokens.mjs';
+
+const THEMES = Object.keys(THEME_TOKENS);
+
+it('defines a ramp for exactly the themes in THEME_TOKENS', () => {
+  expect(Object.keys(RAMPS).sort()).toEqual([...THEMES].sort());
+});
 
 it('reproduces the spec ramp literals', () => {
   expect(buildRamp(RAMPS.nocturne.hot)).toEqual(
@@ -14,7 +21,7 @@ it('reproduces the spec ramp literals', () => {
 });
 
 // Review Focus 3 — a ramp whose steps are confusable must fail the build
-it.each(['nocturne', 'modernist'])('keeps every %s step >= 0.07 apart in lightness', (theme) => {
+it.each(THEMES)('keeps every %s step >= 0.07 apart in lightness', (theme) => {
   for (const family of ['hot', 'cold']) {
     const ls = buildRamp(RAMPS[theme][family]).map(h => hexToOklch(h).L);
     for (let i = 1; i < ls.length; i++) {
@@ -24,17 +31,21 @@ it.each(['nocturne', 'modernist'])('keeps every %s step >= 0.07 apart in lightne
 });
 
 // Direction guard — the spacing test above uses Math.abs, so an inverted ramp would pass it.
-// Rule: salience rises with intensity in both themes. On dark that means lightness climbs;
-// on light it means lightness descends. (The previous dashboard shipped the dark ramp inverted.)
+// Invariant: lightness moves AWAY from the ground as intensity rises. On a dark ground that means
+// lightness climbs; on a light ground it descends. The ground is read from THEME_TOKENS, so the
+// guard survives any palette or theme rename. (The previous dashboard shipped the dark ramp
+// inverted: the mildest hot spots were the most visible and severe ones sank into the map.)
 describe('ramp direction', () => {
   const lightness = (p) => buildRamp(p).map(h => hexToOklch(h).L);
   const strictly = (ls, sign) => ls.every((l, i) => i === 0 || sign * (l - ls[i - 1]) > 0);
+  const signFor = (theme) => (relativeLuminance(THEME_TOKENS[theme]['--bg']) < 0.2 ? +1 : -1);
+  const cases = THEMES.flatMap(t => ['hot', 'cold'].map(f => [t, f]));
 
-  it.each(['hot', 'cold'])('nocturne %s ramp strictly increases in lightness', (family) => {
-    expect(strictly(lightness(RAMPS.nocturne[family]), +1)).toBe(true);
+  it.each(cases)('%s %s ramp moves away from the ground as intensity rises', (theme, family) => {
+    expect(strictly(lightness(RAMPS[theme][family]), signFor(theme))).toBe(true);
   });
 
-  it.each(['hot', 'cold'])('modernist %s ramp strictly decreases in lightness', (family) => {
-    expect(strictly(lightness(RAMPS.modernist[family]), -1)).toBe(true);
+  it('classifies at least one dark and one light ground (guard is exercised both ways)', () => {
+    expect(new Set(THEMES.map(signFor)).size).toBe(2);
   });
 });

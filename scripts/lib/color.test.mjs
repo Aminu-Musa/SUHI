@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { it, expect } from 'vitest';
 import { hexToOklch, oklchToHex, contrastRatio, relativeLuminance } from './color.mjs';
 
 it('round-trips a hex through OKLCH', () => {
