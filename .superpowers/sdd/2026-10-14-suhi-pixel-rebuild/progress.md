@@ -121,3 +121,45 @@ Finding 4 is my arithmetic error, not the implementer's: ten ramp ink tokens plu
 which propagated into the plan, the brief and the test name. Corrected in `docs/` by me;
 the implementer renames the test to state the invariant rather than a bare number.
 *Cost if wrong:* none behavioural - every asserted value was always correct.
+
+**Ruling 5 - "the rail stays mounted" means mounted in the DOM, NOT visible.**
+Found while preparing the Task 2 dispatch. The original's `selectTab` (prototype line
+1020) sets `rail.style.display` and `stage.style.display` to `none` on every tab except
+Map. Spec §7.1 says "the rail stays mounted across all four tabs" and the plan's Task 2
+test said "the rail stays mounted on every tab" - both of which an implementer could
+reasonably read as "stays visible", which would be a visible fidelity break on three of
+the four tabs.
+**Decision:** the rail and the stage stay **mounted** (React keeps them in the tree so
+their state survives a tab change) and are **hidden** on compare/table/report, exactly
+as the original hides them. Spec §7.1 and the Task 2 test are both reworded to say
+"mounted but hidden". The test must assert the computed display, not merely presence.
+*Cost if wrong:* the rail would render beside three panels it was never designed to
+share a row with - caught immediately by the Task 3 fidelity guard, but only after
+Task 2 shipped.
+
+**Ruling 6 - theme and language persist to `localStorage`, and that is in scope.**
+The original reads `suhi.theme` (default `nocturne`) and `suhi.lang` (default `en`) at
+startup and writes them on every change (prototype lines 546, 557, 1015, 1017). The plan
+did not mention persistence at all.
+**Decision:** reproduce it, same two keys, same defaults. Reads must tolerate a
+throwing or empty `localStorage` (private mode, blocked storage) and fall back to the
+defaults rather than failing to boot. Pinned by a test in Task 2.
+*Cost if wrong:* a returning user loses their theme - small, but it is behaviour the
+original has and the fidelity guard cannot see.
+
+**Ruling 7 - theme change auto-switches the basemap, latched by an explicit user pick.**
+`applyTheme` calls `setBase(theme === 'nocturne' ? 'dark' : 'topo')` **only while**
+`userPickedBase` is false; any click in `#baseSeg` sets that latch true, permanently
+(prototype lines 561, 577, 665). The plan's Task 2 `paintEpoch` design covers repainting
+but not this coupling, and Task 6 owns `setBase`.
+**Decision:** the latch is part of `State` (`userPickedBase: boolean`, initial `false`),
+set by the basemap segment in Task 4 and read by the theme effect. Task 2 defines the
+field and the effect; Task 6 implements `setBase`. Pinned by two tests in Task 2: theme
+change moves the basemap while the latch is false, and does not once it is true.
+*Cost if wrong:* either the basemap stops following the theme, or it overrides a choice
+the user made - the second is the worse failure and the reason the latch exists.
+
+**Not a finding:** the original's `applyI18n` assigns `innerHTML`, but no dictionary
+value in `src/i18n/dictionary.mjs` contains markup (checked: zero matches for a tag).
+Task 2 renders translated strings as plain React children. Do not reach for
+`dangerouslySetInnerHTML`.

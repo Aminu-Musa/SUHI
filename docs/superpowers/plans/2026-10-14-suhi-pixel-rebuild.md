@@ -187,9 +187,9 @@ git commit -m "feat: authored token blocks, derived ink scale, retargeted audit"
 **Interfaces:**
 - Consumes: `D`, `LANGS`, `T` from `src/i18n/dictionary.mjs`; the CSS from Task 1
 - Produces:
-  - `useTheme() -> { theme: 'nocturne' | 'modernist', setTheme, paintEpoch: number }` — `paintEpoch` increments on every theme change and is what Task 7 subscribes to
-  - `useT() -> (key: string) => string` and `useLang() -> { lang, setLang }`
-  - `useAppState() -> [State, (patch: Partial<State>) => void]` where `State` types the original's `state` object (prototype lines 572–574): `contour: 'all'|'L50'|'L75'|'L90'`, `year: number`, `cluster: string`, `opacity: number`, `city: string|null`, `popMode: 'both'|'hot'|'cold'`, `circleMetric: 'pop'|'area'`, `layers: Record<'spots'|'exag'|'cities'|'states'|'nation'|'labels', boolean>`
+  - `useTheme() -> { theme: 'nocturne' | 'modernist', setTheme, paintEpoch: number }` — `paintEpoch` increments on every theme change and is what Task 7 subscribes to. Theme persists to `localStorage` key `suhi.theme`, default `nocturne` (ruling 6)
+  - `useT() -> (key: string) => string` and `useLang() -> { lang, setLang }`. Language persists to `localStorage` key `suhi.lang`, default `en` (ruling 6). Both reads must survive a throwing or empty `localStorage` and fall back to the default
+  - `useAppState() -> [State, (patch: Partial<State>) => void]` where `State` types the original's `state` object (prototype lines 572–574): `contour: 'all'|'L50'|'L75'|'L90'`, `year: number`, `cluster: string`, `opacity: number`, `city: string|null`, `popMode: 'both'|'hot'|'cold'`, `circleMetric: 'pop'|'area'`, `userPickedBase: boolean` (initial `false`, ruling 7), `layers: Record<'spots'|'exag'|'cities'|'states'|'nation'|'labels', boolean>`
   - `type Tab = 'map' | 'compare' | 'table' | 'report'`
 
 - [ ] **Step 1: Scaffold Vite + React + TS and install dependencies**
@@ -208,8 +208,12 @@ Pin every dependency to an exact version. Add scripts: `dev`, `build`, `preview`
 test('renders the four tabs in the original order', …)       // Map, Compare cities, Data table, Reports
 test('renders brand, language select, theme select, Framed toggle, Export button', …)
 test('only the selected tab panel has data-on=true', …)
-test('the rail stays mounted on every tab', …)
+test('the rail and stage stay mounted but are hidden off the Map tab', …)   // ruling 5 - assert computed display, not presence
 test('Framed toggle sets data-framed on the stage', …)
+test('theme and language survive a reload via localStorage', …)              // ruling 6
+test('a throwing localStorage falls back to the defaults rather than failing to boot', …)
+test('changing theme moves the basemap while userPickedBase is false', …)    // ruling 7
+test('changing theme leaves the basemap alone once userPickedBase is true', …)
 
 // src/app/I18nProvider.test.tsx
 test('switching language retranslates every data-i18n key', …)

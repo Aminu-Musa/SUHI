@@ -535,8 +535,16 @@ disagree, the file wins and this section is wrong.
 └── .tip                  position:fixed, shared tooltip
 ```
 
-Tabs switch which of `.stage` / the three `.panel`s has `data-on=true`. The rail stays
-mounted across all four tabs.
+Tabs switch which of `.stage` / the three `.panel`s has `data-on=true`. The rail and the
+stage stay **mounted** across all four tabs - so their state survives a tab change - but
+the original **hides both** on compare, table and report: `selectTab` (prototype line
+1020) sets `rail.style.display` and `stage.style.display` to `none` unless the Map tab is
+active. Mounted, not visible.
+
+Theme and language persist to `localStorage` under `suhi.theme` (default `nocturne`) and
+`suhi.lang` (default `en`), and a theme change also moves the basemap -
+`nocturne` to `dark`, `modernist` to `topo` - but only until the user picks a basemap
+explicitly, after which the choice is latched and the theme no longer overrides it.
 
 `.stage.framed` adds `--space-6` padding and a `--ui-rule` border on `.mapwrap` — the
 "Framed" header toggle. Kept.
