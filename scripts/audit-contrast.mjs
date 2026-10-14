@@ -11,7 +11,15 @@
  * pair (`.kpi .val`, 24px) and is not needed: the ink scale clears 4.5 everywhere, so no
  * row is exempted. `--color-accent` is deliberately NOT a text token any more.
  *
- * Exits 1 on any failure. Row ids are `theme/--token@--ground`.
+ * Exits 1 on any failure.
+ *
+ * ROW IDS. Text rows are `theme/--token@--ground`, as brief Step 7 and spec §9.2 state.
+ * The one reverse-direction row is `theme/#ffffff@--accent-fill`: the foreground there is
+ * literal white, which is not declared as a token in either theme block, so the first slot
+ * holds the hex rather than a token name. The id is still `theme/<fg>@<bg>` — a downstream
+ * parser should read the slots as foreground and background, and expect the foreground slot
+ * to be a hex on exactly this row. `ON_ACCENT` is exported so callers can build the id
+ * rather than hard-coding `#ffffff`, and `audit-contrast.test.mjs` pins both shapes.
  */
 import { pathToFileURL } from 'node:url';
 import { contrastRatio } from './lib/color.mjs';

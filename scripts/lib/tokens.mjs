@@ -8,12 +8,25 @@
  * two consumers only ever need colours:
  *   - `scripts/audit-contrast.mjs` measures contrast between them,
  *   - `scripts/lib/ink.mjs` derives the ink scale from the ramps and the text grounds.
- * Task 6 also resolves token *names* to colours through here to build MapLibre paint
- * expressions, which is why every value below is a literal hex and never a `var()`.
  *
- * Non-hex values in the authored blocks (`--color-divider`, `--ui-scrim`, the shadows,
- * fonts, spacing and radii) live only in the CSS. `scripts/lib/tokens.test.mjs` fails if
- * any value here drifts from the CSS block it mirrors.
+ * TWO SEPARATE CONSTRAINTS apply to the values here, and they are not the same strength:
+ *   - Every value must be SIX-DIGIT HEX, because the audit and the ink derivation parse
+ *     each one with `parseHex` in `./color.mjs`, which accepts `#rrggbb` and nothing else.
+ *     An `#rgb`, an `#rrggbbaa`, an `rgba()` or a `color-mix()` would throw there. This is
+ *     why the two non-hex colour tokens of the authored blocks — `--color-divider`
+ *     (`color-mix()`) and `--ui-scrim` (`rgba()`) — are deliberately NOT mirrored here. A
+ *     later task that needs those resolved in JavaScript should add a separate non-hex map
+ *     rather than loosen the invariant and break the audit's inputs.
+ *   - No value may be a `var()`, because Task 6 resolves token *names* to colours through
+ *     here to build MapLibre paint expressions and MapLibre would receive the literal
+ *     string `"var(--color-neutral-800)"`. MapLibre itself would accept any concrete CSS
+ *     colour string, so this constraint is weaker than the hex one above — it is the hex
+ *     requirement, not MapLibre, that rules out `rgba()`.
+ *
+ * The non-colour values of the authored blocks (fonts, spacing, radii, shadows, `--ui-rule`)
+ * live only in the CSS. `scripts/lib/tokens.test.mjs` fails if any value here drifts from
+ * the CSS block it mirrors, if either side gains a token the other lacks, or if the two
+ * themes stop carrying the same token names.
  */
 import { deepFreeze } from './freeze.mjs';
 

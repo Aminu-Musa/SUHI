@@ -53,6 +53,21 @@ describe('auditPairs', () => {
     for (const row of auditPairs()) expect(row.use).not.toContain('--color-accent@');
   });
 
+  it('gives every row an id of theme/<fg>@<bg>, with a hex fg slot only on the reverse-direction row', () => {
+    // Documented in the audit's header: text rows are theme/--token@--ground; the one row
+    // where the fill moved instead of the text carries literal white in the fg slot,
+    // because white is not declared as a token in either theme block.
+    for (const row of auditPairs()) {
+      const [theme, pair] = row.use.split('/');
+      expect(THEMES).toContain(theme);
+      const [fg, bg] = pair.split('@');
+      expect(bg).toMatch(/^--[\w-]+$/);
+      if (bg === '--accent-fill') expect(fg).toBe(ON_ACCENT);
+      else expect(fg).toMatch(/^--[\w-]+$/);
+    }
+    expect(auditPairs().filter((r) => !r.use.split('/')[1].startsWith('--'))).toHaveLength(THEMES.length);
+  });
+
   it('pins the ratios spec §5.4 publishes', () => {
     const byUse = Object.fromEntries(auditPairs().map((r) => [r.use, r.ratio]));
     expect(byUse['nocturne/--hot-1-ink@--color-bg']).toBeCloseTo(13.37, 1);

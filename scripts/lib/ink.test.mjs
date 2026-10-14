@@ -109,10 +109,15 @@ describe('deriveInk', () => {
     }
   });
 
-  test('reproduces the 21 values in spec §5.4 exactly', () => {
+  test('derives 11 ink tokens per theme, 22 in all, matching spec §5.4 exactly', () => {
+    // The brief and spec §5.4/§9.2 say "twenty-one"; that is an arithmetic slip in the
+    // spec, corrected by the coordinator. Ten ramp inks plus --accent-ink is 11 names per
+    // theme and 22 declarations across both, which is also what ink.css contains.
     for (const theme of ['nocturne', 'modernist']) {
+      expect(Object.keys(SPEC_5_4[theme])).toHaveLength(11);
       expect(INK_TOKENS(theme)).toEqual(SPEC_5_4[theme]);
     }
+    expect(Object.values(SPEC_5_4).flatMap((t) => Object.values(t))).toHaveLength(22);
   });
 });
 
