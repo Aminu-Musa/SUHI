@@ -163,3 +163,26 @@ the user made - the second is the worse failure and the reason the latch exists.
 value in `src/i18n/dictionary.mjs` contains markup (checked: zero matches for a tag).
 Task 2 renders translated strings as plain React children. Do not reach for
 `dangerouslySetInnerHTML`.
+
+- Fix round 1 commit: `3c7cae5`. Controller-verified: 87 tests / 7 files (was 81),
+  audit exit 0 at 80 pairs, and `ink.css` + `suhi-tokens.css` **byte-identical** to
+  `c553a28` - the round added guards and changed no value.
+- Scoped re-review: **all six findings ADDRESSED, nothing regressed.** The reviewer
+  performed four mutations itself (import removal, duplicate theme block, duplicate
+  declaration, extra CSS token), reverted each, and confirmed a clean tree and no
+  weakened guard.
+- Finding 6: the implementer declined to conform the `--accent-fill` row id and
+  documented the exception instead, on the grounds that white is not a declared token in
+  either authored block, so conforming would mean inventing a token name this system does
+  not have (`--on-accent` existed only in the deleted "Field" set). Re-reviewer agreed.
+  A test now permits a hex foreground slot only on `--accent-fill` rows, exactly one per
+  theme, so the exception cannot spread. **Accepted.**
+- Carried forward to Task 6's brief: `THEME_TOKENS` holds hex-valued tokens only, enforced
+  by a test, because the audit's `parseHex` requires `#rrggbb`. If the map needs scale or
+  non-hex values in JS, add a second export rather than loosening the invariant.
+- Carried forward to Task 2's reviewer: fixes 1-3 guard `src/styles/suhi-tokens.css`
+  structure from a test under `scripts/lib/`. Both implementer and re-reviewer judged this
+  acceptable for now and flagged `src/styles/*.test.mjs` as the better home if Task 2 adds
+  more CSS structure rules. Watch for that.
+
+**Task 1: complete.**
