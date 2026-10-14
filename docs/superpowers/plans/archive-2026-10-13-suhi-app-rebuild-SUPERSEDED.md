@@ -1,3 +1,7 @@
+> **SUPERSEDED 2026-10-14** by `2026-10-14-suhi-pixel-rebuild.md`.
+> This plan implemented the abandoned "Field" redesign. Kept for the record;
+> its MapLibre notes were carried forward into the new plan's Task 6.
+
 # SUHI App Rebuild Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
