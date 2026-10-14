@@ -20,7 +20,7 @@ Every task's requirements implicitly include these. Values are copied verbatim f
 - **Two independent design systems (§3.1).** Nocturne uses Inter 500, a 0.7× spacing scale and 4/8/14px radii; Modernist uses Archivo 800, a 1.0× scale and 0/0/0. No rule may assume they share anything. Every visual test runs twice, once per theme.
 - **Token values are authored, never generated.** The two blocks in spec §4.1 and §4.2 are the authority, byte-for-byte.
 - **The original's rendered page includes two vendored design-system stylesheets**, and the fidelity target is the rendered page, not the inline `<style>` block alone. `project/nigeria-suhi-dashboard.html` lines 9–10 load `project/_ds/nocturne-*/styles.css` (294 lines) then `project/_ds/modernist-*/styles.css` (252 lines). **Both are unscoped** — each declares `:root` and global element rules (`body`, `h1`–`h6`, `a`, `p`, `:focus`) with no `html[data-theme]` guard. So by load order the *Modernist* base rules win in **both** themes, and the prototype's `html[data-theme]` blocks then override the tokens per theme at higher specificity. That cascade is an accident of load order rather than a decision, but it is what the approved page renders, so it is reproduced exactly: both files are vendored in the same order, ahead of our own CSS. See "Findings while planning" below.
-- **The ink scale is derived, never hand-written.** All 21 values come from the fill values through `scripts/lib/color.mjs`. A test regenerates them and asserts equality with the CSS.
+- **The ink scale is derived, never hand-written.** All 22 values (11 token names per theme) come from the fill values through `scripts/lib/color.mjs`. A test regenerates them and asserts equality with the CSS.
 - **Original font sizes are kept**, including 9.5px and 10px labels. There is no minimum font size in this project.
 - **No Tailwind, no shadcn/ui, no JS theme object.** Styling is our own CSS with custom properties. Radix is used unstyled.
 - **No new `@media` query.** The original has none (§7.8). Responsive layout is deferred to §10.3.
@@ -86,7 +86,7 @@ Everything downstream reads these files, so this task lands first and alone.
   - `THEME_TOKENS: { nocturne: Record<string,string>, modernist: Record<string,string> }` — the two blocks from spec §4.1/§4.2 verbatim
   - `TEXT_GROUNDS = ['--color-bg', '--ui-panel-2', '--ui-tip']`
   - `deriveInk(hex, { grounds, dir, floor }) -> { hex, moved }` — minimum OKLCH lightness move clearing `floor` on every ground; `dir` is `+1` for Nocturne, `-1` for Modernist
-  - `INK_TOKENS(theme) -> Record<string,string>` — all 21 ink values for a theme
+  - `INK_TOKENS(theme) -> Record<string,string>` — all 11 ink values for one theme
   - `auditPairs() -> Row[]` with `id` of the form `theme/--token@--ground`
 
 - [ ] **Step 1: Write the failing tests for `deriveInk`**
@@ -97,7 +97,7 @@ test('holds hue and chroma, moves only lightness', …)              // ΔH < 1e
 test('returns the input unchanged when it already clears the floor', …)
 test('nocturne lightens and modernist darkens', …)
 test('clears the floor on every ground, not just the worst one', …)
-test('reproduces the 21 values in spec §5.4 exactly', …)
+test('derives 11 ink tokens per theme, 22 in all, matching spec §5.4 exactly', …)
 ```
 
 The last test is the one that matters; it carries the full expected table:
@@ -702,4 +702,4 @@ Two gaps found and closed while checking: spec §9.1 bug 3 (layer toggles with n
 
 **Review Focus coverage.** All five are pinned: 1 and 2 in Task 6, 3 in Task 5, 4 in Task 7, 5 in Task 4.
 
-**Proportion.** Twelve tasks over a spec of comparable length, with signatures and test names rather than function bodies. The only verbatim values are the 21 ink hexes (Task 1), which are the contract, and the 17 column names (Task 9), which are an order.
+**Proportion.** Twelve tasks over a spec of comparable length, with signatures and test names rather than function bodies. The only verbatim values are the 22 ink hexes (Task 1), which are the contract, and the 17 column names (Task 9), which are an order.

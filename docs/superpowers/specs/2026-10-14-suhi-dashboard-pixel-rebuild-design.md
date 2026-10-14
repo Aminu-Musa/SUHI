@@ -367,7 +367,8 @@ Resulting ratios — every ink token on every text ground, both themes:
 | `--cold-5-ink` | 5.64 / 4.53 / 5.31 | 11.32 / 9.62 / 12.64 |
 | `--accent-ink` | 5.60 / 4.50 / 5.27 | 5.31 / 4.51 / 5.93 |
 
-Twenty-one tokens, all passing, on all three grounds, in both themes.
+Eleven ink token names per theme - ten ramp steps plus `--accent-ink` - and so
+22 values in all, every one passing on all three grounds, in both themes.
 
 ### 5.5 What the ink scale costs
 
@@ -742,7 +743,7 @@ If the contour data outgrows the browser, the answer is PMTiles — not an API.
   direction: white *on* it. The large-text floor of 3.0 applies only to `.kpi .val`;
   everything else takes 4.5. Row ids stay `theme/--token@--ground`.
   This replaces the two tests parked under ruling 24 (§4.3).
-- The ink scale is **derived, not hand-copied**. A test regenerates all twenty-one ink
+- The ink scale is **derived, not hand-copied**. A test regenerates all 22 ink
   values from the fill values in §4 via `scripts/lib/color.mjs` and asserts they equal
   the CSS. A hand-edited ink token therefore fails the build, and the audit cannot be
   satisfied by weakening the derivation.
