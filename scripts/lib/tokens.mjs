@@ -1,72 +1,106 @@
 /**
- * Single home for every design-token value that is not a data ramp.
- * `scripts/palette.mjs` and `src/styles/suhi-tokens.css` render these; Task 4's contrast
- * audit imports them. Change a value here first, then in the CSS (a test checks they agree).
+ * The two authored theme token blocks, as data (spec §4.1, §4.2), plus the two measured
+ * corrections (§5.6 `--accent-fill`, §6.2 `--neutral-mid`).
+ *
+ * These are COPIED values, not designed ones: the original prototype
+ * (`project/nigeria-suhi-dashboard.html`) is the authority. `src/styles/suhi-tokens.css`
+ * declares the complete blocks; this module carries the hex-valued subset, because its
+ * two consumers only ever need colours:
+ *   - `scripts/audit-contrast.mjs` measures contrast between them,
+ *   - `scripts/lib/ink.mjs` derives the ink scale from the ramps and the text grounds.
+ * Task 6 also resolves token *names* to colours through here to build MapLibre paint
+ * expressions, which is why every value below is a literal hex and never a `var()`.
+ *
+ * Non-hex values in the authored blocks (`--color-divider`, `--ui-scrim`, the shadows,
+ * fonts, spacing and radii) live only in the CSS. `scripts/lib/tokens.test.mjs` fails if
+ * any value here drifts from the CSS block it mirrors.
  */
 import { deepFreeze } from './freeze.mjs';
 
 export const THEME_TOKENS = deepFreeze({
   nocturne: {
-    '--bg': '#12151a',
-    '--surface': '#1a1e25',
-    '--surface-2': '#242931',
-    '--rule-color': '#2e343d',
-    '--rule-strong-color': '#434a55',
-    '--text': '#eef1f5',
-    '--text-muted': '#9aa3b0',
-    '--accent': '#35c07d',
-    '--on-accent': '#0a0d11',
-    '--hot-ink': '#f2b64e',
-    '--cold-ink': '#98c9eb',
-    '--neutral-mid': '#39404b',
-    '--track': '#b6bdc9',
+    '--color-bg': '#161826',
+    '--color-surface': '#232532',
+    '--color-text': '#e9e9ed',
+    '--color-accent': '#9184d9',
+    '--color-neutral-100': '#f3f5fe',
+    '--color-neutral-200': '#e4e7f5',
+    '--color-neutral-300': '#cfd3e5',
+    '--color-neutral-400': '#b2b6ca',
+    '--color-neutral-500': '#9397ab',
+    '--color-neutral-600': '#75798c',
+    '--color-neutral-700': '#595d6c',
+    '--color-neutral-800': '#3f424d',
+    '--color-neutral-900': '#292b31',
+    '--color-accent-200': '#e7e5fe',
+    '--color-accent-300': '#d2cefd',
+    '--color-accent-400': '#b5abfc',
+    '--color-accent-500': '#968ae0',
+    '--color-accent-600': '#796cbf',
+    '--ui-panel': '#1c1e2b',
+    '--ui-panel-2': '#292b31',
+    '--ui-line': '#3f424d',
+    '--ui-line-strong': '#595d6c',
+    '--ui-muted': '#9397ab',
+    '--ui-tip': '#1b1e2b',
+    '--hot-1': '#f6e08a',
+    '--hot-2': '#f2c14e',
+    '--hot-3': '#ec9a3c',
+    '--hot-4': '#e06b2f',
+    '--hot-5': '#c9382c',
+    '--cold-1': '#cfe4f7',
+    '--cold-2': '#8fbfe8',
+    '--cold-3': '#5793d1',
+    '--cold-4': '#3467ad',
+    '--cold-5': '#20407c',
+    '--spot-stroke': '#e9e9ed',
+    // §5.6: white-on-accent only. Everywhere else keeps --color-accent.
+    '--accent-fill': '#796bbe',
+    // §6.2: the diverging ramp's midpoint. Equals --color-neutral-800; see the CSS comment
+    // and the test named for why it is duplicated as a literal rather than a var().
+    '--neutral-mid': '#3f424d',
   },
   modernist: {
-    '--bg': '#ffffff',
-    '--surface': '#f4f5f6',
-    '--surface-2': '#e9ebed',
-    '--rule-color': '#d5d9dd',
-    '--rule-strong-color': '#1a1d22',
-    '--text': '#14171c',
-    '--text-muted': '#5b6472',
-    '--accent': '#0e7a4a',
-    '--on-accent': '#ffffff',
-    '--hot-ink': '#ac4a11',
-    '--cold-ink': '#3563a4',
-    '--neutral-mid': '#d9dcdf',
-    '--track': '#c2c8cf',
+    '--color-bg': '#f3f2f2',
+    '--color-surface': '#eae9e9',
+    '--color-text': '#201e1d',
+    '--color-accent': '#ec3013',
+    '--color-neutral-100': '#f8f4f4',
+    '--color-neutral-200': '#eae7e7',
+    '--color-neutral-300': '#d7d3d3',
+    '--color-neutral-400': '#bab6b6',
+    '--color-neutral-500': '#9b9797',
+    '--color-neutral-600': '#7d7979',
+    '--color-neutral-700': '#605d5d',
+    '--color-neutral-800': '#444141',
+    '--color-neutral-900': '#2d2b2b',
+    '--color-accent-200': '#ffe0d9',
+    '--color-accent-300': '#ffc4b8',
+    '--color-accent-400': '#ff9783',
+    '--color-accent-500': '#ff563c',
+    '--color-accent-600': '#dd2b0f',
+    '--ui-panel': '#eae9e9',
+    '--ui-panel-2': '#e2e0e0',
+    '--ui-line': '#201e1d',
+    '--ui-line-strong': '#201e1d',
+    '--ui-muted': '#605d5d',
+    '--ui-tip': '#ffffff',
+    '--hot-1': '#e9b420',
+    '--hot-2': '#e0902a',
+    '--hot-3': '#d6691f',
+    '--hot-4': '#c03c1a',
+    '--hot-5': '#8e1408',
+    '--cold-1': '#a8cfe8',
+    '--cold-2': '#6ba6d8',
+    '--cold-3': '#3d79bd',
+    '--cold-4': '#23539b',
+    '--cold-5': '#12306b',
+    '--spot-stroke': '#201e1d',
+    '--accent-fill': '#e52706',
+    // Equals --color-neutral-400; literal for the same reason as Nocturne's.
+    '--neutral-mid': '#bab6b6',
   },
 });
 
-/** Theme-independent values (spec §4.1-4.3, §5.4). Font shorthands exclude the family. */
-export const SCALE_TOKENS = deepFreeze({
-  '--space-1': '4px',
-  '--space-2': '8px',
-  '--space-3': '12px',
-  '--space-4': '16px',
-  '--space-6': '24px',
-  '--space-8': '32px',
-  '--space-12': '48px',
-  '--radius-sm': '0px',
-  '--radius-md': '2px',
-  '--radius-lg': '4px',
-  '--rule': '1px',
-  '--rule-strong': '2px',
-  '--hit': '44px',
-  '--bar-cap': '2px',
-  '--font-family': 'Archivo, system-ui, sans-serif',
-  '--font-display': '800 34px/1.1',
-  '--font-figure': '800 40px/1.1',
-  '--font-title': '700 22px/1.2',
-  '--font-section': '700 13px/1.3',
-  '--font-body': '400 14px/1.6',
-  '--font-label': '600 12px/1.3',
-  '--tracking-display': '-0.03em',
-  '--tracking-figure': '-0.03em',
-  '--tracking-title': '-0.015em',
-  '--tracking-section': '0.07em',
-  '--tracking-label': '0.07em',
-});
-
-/** Spacing multipliers keyed by `html[data-density]`. */
-export const DENSITY = deepFreeze({ compact: 0.85, default: 1, touch: 1.15 });
+/** The theme names, in declaration order. */
+export const THEMES = Object.freeze(Object.keys(THEME_TOKENS));

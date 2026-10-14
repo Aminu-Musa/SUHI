@@ -5,7 +5,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "test": "vitest run",
-    "palette": "node scripts/palette.mjs",
+    "ink": "node scripts/ink.mjs",
     "derive": "node scripts/derive.mjs",
     "audit": "node scripts/audit-contrast.mjs"
   },

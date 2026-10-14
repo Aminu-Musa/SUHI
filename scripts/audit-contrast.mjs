@@ -1,39 +1,74 @@
+/**
+ * Build-time WCAG 2.1 AA audit of every text pair the dashboard renders (spec §5, §9.2).
+ *
+ * Retargeted for the pixel rebuild: the ramps are authored fills, not a generated palette,
+ * and ramp-coloured TEXT uses the derived -ink scale instead. So the audit measures
+ *   - `--color-text`, `--ui-muted`, `--accent-ink` and all ten ramp `-ink` steps,
+ *     on each of the three grounds that carry text, in both themes (78 rows), and
+ *   - white ON `--accent-fill`, the one pair where the fill moved instead of the text.
+ *
+ * Every row has the same 4.5 floor. The 3.0 large-text allowance applies to exactly one
+ * pair (`.kpi .val`, 24px) and is not needed: the ink scale clears 4.5 everywhere, so no
+ * row is exempted. `--color-accent` is deliberately NOT a text token any more.
+ *
+ * Exits 1 on any failure. Row ids are `theme/--token@--ground`.
+ */
 import { pathToFileURL } from 'node:url';
 import { contrastRatio } from './lib/color.mjs';
-import { THEME_TOKENS } from './lib/tokens.mjs';
-import { buildRamp, RAMPS } from './lib/ramps.mjs';
+import { THEME_TOKENS, THEMES } from './lib/tokens.mjs';
+import { INK_TOKENS, TEXT_GROUNDS } from './lib/ink.mjs';
 
-const TEXT_FLOOR = 4.5;
-const FILL_FLOOR = 1.0; // fills are geometry, not text: recorded for visibility, never failed on
+/** The single floor. No row is audited at 3.0; see the module comment. */
+export const TEXT_FLOOR = 4.5;
 
-const GROUNDS = ['--bg', '--surface', '--surface-2'];
-const TEXT_TOKENS = ['--text', '--text-muted', '--accent', '--hot-ink', '--cold-ink'];
+/** Grounds that carry text (spec §5.1). */
+export const GROUNDS = TEXT_GROUNDS;
+
+/** Theme-independent text token names, in audit order. */
+export const TEXT_TOKENS = Object.freeze([
+  '--color-text',
+  '--ui-muted',
+  '--accent-ink',
+  '--hot-1-ink',
+  '--hot-2-ink',
+  '--hot-3-ink',
+  '--hot-4-ink',
+  '--hot-5-ink',
+  '--cold-1-ink',
+  '--cold-2-ink',
+  '--cold-3-ink',
+  '--cold-4-ink',
+  '--cold-5-ink',
+]);
+
+/** White, the foreground on `--accent-fill` (spec §5.6). */
+export const ON_ACCENT = '#ffffff';
 
 /**
- * Audit every text pair in every theme.
- * Text tokens are checked on every ground in GROUNDS, so the worst-case pair is found by the
- * audit rather than assumed. Row ids are `theme/--token@--ground`.
- * `overrides` is a test seam: { 'theme/--token': '#hex' } replaces that token's foreground on all grounds.
+ * Every audited pair, both themes. Text tokens are checked on EVERY ground, so the
+ * worst-case pair is found by the audit rather than assumed.
+ * `overrides` is a test seam: { 'theme/--token': '#hex' } or { 'theme/--token@--ground': '#hex' }
+ * replaces that foreground.
  */
 export function auditPairs({ overrides = {} } = {}) {
   const rows = [];
-  const add = (use, fg, bg, floor) => {
+  const add = (use, fg, bg) => {
     const fgHex = overrides[use] ?? overrides[use.split('@')[0]] ?? fg;
     const ratio = contrastRatio(fgHex, bg);
-    rows.push({ use, fg: fgHex, bg, ratio, floor, pass: ratio >= floor });
+    rows.push({ use, fg: fgHex, bg, ratio, floor: TEXT_FLOOR, pass: ratio >= TEXT_FLOOR });
   };
 
-  for (const theme of Object.keys(THEME_TOKENS)) {
-    const t = THEME_TOKENS[theme];
+  for (const theme of THEMES) {
+    const tokens = { ...THEME_TOKENS[theme], ...INK_TOKENS(theme) };
     for (const ground of GROUNDS) {
-      for (const name of TEXT_TOKENS) add(`${theme}/${name}@${ground}`, t[name], t[ground], TEXT_FLOOR);
+      for (const name of TEXT_TOKENS) {
+        const fg = tokens[name];
+        if (!fg) throw new Error(`auditPairs: ${theme} has no token ${name}`);
+        add(`${theme}/${name}@${ground}`, fg, tokens[ground]);
+      }
     }
-    add(`${theme}/--on-accent`, t['--on-accent'], t['--accent'], TEXT_FLOOR);
-    for (const family of ['hot', 'cold']) {
-      buildRamp(RAMPS[theme][family]).forEach((hex, i) =>
-        add(`${theme}/--${family}-${i + 1}`, hex, t['--bg'], FILL_FLOOR),
-      );
-    }
+    // The other direction: white sits on the accent, so the FILL is what moved.
+    add(`${theme}/${ON_ACCENT}@--accent-fill`, ON_ACCENT, tokens['--accent-fill']);
   }
   return rows;
 }
@@ -52,6 +87,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const rows = auditPairs();
   console.log(formatTable(rows));
   const failed = rows.filter((r) => !r.pass);
-  console.log(failed.length ? `\n${failed.length} pair(s) FAILED` : '\nAll pairs pass');
+  console.log(failed.length ? `\n${failed.length} pair(s) FAILED` : `\nAll ${rows.length} pairs pass`);
   process.exit(failed.length ? 1 : 0);
 }
