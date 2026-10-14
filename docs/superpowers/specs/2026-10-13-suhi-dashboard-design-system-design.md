@@ -1,7 +1,12 @@
 # Nigeria SUHI dashboard — design system and prototype rebuild
 
 **Date:** 2026-10-13
-**Status:** Design approved, pending spec review
+**Status:** SUPERSEDED by `2026-10-14-suhi-dashboard-pixel-rebuild-design.md`
+
+> The design in sections 3, 4, 5 and 7 of this document was abandoned on 2026-10-14
+> in favour of a pixel-for-pixel rebuild of the original prototype. It is kept for the
+> record, and because sections 2.1, 6, 9.1 and 10 carried forward. Revision 2's section
+> 11 lists every reversal.
 **Supersedes:** the visual direction in `project/design_handoff_suhi_dashboard/README.md`
 (Nocturne and Modernist as two independent design systems)
 
