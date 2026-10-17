@@ -131,7 +131,7 @@ Expected: FAIL — `deriveInk` is not defined.
 
 - [ ] **Step 5: Write `src/styles/suhi-tokens.css` from the spec blocks**
 
-Both blocks exactly as spec §4.1 and §4.2 print them, plus `--accent-fill` per spec §5.6 (`#796bbe` Nocturne, `#e52706` Modernist) and `--neutral-mid` per spec §6.2 (`var(--color-neutral-800)` Nocturne, `var(--color-neutral-400)` Modernist). The original's `--color-neutral-*` scales (prototype lines 22–24 and 43–45) are copied across too — `.bar`, `.sw` and `.cbar .track` reference them.
+Both blocks exactly as spec §4.1 and §4.2 print them, plus `--accent-fill` per spec §5.6 (`#796bbe` Nocturne, `#e52706` Modernist) and `--neutral-mid` per spec §6.2 as a **literal hex** - `#3f424d` Nocturne, `#bab6b6` Modernist (ruling 1: Task 6 resolves tokens in JS for MapLibre paint and cannot evaluate a CSS `var()`). The original's `--color-neutral-*` scales (prototype lines 22–24 and 43–45) are copied across too — `.bar`, `.sw` and `.cbar .track` reference them.
 
 - [ ] **Step 6: Write `scripts/ink.mjs` to emit `src/styles/ink.css`, and a test that the committed file matches**
 
@@ -312,6 +312,7 @@ test('is operable by keyboard', …)
 // src/rail/Kpis.test.tsx
 test('renders the original six tiles with .lab, .val and .sub', …)
 test('the hot and cold figures use the ink tokens', …)
+test('the share tile renders at 19px and the population tiles at 20px', …)   // ruling 8 - not uniformly 24px
 test('a filter selecting zero spots renders an em dash, not NaN', …)   // Review Focus 5
 test('KPI share bar width is proportional to the share', …)            // spec §9.1 bug 5
 test('scope label and reset reflect the selected city', …)
@@ -504,7 +505,10 @@ test('cards lay out in the original auto-fit minmax(240px, 1fr) grid', …)
 test('each measure renders two bars, day and night', …)        // spec §7.5
 test('bars scale against the national maximum, not the selection', …)
 test('bar fills use the original track-anchored gradients', …)
-test('values beside the bars use the ink tokens', …)
+test('values beside the bars stay --color-text, as the original leaves them', …)   // ruling 8
+test('the per-card SUHI figure interpolates the hot INK ramp', …)                 // 13px, ink
+test('the cluster note uses --accent-ink', …)
+test('the footer trio uses --hot-4-ink / --cold-4-ink', …)                        // 19px
 test('a measure with a null night value renders one bar and a dash', …)
 ```
 

@@ -186,3 +186,37 @@ Task 2 renders translated strings as plain React children. Do not reach for
   more CSS structure rules. Watch for that.
 
 **Task 1: complete.**
+
+**Ruling 8 - spec §5.2's usage inventory was wrong in four ways. The remedy was not.**
+Found while pre-flighting Tasks 4, 6 and 8 against the prototype.
+
+1. **`.kpi .val` is not uniformly 24px.** Three of the six tiles override it inline:
+   the share tile at 19px and the two population tiles at 20px. Only the hot/cold count
+   tiles use the stylesheet's 24px.
+2. **The large-text floor therefore differs per theme for the SAME element**, because the
+   two design systems set different heading weights. WCAG large text is >=24px at any
+   weight, or >=18.66px when bold. Nocturne's `--font-heading-weight` is 500, so its 19px
+   and 20px figures are **body text at 4.5:1**; Modernist's is 800, so the same figures
+   are **large text at 3.0:1**. The spec recorded a single 3.0 floor for all of them.
+3. **`.cbar .v` is not coloured at all** - it is a bare `<span class="v">` inheriting
+   `--color-text`. Three rows in §5.2 attributed ramp colours to it. That usage does not
+   exist; the real coloured text in Compare is the 13px per-card SUHI figure
+   (`hotScale`), the 11px cluster note (`--color-accent`), and a 19px footer trio
+   (`--hot-4` / `--cold-4`).
+4. The confidence bars in `renderKPIs` use `--hot-5`, `--hot-3`, `--hot-1` and
+   `--color-neutral-500` as **track fills**, not text - correctly out of the text audit,
+   but the spec never said so.
+
+**Decision:** correct §5.1 and §5.2 to state the per-theme floor rule and the real usage
+inventory. **Change nothing about the ink scale.** Every ink token clears 4.5:1 on all
+three grounds in both themes, which is the strictest floor any of these usages can take,
+so the derived values were already correct and remain sufficient - they were never
+contingent on the size or weight analysis being right.
+
+That is the substantive point, and it is an argument for the approach rather than an
+excuse for the error: a parallel ink scale is robust to exactly this class of
+mis-analysis, where per-usage patching would have shipped a value tuned to a 3.0 floor
+that the same element takes at 4.5 in the other theme. Had §5 patched tokens per usage
+as revision 1 did, items 1-3 would each have produced a real contrast failure.
+*Cost if wrong:* none to the implementation; the spec would have misled a later reader
+into thinking 3.0 suffices for a 19px figure in Nocturne.

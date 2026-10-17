@@ -271,32 +271,74 @@ exactly — that clears the floor on *every* ground that usage appears on. Minim
 lightness delta is what keeps the correction faithful: the colour stays the same colour,
 slightly lighter or darker.
 
-Floors are WCAG 2.1 AA: **4.5:1** for body text, **3.0:1** for large text
-(`.kpi .val` is 24px, which qualifies).
+Floors are WCAG 2.1 AA: **4.5:1** for body text, **3.0:1** for large text, where large
+means >=24px at any weight or >=18.66px when bold.
+
+**The floor differs per theme for the same element**, because the two systems set
+different heading weights. `--font-heading-weight` is **500** in Nocturne and **800** in
+Modernist, and `.kpi .val` is not uniformly 24px - three of the six tiles override it
+inline (the share tile at 19px, the two population tiles at 20px). So:
+
+| Rendered figure | Nocturne (500) | Modernist (800) |
+| --- | --- | --- |
+| 24px count tiles | large, 3.0 | large, 3.0 |
+| 20px population tiles | **body, 4.5** | large, 3.0 |
+| 19px share tile, 19px Compare footer | **body, 4.5** | large, 3.0 |
+| 13px and below | body, 4.5 | body, 4.5 |
+
+This is the clearest consequence of keeping two independent systems: an identical element
+is held to two different standards. Rather than track that per usage, **the ink scale
+clears 4.5:1 on every ground in both themes** - the strictest floor any usage above can
+take. The derivation is therefore correct whatever the weight, and §5.5's cost is the
+price of that robustness.
 
 Grounds that carry ramp-coloured text: `--color-bg`, `--ui-panel-2`, `--ui-tip`.
 
-### 5.2 What fails today
+### 5.2 Where ramp colour reaches text
 
-| Theme | Token | Usage | Ground | Ratio | Floor |
-| --- | --- | --- | --- | --- | --- |
-| Nocturne | `--cold-4` | `.kpi .val` 24px | `--ui-panel-2` | 2.49 | 3.0 |
-| Nocturne | `--cold-4` | `table.dt td`, `.dl2 dd` 12px | `--color-bg` | 3.09 | 4.5 |
-| Nocturne | `--cold-4` | `.tip dd` 11.5px | `--ui-tip` | 2.91 | 4.5 |
-| Nocturne | `--cold-3` | `.cbar .v` 11.5px | `--ui-panel-2` | 4.38 | 4.5 |
-| Nocturne | `--hot-4` | `.cbar .v` 11.5px | `--ui-panel-2` | 4.25 | 4.5 |
-| Nocturne | `--hot-5` | `% hot` 12px | `--color-bg` | 3.43 | 4.5 |
-| Nocturne | `--color-accent` | `.pk[aria-pressed]` 11.5px | `--ui-panel-2` | 4.38 | 4.5 |
-| Nocturne | white on accent | `.seg button[aria-pressed]` 11.5px | `--color-accent` | 3.23 | 4.5 |
-| Modernist | `--hot-3` | `.kpi .val` 24px | `--ui-panel-2` | 2.71 | 3.0 |
-| Modernist | `--hot-3` | `table.dt td` 12px | `--color-bg` | 3.19 | 4.5 |
-| Modernist | `--cold-3` | `table.dt td` 12px | `--color-bg` | 4.03 | 4.5 |
-| Modernist | `--cold-3` | `.cbar .v` 11.5px | `--ui-panel-2` | 3.42 | 4.5 |
-| Modernist | `--hot-4` | `.cbar .v` 11.5px | `--ui-panel-2` | 4.09 | 4.5 |
-| Modernist | `--color-accent` | `.pk[aria-pressed]` 11.5px | `--color-bg` | 3.76 | 4.5 |
-| Modernist | white on accent | `.seg button[aria-pressed]` 11.5px | `--color-accent` | 4.20 | 4.5 |
+Verified against the prototype's render functions, not inferred from the stylesheet. The
+complete inventory of coloured **text** (fills are in §5.7):
 
-Nine distinct tokens, plus the two continuous scales in §5.3.
+| Where | Size / weight | Ground | Colour source |
+| --- | --- | --- | --- |
+| `.kpi.hot .val` / `.kpi.cold .val` counts | 24px / heading | `--ui-panel-2` | `--hot-4`, `--cold-4` |
+| `.kpi .val` share tile | 19px / heading | `--ui-panel-2` | `--hot-4`, `--cold-4` |
+| `.kpi .val` population tiles | 20px / heading | `--ui-panel-2` | `--hot-4`, `--cold-4` |
+| Compare card SUHI figure | 13px | `--ui-panel-2` | `hotScale(suhii)` — the whole ramp |
+| Compare cluster note | 11px | `--ui-panel-2` | `--color-accent` |
+| Compare footer trio | 19px / heading | `--ui-panel-2` | `--hot-4`, `--cold-4` |
+| `table.dt td` hot / cold / slope / cluster | 12px | `--color-bg` | `--hot-4`, `--cold-4`, `--hot-3`, `--cold-3`, `--color-accent` |
+| `table.dt td` suhii | 12px | `--color-bg` | `hotScale(suhii)` — the whole ramp |
+| Drawer `.dl2 dd`, `% hot` | 12px | `--color-bg` | `--hot-4`, `--cold-4`, `--hot-5` |
+| `.tip dd` | 11.5px | `--ui-tip` | `--hot-4`, `--cold-4` |
+| `.seg button[aria-pressed]` | 11.5px | `--color-accent` | `#ffffff` |
+
+The failures, with the floor each pair actually takes (§5.1):
+
+| Theme | Pair | Ratio | Floor | |
+| --- | --- | --- | --- | --- |
+| Nocturne | `--cold-4` on `--ui-panel-2` (24px) | 2.49 | 3.0 | fail |
+| Nocturne | `--cold-4` on `--ui-panel-2` (19/20px) | 2.49 | 4.5 | fail |
+| Nocturne | `--hot-4` on `--ui-panel-2` (19/20px) | 4.25 | 4.5 | fail |
+| Nocturne | `--cold-4` on `--color-bg` (12px) | 3.09 | 4.5 | fail |
+| Nocturne | `--cold-4` on `--ui-tip` (11.5px) | 2.91 | 4.5 | fail |
+| Nocturne | `--hot-5` on `--color-bg` (12px) | 3.43 | 4.5 | fail |
+| Nocturne | `--cold-3` on `--ui-panel-2` | 4.38 | 4.5 | fail |
+| Nocturne | `--color-accent` on `--ui-panel-2` (11px) | 4.38 | 4.5 | fail |
+| Nocturne | `#ffffff` on `--color-accent` | 3.23 | 4.5 | fail |
+| Modernist | `--hot-3` on `--ui-panel-2` | 2.71 | 3.0 | fail |
+| Modernist | `--hot-3` on `--color-bg` (12px) | 3.19 | 4.5 | fail |
+| Modernist | `--cold-3` on `--color-bg` (12px) | 4.03 | 4.5 | fail |
+| Modernist | `--cold-3` on `--ui-panel-2` (11.5px) | 3.42 | 4.5 | fail |
+| Modernist | `--hot-4` on `--ui-panel-2` (19/20px) | 4.09 | 3.0 | pass |
+| Modernist | `--color-accent` on `--color-bg` (11.5px) | 3.76 | 4.5 | fail |
+| Modernist | `--color-accent` on `--ui-panel-2` (11px) | 3.20 | 4.5 | fail |
+| Modernist | `#ffffff` on `--color-accent` | 4.20 | 4.5 | fail |
+
+The Modernist `--hot-4` row is kept deliberately: at 4.09 it **passes** its 3.0 large-text
+floor only because Modernist sets the heading weight to 800. The identical figure in
+Nocturne, at weight 500, is body text and fails the same ratio against 4.5. One element,
+two verdicts — and the reason §5.4 derives a scale rather than patching pairs.
 
 ### 5.3 The ramp is also a text scale
 
