@@ -283,3 +283,51 @@ from Review Focus 1 wraps the composed value, not the raw one. Pinned by tests a
 2024 (identity) and year 2015 (full slope applied), plus a null case.
 *Cost if wrong:* the year slider silently does nothing - the control moves, the map never
 changes, and no test would have caught it.
+
+## Task 7 pre-flight — three more findings
+
+**Ruling 13 - city circles and labels stay DOM overlays; MapLibre cannot draw them.**
+The original's city circles are `L.circleMarker` with `fill:false, color, weight:1,
+opacity:.5, dashArray:'4 3'` - **unfilled, half-opacity, dashed** outlines, two nested
+rings per city (cold then hot, sorted largest first, `radius: max(2.5, r)`), with the
+label offset by the largest radius + 4 (prototype lines 752-776). The plan said "City
+circles become a MapLibre circle layer with the original's `popScale()`".
+
+MapLibre's `circle` layer has **no dash property** - `line-dasharray` exists only on line
+layers - so a circle layer cannot reproduce a dashed ring. Its `symbol` layer likewise
+has `text-halo-*` rather than the `.citylabel` rule's doubled
+`text-shadow: 0 0 3px var(--color-bg), 0 0 3px var(--color-bg)`.
+**Decision:** render both as DOM overlays positioned with `map.project()` on move and
+zoom. The original already does this for labels (`L.divIcon` is a div), and a dashed ring
+is exactly `border: 1px dashed` on a `border-radius: 50%` element, so the CSS transfers
+verbatim. 55 cities x 2 rings + 55 labels is ~165 nodes, trivial to reposition.
+*Cost if wrong:* solid rings instead of dashed, and a different label halo - both
+flagged by the fidelity guard, but only after the work was done the wrong way.
+
+**Ruling 14 - §9.1 bug 10 conflicts with §3, and §9 wins. It is a sanctioned VISIBLE change.**
+Leaflet pane z-order in the original: `phys` 250, `bounds` 400, **`cityPane` 410**,
+`dayPane` 420, `nightPane` 421, `labelPane` 470. So city circles render **below** the
+spot polygons, while the handoff docs specify 460 - which is §9.1 bug 10.
+
+Fixing it changes what the screen looks like, and spec §3 says only the four changes in
+its table may do that. But §3's own wording is "a change that is not in the second table
+**and not in §9** is out of scope", so §9 fixes are sanctioned by the fidelity rule
+rather than exceptions to it.
+**Decision:** fix it - city circles move above `dayPane`/`nightPane` and stay below
+`labelPane`. The docs specify it, and the code's own comment calls the circles an
+annotation on the polygons ("outline only - the spot polygons are the subject, these
+annotate them"), which an annotation rendered underneath cannot be.
+*Cost if wrong:* a visible departure from the approved page that the user did not ask
+for. Flagged here for override; it is one line of layer order to revert.
+
+**Ruling 15 - five §9 fixes change pixels and must be registered in ALLOWED_DIFFS.**
+The plan describes Task 3's `ALLOWED_DIFFS` as "drawn from spec §3's Changed table". That
+is incomplete: §9.1 bugs **4** (population bar divided by the magic 230), **5** (KPI share
+bar `min(50, pct*6)`), **6** (unclipped state graticule), **7** (typology tile with no
+`.val`) and **10** (ruling 14) all alter rendered output. Left unregistered, each would
+surface as a fidelity-guard failure and look like drift rather than an approved fix.
+**Decision:** `ALLOWED_DIFFS` entries are required for all five, each citing its §9.1 bug
+number, and Task 3 seeds the five entries up front rather than letting later tasks
+discover them. An entry with no spec citation is a defect.
+*Cost if wrong:* the guard cries wolf five times, and the habit of adding entries to
+silence it is exactly how a fidelity guard stops meaning anything.

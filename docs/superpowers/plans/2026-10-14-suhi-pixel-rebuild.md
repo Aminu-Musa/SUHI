@@ -262,7 +262,9 @@ This lands before any component work so Tasks 4–10 are each checked against th
 - Create: `playwright.config.ts`, `tests/fidelity/tokens.spec.ts`, `tests/fidelity/boxes.spec.ts`, `tests/fidelity/allowed-diffs.ts`
 
 **Interfaces:**
-- Produces: `ALLOWED_DIFFS: { tokens: string[], selectors: string[] }` — the only sanctioned departures, drawn from spec §3's Changed table. Tasks 4–10 may add to it **only** by citing the spec section that permits the entry.
+- Produces:
+  - `ALLOWED_DIFFS: { tokens: string[], selectors: string[] }` — the only sanctioned departures. Seeded from **both** spec §3's Changed table **and** the five §9.1 fixes that alter rendered output: bugs 4 (population bar / 230), 5 (KPI share bar `min(50, pct*6)`), 6 (unclipped graticule), 7 (typology tile `.val`) and 10 (city-circle layer order). Every entry cites its spec section or bug number; an uncited entry is a defect (ruling 15). Tasks 4–10 may add only by citing.
+  - `PENDING: string[]` — selectors not yet implemented (ruling 2). The guard skips a PENDING selector and **fails if a PENDING selector now exists and matches**, so the list cannot rot. Tasks 4–10 each remove their own; Task 12 asserts it is empty.
 
 - [ ] **Step 1: Write the guard**
 
@@ -284,9 +286,9 @@ The named elements are spec §7.1's tree plus every selector the original's CSS 
 Run: `npm run fidelity -- --grep "matches the original"` with both fixtures pointed at the original.
 Expected: PASS with zero diffs. A harness that cannot tell the original from itself proves nothing.
 
-- [ ] **Step 3: Run it against the Task 2 shell**
+- [ ] **Step 3: Run it against the Task 2 shell and seed PENDING**
 
-Expected: the header and shell pass; rail and panel selectors report missing elements. Record that list in the ledger as the task's starting debt — Tasks 4–10 each close part of it.
+Expected: the header and shell selectors pass; every rail and panel-content selector goes into `PENDING` with the task number that will claim it. The suite must be **green at this commit** — a guard that ships red leaves CI red for seven tasks and cannot be reviewed (ruling 2).
 
 - [ ] **Step 4: Commit**
 
@@ -486,7 +488,11 @@ Review Focus 4's second test is the one that catches the real bug: snapshot ever
 
 - [ ] **Step 3: Implement the interactions**
 
-Drawer becomes a non-modal Radix `Dialog` keeping the original's `.drawer` markup and `data-open` attribute. Tooltip stays the original's single `#tip` element. City circles become a MapLibre circle layer with the original's `popScale()`. Swipe keeps the original's 2px handle and the two `.swipetag`s, clipping the day and night layers.
+Drawer becomes a non-modal Radix `Dialog` keeping the original's `.drawer` markup and `data-open` attribute. Tooltip stays the original's single `#tip` element. Swipe keeps the original's 2px handle and the two `.swipetag`s, clipping the day and night layers.
+
+**City circles and labels stay DOM overlays** (ruling 13), positioned with `map.project()` on move and zoom — not a MapLibre `circle` layer. The rings are unfilled, `opacity .5`, `dashArray '4 3'`, two per city (cold then hot, largest first, `radius: max(2.5, r)`), and MapLibre's circle layer has **no dash property**; its `symbol` layer has `text-halo-*` rather than `.citylabel`'s doubled `text-shadow`. As DOM, a ring is `border: 1px dashed` on a `border-radius: 50%` element and the CSS transfers verbatim. `popScale()` stays a `scaleSqrt` with range `[3, 22]` over a domain shared by hot and cold, so equal areas mean equal population.
+
+Layer order (ruling 14, §9.1 bug 10): city circles move **above** the day and night spot layers and stay below labels. This is a sanctioned visible change and needs its `ALLOWED_DIFFS` entry.
 
 Two corrections from spec §9.1: bug 4 (the magic `230`) and bug 6 (the unclipped state graticule — clip to the Nigeria outline).
 
@@ -677,7 +683,7 @@ test('no axe violations on any of the four tabs, in both themes', …)
 - [ ] **Step 3: Apply the remaining §9.1 fixes**
 
 Bug 9: already closed by plan 1 — `find . -type d -name data` returns only the repo-root `data/`, and `project/design_handoff_suhi_dashboard/` holds docs and CSS, no data. Verify this still holds, add a test that asserts exactly one `data/` directory, and mark the bug resolved in the spec rather than re-fixing it.
-Bug 10: city circles must render above spots — docs say z-index 460, the original's code sets 410. Under MapLibre this becomes layer order; assert it.
+Bug 10: handled in Task 7 under ruling 14 — verify the layer order holds and that its `ALLOWED_DIFFS` entry is present and cited.
 
 - [ ] **Step 4: Configure Cloudflare Pages and document it**
 
