@@ -406,8 +406,12 @@ test('null lst_rel resolves to the neutral midpoint, not an interpolate error', 
 test('values beyond ±4.5 clamp to the ramp ends', …)                                 // Review Focus 2
 test('the fill ramp uses the FILL tokens in diverging order', …)                      // spec §6.2
 test('outline colour encodes spot_type, not magnitude', …)                            // spec §6.3
-test('outline is dashed when bh_significant is false', …)
-test('outline width interpolates with zoom', …)
+test('outline is dashed AND 0.4 thicker when bh_significant is false', …)       // ruling 11
+test('outline width steps 2.2 / 1.6 / 1.1 at zoom 8 and 11', …)                 // ruling 11
+test('fill opacity applies the .45/.72/1 nesting multipliers only when contour is all', …)  // ruling 10
+test('geometry is scaled 9x at zoom 5 and 1x above zoom 8, about each centroid', …)        // ruling 9
+test('the year slider back-casts the encoded value by the Sen slope', …)        // ruling 12
+test('back-cast preserves null rather than producing NaN', …)                   // ruling 12
 test('reference means are built from the unfiltered feature set', …)
 ```
 
@@ -429,11 +433,19 @@ The last test is a regression guard with teeth: build reference means from the f
 
 The diverging ramp per spec §6.2: `--cold-5 … --cold-1`, `--neutral-mid`, `--hot-1 … --hot-5` over `[-4.5, +4.5]`. Resolve token names to values through `THEME_TOKENS` at expression-build time, not `getComputedStyle` — the map needs concrete colours and a theme argument, which is also what makes Task 7's repaint possible.
 
+**The year back-cast composes on top of the encoding** (ruling 12), it does not go inside it: `v = encodeValue(props, refs)`, then `display = v == null ? null : v - (2024 - year)/10 * (sen_slope ?? 0)`. Do not modify `encodeValue` — its contract is the 2024 value, and spec §10.1 promises a Gi* swap touches only its body. The `case`-guard for null (Review Focus 1) wraps the **composed** value.
+
+Spec §6.3's outline colour (encoding `spot_type`) **replaces** the original's "outline = fill colour when significant"; the two do not stack.
+
 - [ ] **Step 4: Implement `MapStage` and the PMTiles basemap**
 
 Register the PMTiles protocol, build the style JSON from tokens so the basemap flips with the theme (spec §8.3), and add the spot source from `spots.topo.json`. The original's `renderSpots()` / `clearLayers()` cycle disappears: filtering becomes `setFilter`, opacity becomes `setPaintProperty`.
 
-The original's geometry exaggeration (`exaggerate()`, `EXAG`) was a Leaflet workaround for small polygons at low zoom. Replace it with a zoom-interpolated outline width (spec §6.3) and keep the `exag` layer toggle wired to that, so the control the user sees still does something. Note this in the ledger as a behaviour substitution, not a visual change.
+**Reproduce the geometry exaggeration exactly** (ruling 9). `exaggerate()` scales each polygon's real geometry about its own centroid by `EXAG = {5:9, 6:6, 7:4, 8:2.2}`, 1 above zoom 8. This is a deliberate design choice with on-screen disclosure, not a Leaflet workaround: a median spot is 12.7 km², about 3px at national zoom, and `#zoomHint` states the factor via the `hint_zoom` / `hint_true` strings, which exist in all four languages. Do not replace it with outline width - that would render an effectively empty map at the default view.
+
+MapLibre has no paint property that scales a polygon about its centroid, so this stays a geometry transform. Apply it on **zoom-bucket change** via `source.setData()` - five discrete buckets - which still removes the original's per-tick `clearLayers()`/`addData()` teardown. The `exag` layer toggle switches it off, as it does today.
+
+**Reproduce the nesting opacity** (ruling 10): fill opacity is multiplied by `[.45, .72, 1]` indexed by `contour_level`, but only while the contour filter is `all`; otherwise by 1. Then by `state.opacity`. This is how the three nested levels stay distinguishable.
 
 - [ ] **Step 5: Run tests and the fidelity guard for the map stage**
 

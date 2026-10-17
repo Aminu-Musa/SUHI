@@ -220,3 +220,66 @@ that the same element takes at 4.5 in the other theme. Had §5 patched tokens pe
 as revision 1 did, items 1-3 would each have produced a real contrast failure.
 *Cost if wrong:* none to the implementation; the spec would have misled a later reader
 into thinking 3.0 suffices for a 19px figure in Nocturne.
+
+## Task 6 pre-flight — four defects in the plan
+
+**Ruling 9 - geometry exaggeration is KEPT, not replaced. The plan was wrong.**
+Plan Task 6 Step 4 said the original's `exaggerate()` / `EXAG` "was a Leaflet workaround
+for small polygons at low zoom. Replace it with a zoom-interpolated outline width."
+That is false and would have been the worst regression in the project.
+
+`exaggerate()` scales the **real geometry** about each polygon's own centroid by 9x, 6x,
+4x and 2.2x at zooms 5, 6, 7 and 8 (prototype lines 710-721). The code comment states the
+reasoning outright: a median spot is 12.7 km2, about 3px across at national zoom, and
+rather than substitute a symbol the original scales the true shape so "the shape, nesting
+and colour stay true, only the size is exaggerated, and the factor is stated on screen."
+The disclosure is real: `updateZoomHint` writes `hint_zoom` ("Real polygon shapes, scaled
+{k} about their centroids...") or `hint_true`, and both strings exist in all four
+languages in `src/i18n/dictionary.mjs`.
+
+Replacing it with outline width would render ~3px spots at the default national view -
+an effectively empty map on the primary screen - and orphan eight translated strings.
+**Decision:** reproduce the exaggeration exactly, same factors, same buckets, same
+on-screen disclosure. Under MapLibre there is no paint property that scales a polygon
+about its centroid, so it stays a geometry transform, applied on **zoom-bucket change**
+via `source.setData()` - five discrete buckets (z5, z6, z7, z8, z>=9), not per-frame.
+That still removes the original's per-tick `clearLayers()`/`addData()` teardown, which was
+the actual Leaflet problem.
+*Cost if wrong:* the map's main view shows nothing, and the feature's own disclosure text
+contradicts the screen.
+
+**Ruling 10 - nesting opacity must be reproduced; the plan never mentioned it.**
+`spotOpts` multiplies fill opacity by `[.45, .72, 1][LEVEL_ORDER[contour_level]]` when
+`state.contour === 'all'`, and by 1 otherwise (prototype lines 672-675). This is how
+nesting reads: L50 faintest, L90 solid, so the dense core shows through its own envelope.
+**Decision:** reproduce it as a `fill-opacity` expression keyed on `contour_level`,
+multiplied by `state.opacity`, and switched by whether the contour filter is `all`.
+Pinned by a test asserting all three multipliers and the `all`-only condition.
+*Cost if wrong:* 441 polygons render as flat overlapping blobs and the three-level
+structure - the point of the dataset - becomes unreadable.
+
+**Ruling 11 - the non-significant outline is thicker as well as dashed.**
+`weight: bh_significant ? boost : boost + .4`, where `boost` is 2.2 below zoom 8, 1.6
+below 11, else 1.1. Spec §6.3 said only "outline weight: zoom-interpolated", missing both
+the exact buckets and the +0.4.
+**Decision:** reproduce all of it - the three zoom buckets and the +0.4 for
+non-significant, alongside the dash. Note that spec §6.3's change to outline **colour**
+(encoding `spot_type` instead of the original's "outline = fill when significant") is
+sanctioned by §3 and replaces that behaviour; it does not stack with it.
+*Cost if wrong:* significance stops being legible at a glance, which §6.3 treats as
+load-bearing.
+
+**Ruling 12 - the year slider back-casts the encoded value, and the plan dropped it.**
+The original colours by `spotValue(p) = (suhii || 0) - (2024 - year)/10 * sen_slope`,
+so the 2015-2024 slider back-casts each spot from its own Sen slope. `encodeValue` in
+`src/lib/encode.mjs` takes `(props, refs)` and has **no year parameter** - deliberately,
+since it owns "what colour means" for the 2024 composite. Neither spec §6 nor the plan
+says how the slider survives the switch from `suhii` to `lst_rel`.
+**Decision:** the back-cast composes on top of the encoding rather than inside it:
+`v = encodeValue(props, refs); display = v == null ? null : v - (2024 - year)/10 * (sen_slope ?? 0)`.
+`encodeValue` is not modified - its contract stays the 2024 value, which keeps spec §10.1's
+promise that a Gi* swap touches only its body. Null must propagate, so the `case` guard
+from Review Focus 1 wraps the composed value, not the raw one. Pinned by tests at year
+2024 (identity) and year 2015 (full slope applied), plus a null case.
+*Cost if wrong:* the year slider silently does nothing - the control moves, the map never
+changes, and no test would have caught it.

@@ -540,10 +540,21 @@ that makes the variable usable.
 
 | Encoding | Carries |
 | --- | --- |
-| Fill | `lst_rel` on the diverging ramp — how much cooler or hotter than the rest of this city |
-| Outline colour | `spot_type` — warm stroke = hot-classified, cool stroke = cold-classified |
-| Outline style | `bh_significant` — solid if significant, dashed if not |
-| Outline weight | Zoom-interpolated (§8.2) |
+| Fill colour | `lst_rel` on the diverging ramp — how much cooler or hotter than the rest of this city |
+| Fill opacity | `contour_level` — multiplied by `.45` / `.72` / `1` for L50 / L75 / L90, but only while the contour filter is `All 441`; then by the opacity slider |
+| Outline colour | `spot_type` — warm stroke = hot-classified, cool stroke = cold-classified. **Replaces** the original's "outline = fill colour when significant"; the two do not stack |
+| Outline style | `bh_significant` — solid if significant, dashed `3 3` if not |
+| Outline weight | `2.2` below zoom 8, `1.6` below 11, else `1.1`, **plus `0.4` when not significant** |
+| Geometry | Scaled about each centroid by `9` / `6` / `4` / `2.2` at zooms 5 / 6 / 7 / 8, `1` above — reproduced from the original, with its on-screen disclosure |
+
+The year slider back-casts the fill value from each spot's own Sen slope. That composes
+on top of the encoding rather than inside it, so `encodeValue` keeps its 2024 contract
+and §10.1's promise holds:
+
+```js
+const v = encodeValue(props, refs);
+const display = v == null ? null : v - (2024 - year) / 10 * (props.sen_slope_C_per_decade ?? 0);
+```
 
 This makes the ~13.7% where class and temperature disagree **visible rather than
 clamped away** — the same principle as showing BH non-significance instead of filtering
