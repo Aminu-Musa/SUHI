@@ -331,3 +331,77 @@ number, and Task 3 seeds the five entries up front rather than letting later tas
 discover them. An entry with no spec citation is a defect.
 *Cost if wrong:* the guard cries wolf five times, and the habit of adding entries to
 silence it is exactly how a fidelity guard stops meaning anything.
+
+### Task 2 — Vite + React + TypeScript scaffold and app shell
+
+Three dispatch failures before work began to stick, none caused by the task:
+1. Interrupted when the session ended; verified nothing had been written.
+2. ENOTFOUND immediately after reading the brief; verified nothing had been written.
+3. ENOTFOUND **mid-install**, after substantial work reached disk.
+
+After failure 3 the repository was left in a genuinely broken intermediate state, which
+is worth recording because it is the first time that has happened: the 14 runtime packages
+installed and pinned, but no dev tooling, so `vite.config.ts` imported a missing
+`@vitejs/plugin-react` and `npm test` stopped starting at all - the 87-test suite went
+from green to not loading. Nothing was committed, so the work was recoverable, and
+resuming the same agent was far cheaper than restarting: it had written the files and
+still held the context.
+
+**Ruling 16 - React 19.3.1 is accepted over the plan's React 18.**
+The plan's Tech Stack said React 18; the implementer installed 19.3.1 before dying.
+**Decision:** keep 19.3.1. It is the current major, the installed Radix versions support
+it, and nothing in the fidelity rule depends on React's major version - the guard compares
+computed boxes and tokens, which React's version cannot affect. Downgrading would cost a
+reinstall and buy nothing. Plan and spec updated to say 19.
+*Cost if wrong:* a Radix or Testing Library incompatibility surfacing later, which would
+show up as failing component tests in this same task rather than silently.
+
+**Ruling 17 - pin the four pre-existing caret ranges.**
+`topojson-client`, `topojson-server`, `topojson-simplify` and `vitest` were still on `^`
+from plan 1. The plan's Global Constraints say to pin every dependency exactly.
+**Decision:** pin them to the installed versions as part of this task, since it is already
+editing `package.json`. Pre-existing, so not a Task 2 defect - but leaving them would mean
+the constraint is stated and not met.
+*Cost if wrong:* none; pinning to what is installed changes nothing at runtime.
+
+- Finished **inline by the controller** after a fourth ENOTFOUND, rather than a fifth dispatch.
+  Attempt 3 had installed the 14 runtime packages but died before the dev tooling, leaving
+  `vite.config.ts` importing a missing `@vitejs/plugin-react` - the 87-test suite stopped
+  loading rather than failing. Remaining work was mechanical and fully specified, so another
+  cold dispatch bought nothing.
+- Commit: `3af4475`. Controller-verified: **104 tests / 10 files green**, `npm run audit`
+  exit 0 at 80 pairs, `npm run build` emits 85 KB gzipped JS + 5.5 KB gzipped CSS.
+- Guards proven by mutation and reverted with md5 verification: removing the rail/stage hide
+  failed the ruling-5 test **alone**; dropping `persist.ts`'s write `try/catch` failed the
+  throwing-write test **alone**.
+
+**Ruling 18 - `@vitejs/plugin-react` pinned to 5.2.0, not latest.**
+`@vitejs/plugin-react@6.x` peers on `vite@^8`, while `vitest@3.2.7` peers on
+`vite@^5 || ^6 || ^7`. Installing both latest is an unsatisfiable ERESOLVE.
+**Decision:** `vite@7.3.7` with `@vitejs/plugin-react@5.2.0` (peers `^4.2 || ^5 || ^6 || ^7`).
+Revisit only when vitest supports Vite 8; do not reach for `--legacy-peer-deps`, which would
+hide the conflict rather than resolve it.
+*Cost if wrong:* a Vite major behind, with no feature this project uses on either side.
+
+**Ruling 19 - the two dev-only advisories stay, and are not force-fixed mid-plan.**
+`npm audit` reports `tinypool` (critical) and `@vitest/mocker` (moderate), both reached only
+through vitest. `npm audit --omit=dev` reports **0**, so nothing reaches the deployed
+dashboard. The offered fix is `--force` to vitest 4, a breaking major.
+**Decision:** leave them; re-check in Task 12, where the dependency surface is final and a
+suite revalidation is in scope anyway. Recorded rather than silently accepted - a critical
+rating with zero production exposure is still a thing the user may want to know.
+*Cost if wrong:* a dev-tool vulnerability in a local test runner; no deployed exposure.
+
+**Observation (not a ruling) - the suite takes ~252s cold, ~6s warm.**
+Vite dependency optimisation plus jsdom environment setup, per the vitest timing breakdown
+(environment 333s, prepare 157s, collect 141s across workers). CI runs cold every time, so
+this is already a ~4-minute step with only two component suites in the tree. Ten more tasks
+of component tests will make it worse. Not blocking Task 2; flagged for Task 3, which adds
+Playwright, and for Task 12. Likely levers: `pool: 'threads'` with a jsdom-only project split,
+or caching `node_modules/.vite` in CI.
+
+**Controller correction during Task 2.** I wrote a 9-test `ThemeProvider.test.tsx`, then the
+mutation run's own output revealed `App.test.tsx` already covered five of those cases,
+including both sides of the ruling-7 latch. Cut to the three real gaps: the attribute flip,
+the deliberate no-write-on-mount, and a throwing WRITE as distinct from a throwing read. The
+lesson is cheap but worth keeping - I should read the task's tests before adding to them.
