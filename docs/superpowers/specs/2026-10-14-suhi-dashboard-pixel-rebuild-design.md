@@ -282,6 +282,7 @@ inline (the share tile at 19px, the two population tiles at 20px). So:
 | Rendered figure | Nocturne (500) | Modernist (800) |
 | --- | --- | --- |
 | 24px count tiles | large, 3.0 | large, 3.0 |
+| **23px** Reports brief grid | **body, 4.5** | large, 3.0 |
 | 20px population tiles | **body, 4.5** | large, 3.0 |
 | 19px share tile, 19px Compare footer | **body, 4.5** | large, 3.0 |
 | 13px and below | body, 4.5 | body, 4.5 |
@@ -312,6 +313,7 @@ complete inventory of coloured **text** (fills are in §5.7):
 | Drawer `.dl2 dd`, `% hot` | 12px | `--color-bg` | `--hot-4`, `--cold-4`, `--hot-5` |
 | `.tip dd` | 11.5px | `--ui-tip` | `--hot-4`, `--cold-4` |
 | `.seg button[aria-pressed]` | 11.5px | `--color-accent` | `#ffffff` |
+| Reports brief figure grid | **23px** / heading | `--ui-panel-2` | `--hot-4`, `--cold-4`, `--hot-5` |
 
 The failures, with the floor each pair actually takes (§5.1):
 
@@ -334,6 +336,9 @@ The failures, with the floor each pair actually takes (§5.1):
 | Modernist | `--color-accent` on `--color-bg` (11.5px) | 3.76 | 4.5 | fail |
 | Modernist | `--color-accent` on `--ui-panel-2` (11px) | 3.20 | 4.5 | fail |
 | Modernist | `#ffffff` on `--color-accent` | 4.20 | 4.5 | fail |
+| Nocturne | `--hot-4` on `--ui-panel-2` (23px brief) | 4.25 | 4.5 | fail |
+| Nocturne | `--cold-4` on `--ui-panel-2` (23px brief) | 2.49 | 4.5 | fail |
+| Nocturne | `--hot-5` on `--ui-panel-2` (23px brief) | 2.75 | 4.5 | fail |
 
 The Modernist `--hot-4` row is kept deliberately: at 4.09 it **passes** its 3.0 large-text
 floor only because Modernist sets the heading weight to 800. The identical figure in

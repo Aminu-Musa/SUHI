@@ -405,3 +405,43 @@ mutation run's own output revealed `App.test.tsx` already covered five of those 
 including both sides of the ruling-7 latch. Cut to the three real gaps: the attribute flip,
 the deliberate no-write-on-mount, and a throwing WRITE as distinct from a throwing read. The
 lesson is cheap but worth keeping - I should read the task's tests before adding to them.
+
+## Task 10 pre-flight
+
+**Ruling 20 - the Reports brief's 23px figures were missing from the §5.2 inventory, and
+they are the sharpest case of ruling 8 yet.**
+`renderReport` (prototype lines 1134-1145) draws a four-column figure grid inside `.brief`
+at **`font-size: 23px`** with `--font-heading-weight`, on `--ui-panel-2`, coloured
+`--hot-4`, `--cold-4`, `--hot-5` and inherit. Spec §5.2's corrected inventory did not list
+it.
+
+23px is **one pixel below** WCAG's 24px any-weight threshold, so the weight decides
+everything, and the two themes land on opposite sides:
+
+| Figure | Nocturne (500, so body text, 4.5) | Modernist (800, so large text, 3.0) |
+| --- | --- | --- |
+| `--hot-4` | 4.25 **fail** | 4.09 pass |
+| `--cold-4` | 2.49 **fail** | 5.74 pass |
+| `--hot-5` | 2.75 **fail** | 7.09 pass |
+
+**All three fail in Nocturne and all three pass in Modernist**, from identical markup. One
+pixel of font size and a weight token separate a compliant panel from a non-compliant one.
+**Decision:** add the row to spec §5.2. **No change to the ink scale** - it clears 4.5 on
+`--ui-panel-2` in both themes, so these were already fixed before I knew they were broken.
+That is now the third time the derived scale has absorbed an error in my own inventory
+(rulings 8, and twice within this one), and it retires any residual argument for
+per-usage patching.
+*Cost if wrong:* none to the implementation; the spec's inventory would stay incomplete.
+
+**Task 10 note - the six export options are fixed copy, not invented.**
+Spec §7.7 replaces six `.card2` export cards with one select plus a Download button. The
+options must carry the original's six labels and descriptions verbatim (prototype lines
+1157-1163):
+`City brief (PDF)` / One page per selected city. · `Full report (PDF)` / All 55 cities with
+national summary. · `Spot records (CSV)` / 441 rows · 30 fields. · `Contours (GeoJSON)` /
+EPSG:4326, current view. · `Contours (TopoJSON)` / Compact geometry for the web. ·
+`City aggregates (CSV)` / 55 rows.
+The cards also carry an inline `padding: var(--space-4) var(--space-6)` overriding
+`.card2`'s own `var(--space-6)`. The brief's prose paragraph interpolates `c.sig`,
+`c.city_area` and `CLUSTERS[...].n_cities - 1`, so those fields must survive into the
+rebuild's data layer.

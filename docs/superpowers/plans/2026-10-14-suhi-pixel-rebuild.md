@@ -598,6 +598,8 @@ TanStack Table for sorting, rendering the original's `table.dt` markup. The orig
 ```tsx
 // src/views/Reports.test.tsx
 test('brief renders at the original 640px in the original surface', …)
+test('the four brief figures render at 23px and use the ink scale', …)   // ruling 20 - 23px is BELOW the 24px large-text threshold, so all three colours are body text in Nocturne
+test('the export select carries the original six labels and descriptions verbatim', …)
 test('Download button is absent until a format is chosen', …)   // spec §7.7
 test('choosing a format reveals Download', …)
 test('export carries the active contour, cluster and year filters', …)
@@ -617,6 +619,8 @@ The CSV diacritics test matters because city and typology strings carry them and
 - [ ] **Step 3: Implement Reports**
 
 The original's `renderReport()` (lines 1132–1169) with one change from spec §7.7: the `.expgrid` cards become one `select` plus a `Download` button that appears after a format is chosen. The container and its column position are unchanged.
+
+The six options are the original's copy, verbatim (lines 1157–1163): `City brief (PDF)`, `Full report (PDF)`, `Spot records (CSV)`, `Contours (GeoJSON)`, `Contours (TopoJSON)`, `City aggregates (CSV)`, each with its description. The brief's prose paragraph interpolates `c.sig`, `c.city_area` and `CLUSTERS[…].n_cities - 1`, so those fields must reach this component.
 
 - [ ] **Step 4: Run tests and the fidelity guard**
 
