@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nocturne">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nigeria SUHI — hot &amp; cold spot dashboard</title>
+
+<!--
+  STYLESHEET ORDER IS LOAD-BEARING. Do not reorder, merge or scope these four.
+
+  The prototype's <head> (lines 9-10) loaded both vendored design systems before its own
+  <style>, and NEITHER of them is theme-scoped: each declares :root plus global element rules
+  (body, h1-h6, a, p, figure, :focus, .text-muted) with no html[data-theme] guard. Because
+  Modernist loads second, Modernist's base rules win in BOTH themes. That is an accident of the
+  original's load order rather than a decision - and it is what the approved page renders, which
+  spec §3 makes the authority (ruling 3). Scoping them, deduplicating their overlapping :root
+  blocks, or swapping their order would change the rendered page. Out of scope here.
+
+  The two vendored files also carry the Google Fonts @imports that supply Inter 400/500/600/700
+  and Archivo 400/600/800. There is no separate font link to add, and self-hosting the fonts
+  would be a fidelity risk, not a cleanup.
+
+  suhi-tokens.css is the single entry point for tokens: it @imports ./ink.css itself, and
+  scripts/lib/tokens.test.mjs fails if that import is removed. Do not add ink.css here.
+-->
+<link rel="stylesheet" href="/src/styles/vendor/nocturne.css">
+<link rel="stylesheet" href="/src/styles/vendor/modernist.css">
+<link rel="stylesheet" href="/src/styles/suhi-tokens.css">
+<link rel="stylesheet" href="/src/styles/app.css">
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

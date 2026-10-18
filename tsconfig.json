@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "useDefineForClassFields": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    /* src/i18n/dictionary.mjs is plain ESM owned by an earlier task and must not be touched, so
+     * its types come from inference rather than from a hand-written .d.ts that could drift.
+     * checkJs stays off: the .mjs files have their own vitest suites and are not TS's business. */
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["src", "vite.config.ts"]
+}

@@ -15,3 +15,10 @@ jobs:
       # The gate is `npm test`, not `npm run audit`: CLI entry-point guards are symlink-sensitive
       # and can exit 0 having done nothing; the suite recomputes every CLI's effect in-process.
       - run: npm test
+      # The build is a gate from task 2 on: the shell is TypeScript and the four stylesheets are
+      # bundled by index.html in a load order the rendered page depends on, so a config that only
+      # works under `vite dev` is a broken deliverable.
+      - run: npm run build
+      # The contrast audit has its own in-process suite above; running the CLI as well catches a
+      # token change that passes the unit tests but leaves the committed CSS failing WCAG AA.
+      - run: npm run audit
