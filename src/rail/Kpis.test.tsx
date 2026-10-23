@@ -227,7 +227,11 @@ describe('the empty filter', () => {
 describe('the confidence bars', () => {
   test('renders four p-value bins sharing the KPI tiles own filtered set', () => {
     mount();
-    const rows = [...document.querySelectorAll('.cbar')];
+    /* SCOPED TO #conf. Task 5's cluster card renders five more `.cbar` rows in the same rail
+     * (the top-five typologies), so an unscoped `.cbar` query picks up nine. The two groups use
+     * the same bar markup on purpose - and the fidelity guard measures the first `.cbar` in the
+     * document, which is still this one, because #conf comes before #clusterCard. */
+    const rows = [...document.querySelectorAll('#conf .cbar')];
     expect(rows.map((r) => text(r.querySelector('.t')))).toEqual(['p < 0.01', '0.01–0.05', '0.05–0.10', '≥ 0.10']);
 
     const s = kpiStats(DATA.spots, DATA.cities, INITIAL_STATE);

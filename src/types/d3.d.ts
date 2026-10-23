@@ -25,6 +25,20 @@ declare module 'd3' {
   /** d3-array. Returns UNDEFINED for an empty input - the `—` in the typology tile. */
   export function mean<T>(iterable: Iterable<T>, accessor: (datum: T, index: number, array: Iterable<T>) => number | null | undefined): number | undefined;
 
+  /** d3-array. UNDEFINED for an empty input, which is why `popScale` falls back to `|| 1`:
+   * a `[0, undefined]` domain makes every radius NaN. */
+  export function max<T>(iterable: Iterable<T>, accessor: (datum: T, index: number, array: Iterable<T>) => number | null | undefined): number | undefined;
+
   /** d3-format. `format(',.2f')(x)` groups thousands with ',' and fixes 2 decimals. */
   export function format(specifier: string): (n: number) => string;
+
+  /** d3-scale, the chainable subset `popScale` uses. Declared as its own interface rather than
+   * inlined because the setters return the scale, so the type has to be self-referential.
+   * SQRT, not linear: the circles encode value as AREA, so the radius is the square root. */
+  export interface PowerScale {
+    (value: number): number;
+    domain(domain: readonly number[]): PowerScale;
+    range(range: readonly number[]): PowerScale;
+  }
+  export function scaleSqrt(): PowerScale;
 }

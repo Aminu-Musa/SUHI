@@ -56,7 +56,10 @@ export interface Cluster {
   n: number;
   hot: number;
   cold: number;
-  cities: string;
+  /** An ARRAY of city names in clusters.json, not a joined string - `renderClusterCard` calls
+   * `k.cities.join(', ')` on it (prototype line 816). Typed `string` here until Task 5 needed
+   * that call. */
+  cities: string[];
   n_cities: number;
   landcover: string;
   elev: string;

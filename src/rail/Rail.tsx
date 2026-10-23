@@ -1,5 +1,4 @@
-/* The rail's contents. Groups 1-5 of 10; groups 6-10 (layers, cluster typology, population
- * circles, year, legend) are Task 5's and slot in below ContourSeg, in that order.
+/* The rail's contents - all ten groups, in the original's order, plus the `.i18nnote` footer.
  *
  * `.rail` itself - the element, its id and its display:none off the Map tab - belongs to App,
  * because `selectTab` addressed it by id (prototype line 1022). This component renders only the
@@ -17,13 +16,19 @@
  */
 
 import { useMemo } from 'react';
+import { useT } from '../app/I18nProvider';
 import type { SuhiData } from '../app/data';
 import { useAppState } from '../app/state';
 import { BasemapSeg, type BaseKey } from './BasemapSeg';
+import { ClusterSelect } from './ClusterSelect';
 import { Confidence } from './Confidence';
 import { ContourSeg } from './ContourSeg';
 import { Kpis } from './Kpis';
+import { Layers } from './Layers';
+import { Legend } from './Legend';
+import { PopCircles } from './PopCircles';
 import { Search } from './Search';
+import { YearSlider } from './YearSlider';
 import { kpiStats } from './stats';
 
 export interface RailProps {
@@ -38,6 +43,7 @@ export interface RailProps {
 }
 
 export function Rail({ data, baseKey, onPickBase, onFocusCity, onResetScope }: RailProps) {
+  const t = useT();
   const [state, patch] = useAppState();
   const stats = useMemo(
     () => (data ? kpiStats(data.spots, data.cities, state) : null),
@@ -68,6 +74,17 @@ export function Rail({ data, baseKey, onPickBase, onFocusCity, onResetScope }: R
       ) : null}
       <BasemapSeg baseKey={baseKey} onPickBase={onPickBase} />
       <ContourSeg />
+      <Layers spots={data?.spots ?? null} />
+      <ClusterSelect clusters={data?.clusters ?? []} />
+      <PopCircles cities={data?.cities ?? []} />
+      <YearSlider />
+      <Legend />
+      {/* A direct child of `aside.rail`, not of a group - it is the last item `.rail`'s
+       * flex column lays out (prototype line 353), and its top border is what separates it
+       * from the legend above. */}
+      <p className="i18nnote" data-i18n="i18n_note">
+        {t('i18n_note')}
+      </p>
     </>
   );
 }

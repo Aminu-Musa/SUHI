@@ -65,16 +65,6 @@ export const IGNORED_PROPERTIES: readonly { readonly name: string; readonly why:
  * than skip it - strictly more coverage, never a silenced selector. Task 7's drawer bars are
  * covered separately by the `.drawer .bar i` entry above. */
 export const PENDING: readonly { readonly selector: string; readonly task: number }[] = [
-  // Task 5 - rail groups 6-10
-  { selector: '.layers', task: 5 },
-  { selector: '.ly', task: 5 },
-  { selector: '.sw', task: 5 },
-  { selector: '.ly .chip', task: 5 },
-  { selector: '.ly .key', task: 5 },
-  { selector: '.ramp', task: 5 },
-  { selector: '.rampL', task: 5 },
-  { selector: 'input[type=range]', task: 5 },
-  { selector: '.i18nnote', task: 5 },
   // Task 6-7 - map and interactions
   { selector: '.citylabel', task: 7 },
   { selector: '.pill', task: 7 },
