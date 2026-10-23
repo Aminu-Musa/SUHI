@@ -445,3 +445,60 @@ The cards also carry an inline `padding: var(--space-4) var(--space-6)` overridi
 `.card2`'s own `var(--space-6)`. The brief's prose paragraph interpolates `c.sig`,
 `c.city_area` and `CLUSTERS[...].n_cities - 1`, so those fields must survive into the
 rebuild's data layer.
+
+### Task 2 review — performed by the controller
+
+The dispatched reviewer died on ENOTFOUND **at its write step** ("Now writing the review"),
+the fifth network failure on this task, and left no file. Rather than a sixth dispatch I
+reviewed it myself, noting in the review that I also finished the implementation - a weaker
+arrangement than independent review, recorded rather than glossed. Full review:
+`task-2-review.md`.
+
+**Both verdicts PASS**, after one high-severity defect found and fixed.
+
+**Finding 1 (HIGH, fixed) - the ruling-7 effect double-fired under StrictMode.**
+`src/main.tsx` wraps `#root` in `<StrictMode>`, but every test rendered a bare `<App />`, so
+the double invocation production has never ran in test. A throwaway probe proved it:
+boot produced `["dark","dark"]`, and a theme change `["dark","dark","topo"]`, while the suite
+asserted `['dark']` and passed. Against Task 2's no-op stub that is harmless; against Task 6's
+real `setBase` it is a **double tile-source swap on every page load**.
+
+The same code also assigned `pickedRef.current` **during render** to keep the latch out of the
+dependency array - a render-phase side effect, unsupported under concurrent rendering where a
+discarded render still mutates the ref.
+
+Fixed by changing the guard from "is the latch set" to "have we already applied this key"
+(`lastApplied`). That makes `userPickedBase` safe as a real dependency: the latch flipping true
+re-runs the effect, which returns early, so the flip still never moves the basemap - ruling 7
+unchanged. All three component suites now render inside `<StrictMode>`, matching production.
+Mutation-proven: removing the guard fails the ruling-7 test alone (1 failed / 10 passed),
+restored to md5 `1cb9083f864a35b4d3dd0c1b2aa62a20`.
+
+This is the most useful finding of the project so far, and it was only findable by running the
+code rather than reading it. **Carried forward as a standing rule: a component test renders the
+tree the way `main.tsx` renders it, inside StrictMode.** Any later task whose tests mount
+components bare is reproducing this bug class.
+
+**Finding 2 (LOW, fixed) - `data-framed` was scope creep.** An attribute the original lacks,
+styled by nothing, existing only to be asserted; its test was checking our invention rather
+than the original's behaviour. Removed; the test now asserts the `.framed` class that
+`.stage.framed` actually keys on.
+
+**Ruling 21 - the fidelity guard must ignore generated `id` attributes.**
+Radix renders `id="radix-_r_0_-trigger-map"` and similar on the tab triggers. The original's
+tabs carry no `id`; nothing styles these and they do not affect computed boxes, but they are
+generated, unstable between runs, and now serve nothing because `aria-controls` was
+deliberately cleared.
+**Decision:** accept them, and constrain Task 3 - the guard compares computed box and computed
+type per selector and must **not** compare `id` on `.tab`, or it fails on a value that changes
+every run. Removing them would mean fighting Radix for no visual gain.
+*Cost if wrong:* a guard that fails randomly, which is a guard people switch off.
+
+**Finding 4 (LOW, accepted) - `ThemeProvider` suppresses its boot write with `paintEpoch > 0`
+while `I18nProvider` uses a separate `dirty` boolean** (costing an extra render on first
+change). Both correct, both pinned. Not unified mid-plan; recorded so a later reader does not
+read one as a mistake.
+
+**Task 2: complete.** 104 tests / 10 files green, audit exit 0 at 80 pairs, build 85.37 KB
+gzipped, `npm audit --omit=dev` 0, no later-task library wired, `project/ data/ scripts/
+src/lib/ src/i18n/` untouched.

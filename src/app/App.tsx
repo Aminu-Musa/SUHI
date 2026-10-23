@@ -53,15 +53,26 @@ function Shell({ onBaseFromTheme }: { onBaseFromTheme: (key: ThemeBaseKey) => vo
   const [framed, setFramed] = useState(false);
 
   /* Ruling 7, transcribed from `applyTheme` (prototype line 561): a theme change drags the
-   * basemap with it, but ONLY while the reader has not chosen one. `userPickedBase` is read
-   * through a ref rather than listed as a dependency on purpose - the latch flipping true must
-   * not itself be an event that moves the basemap, and the original's `if (!userPickedBase)`
-   * sat inside applyTheme, which only ever ran on a theme change (and once at boot). */
-  const pickedRef = useRef(state.userPickedBase);
-  pickedRef.current = state.userPickedBase;
+   * basemap with it, but ONLY while the reader has not chosen one.
+   *
+   * The guard is "have we already applied this key", not "is the latch set", and that is what
+   * makes `userPickedBase` safe to list as a dependency. The latch flipping true re-runs this
+   * effect, but it returns early, so the flip itself never moves the basemap - which is the
+   * behaviour ruling 7 asks for. An earlier version read the latch from a ref assigned during
+   * render to keep it out of the dependency array; that was both a render-phase side effect
+   * (unsupported under concurrent rendering, where a discarded render still mutates the ref)
+   * and not idempotent: #root is wrapped in StrictMode, whose deliberate double invocation
+   * made boot call setBase TWICE. Harmless against a no-op stub, a double tile fetch against
+   * Task 6's real setBase. `lastApplied` makes the effect idempotent, so the tests below can
+   * run under StrictMode exactly as production does. */
+  const lastApplied = useRef<ThemeBaseKey | null>(null);
   useEffect(() => {
-    if (!pickedRef.current) onBaseFromTheme(theme === 'nocturne' ? 'dark' : 'topo');
-  }, [theme, onBaseFromTheme]);
+    if (state.userPickedBase) return;
+    const key: ThemeBaseKey = theme === 'nocturne' ? 'dark' : 'topo';
+    if (lastApplied.current === key) return;
+    lastApplied.current = key;
+    onBaseFromTheme(key);
+  }, [theme, state.userPickedBase, onBaseFromTheme]);
 
   const onTabChange = useCallback((value: string) => setTab(value as Tab), []);
 
@@ -143,10 +154,11 @@ function Shell({ onBaseFromTheme }: { onBaseFromTheme: (key: ThemeBaseKey) => vo
             <main
               className={framed ? 'stage framed' : 'stage'}
               id="stage"
-              /* `.stage.framed` in app.css is what actually changes the layout (prototype line
-               * 1009 toggles the class). `data-framed` carries the same bit as an attribute so
-               * the state is observable without reading a class list. Both, deliberately. */
-              data-framed={framed}
+              /* `.stage.framed` in app.css is what changes the layout, and the original toggles
+               * exactly that class (prototype line 1009). An earlier version also set a
+               * `data-framed` attribute for convenient assertion; it was removed because the
+               * original has no such attribute, nothing styles it, and a test reading it would
+               * have been asserting our invention rather than the behaviour. */
               style={offMap}
             >
               <div className="mapwrap" id="mapwrap">

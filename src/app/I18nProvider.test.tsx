@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, test } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -19,10 +20,15 @@ afterEach(() => {
 
 const langSel = () => document.getElementById('lang') as HTMLSelectElement;
 
+/* #root is wrapped in StrictMode (src/main.tsx), so every render here is too: an effect
+ * that is not idempotent passes a bare render and double-fires in the real app. This
+ * helper is the only way these suites mount App. */
+const renderApp = (ui: React.ReactElement) => render(<StrictMode>{ui}</StrictMode>);
+
 describe('useT', () => {
   test('switching language retranslates every data-i18n key', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    renderApp(<App />);
 
     // Every translated node in the shell declares the key it rendered, exactly as the original's
     // markup did, so this walks the real DOM instead of a hand-maintained list.
