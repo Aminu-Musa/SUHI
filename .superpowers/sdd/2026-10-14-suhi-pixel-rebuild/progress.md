@@ -678,3 +678,46 @@ depend on which we pick, so this does not block the task.
 Neither is expensive to reverse, which is why the URL is isolated.
 
 **Flagged to the user**, because A costs them a Cloudflare resource and B costs visible detail.
+
+### Task 5 — rail groups 6-10
+
+Commit `f7f08ca`. Controller-verified: 152 tests / 17 files, audit 80/80 exit 0, build clean,
+**fidelity 6/6 on the implementer's first run with zero differences in either theme and no new
+ALLOWED_DIFFS entry**. All nine `task: 5` PENDING lines deleted. Screenshots delivered to the
+user. The rail is now complete: 10 of 10 groups.
+
+**Ruling 28 - native `<input type="range">` and native `<select>` stand, against the brief.**
+The brief's Step 3 said to use Radix `Slider` for `#opacity` and `#year` and Radix `Select` for
+`#cluster`. The implementer reversed both and asked for a ruling instead of quietly deviating.
+
+It is right, and the reason is specific to this project: **`input[type=range]` is one of the
+guard's measured selectors.** A Radix Slider renders spans, so the element would disappear from the
+rebuild and the guard would fail outright - and the only way to make it pass would be to re-add the
+PENDING line, which is silencing. The styling is also pure user-agent chrome (`accent-color`, the
+select's own arrow), and a native range input already carries `role="slider"`, is a tab stop and is
+arrow-operable, so there is no accessibility gap for Radix to close. Same precedent as Task 2's
+header pickers.
+*Decision:* approved. Documented at both call sites and pinned by a test.
+*Cost if wrong:* none identified - Radix would add markup the CSS does not target and remove an
+element the guard measures.
+
+**Observation - the guard measures only the FIRST match of a selector.** The implementer flagged
+that `#cluster` is the *second* `.search` in the document, so a regression in the cluster select
+would not be caught. The same is true anywhere a selector repeats. Not a defect in this task;
+a real limitation of `capture()`. **For Task 12:** either compare every match or give repeated
+selectors a positional form (`.rail > div:nth-of-type(7) .search`). Recorded rather than fixed now
+because changing the capture shape mid-plan would churn every task's baseline.
+
+**Accepted judgement calls:** `, °C` appended to the §6.3 legend labels, since the spec supplies
+the phrase but not the unit and the original's label is where the unit lived; and Task 4's `.cbar`
+test scoped to `#conf`, because the cluster card renders five more `.cbar` rows (the guard was
+unaffected - `#conf` precedes `#clusterCard`).
+
+**Carried forward:**
+- *Task 6:* the legend's ramp ticks are still `suhii` quantiles. §6.2's ±4.5 domain has to come
+  from `encodeValue`, and `HOT_TICKS` / `COLD_TICKS` are exported so that changes in one place.
+- *Tasks 7 and 8:* `.card2` and `.dl2` **already exist in the rail** behind a non-default cluster
+  selection. Deleting their PENDING lines will make the guard measure *that* element, not the
+  drawer or the compare card. Use a scoped selector.
+- `.ly .key` had a CSS rule but no element in the original, so it was a check that could never
+  fire; deleted with the rest.
