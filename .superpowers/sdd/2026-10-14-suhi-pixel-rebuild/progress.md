@@ -628,3 +628,11 @@ and the typology mean goes negative once the year slider back-casts. **Later tas
 file; they do not widen it to `@types/d3`.** Data is fetched from the prototype's own
 `../data/*.json` against `document.baseURI` rather than bundled, which is why no polygon geometry
 reaches the 319 kB chunk.
+
+**User feedback, 2026-10-23: commit messages read as robotic.** *"hope you're commiting to git and
+with a message that is not AI'sh or robotic sounding."* They had drifted into status-report
+shape - stacked bullets, a heading per concern, measurements quoted for their own sake. From here
+they are a subject line plus a paragraph or two of plain prose; the rulings and the numbers live
+in this ledger, which is where a future reader should look for them anyway. Saved as a durable
+preference in project memory (`commit-message-voice`), along with the fidelity-rebuild framing
+and the show-the-running-app rule.
