@@ -721,3 +721,34 @@ unaffected - `#conf` precedes `#clusterCard`).
   drawer or the compare card. Use a scoped selector.
 - `.ly .key` had a CSS rule but no element in the original, so it was a check that could never
   fire; deleted with the rest.
+
+## Basemap extract — measured, and option B does not hold up
+
+Cut with `go-pmtiles` v1.31.2 (user-approved download) from `build.protomaps.com/20261020.pmtiles`,
+bbox `2.5,3.9,15.0,14.1`:
+
+| Zoom ceiling | Size | Against the 25 MiB Pages cap |
+| --- | --- | --- |
+| z0-12 | **163.08 MB** | 6.5x over |
+| z0-10 | **39.23 MB** | 1.6x over |
+| z0-9 | ~10 MB (extrapolated; the top level is roughly three quarters of each total) | fits |
+
+**My earlier estimate was wrong.** I told the user B would fit "a zoom ceiling near 12". It does
+not - z12 is 163 MB, and even z10 is over. The only ceiling that fits a static upload is **z9**,
+which is seven levels below the map's `maxZoom: 16`.
+
+Vector tiles upscale without blurring, so z9 under a z16 view stays crisp - but the data simply
+is not there: at z9 Nigeria has major roads, water and place points, and nothing finer. The
+dashboard's purpose is a ministry or field officer zooming into *their* city, and that view would
+have almost no basemap under it.
+
+Two things I could not use as levers: `pmtiles extract` cannot filter layers (dropping buildings,
+transit and POIs would need re-encoding every tile through tippecanoe, far heavier tooling), and
+a local extract cannot be re-cut because its output is not clustered - every ceiling costs another
+fetch from source.
+
+**So the recommendation flips to A** (Cloudflare R2 plus a small Worker), and the user has to make
+that call because it is their infrastructure. Put to them with the measurements.
+
+`*.pmtiles` is gitignored - 39 MB has no business in this repo, and the file is reproducible from
+one command, which is recorded in the spec.

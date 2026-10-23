@@ -19,3 +19,7 @@ Thumbs.db
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Basemap extracts. Built with go-pmtiles from build.protomaps.com; see spec 8.3.
+# Too large for git (and for a Cloudflare Pages file) - rebuilt or fetched at deploy time.
+*.pmtiles
