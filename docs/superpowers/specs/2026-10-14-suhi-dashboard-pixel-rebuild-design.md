@@ -623,7 +623,7 @@ In order, each a `.sec-h` heading plus its control:
 | 1 | (no heading) | `.search` + `#results` row list |
 | 2 | `National · 55 cities` + `reset` | `.kpis` 2-column grid |
 | 3 | `Confidence` / `Gi* / BH` | `#conf` |
-| 4 | `Basemap` | `.seg` + note |
+| 4 | `Basemap` | `.seg` with **five** Esri options - Dark / Topo / Relief / Gray / Imagery, each labelled from the second word of its `BASES` label at an inline `font-size:10.5px` - plus the note. Ruling 25: §8.3's PMTiles swap is **not** in §3's Changed table, so the five stay |
 | 5 | `Contour level` | `.seg` — All 441 / L50 / L75 / L90 + note |
 | 6 | `Layers` + opacity % | layer toggles + opacity range |
 | 7 | `Cluster typology` + count | select + `#clusterCard` |

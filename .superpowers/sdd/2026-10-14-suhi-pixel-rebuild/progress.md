@@ -502,3 +502,51 @@ read one as a mistake.
 **Task 2: complete.** 104 tests / 10 files green, audit exit 0 at 80 pairs, build 85.37 KB
 gzipped, `npm audit --omit=dev` 0, no later-task library wired, `project/ data/ scripts/
 src/lib/ src/i18n/` untouched.
+
+### Task 3 — the fidelity guard
+
+Built inline by the controller (the sixth dispatch attempt would have been the sixth network
+failure). Commits `87b5ff5` and `325d3ca`. 104 unit tests, 6 fidelity tests, audit exit 0,
+~20 s for the fidelity run. Full detail in the commit messages.
+
+**Ruling 22 - `.claude/launch.json` serves the wrong root, and the prototype cannot load data
+under it.** It runs `python -m http.server --directory project`, but the prototype fetches
+`../data/cities.json` (lines 593-595), which escapes that root and 404s. So the dev-server
+config in the repo has never been able to render the prototype with data. `tests/fidelity/server.mjs`
+roots at the repository instead, which is the only root serving both `/project/...` and `/data/`.
+*Decision:* leave `launch.json` alone for now - nothing in the plan depends on it - and fix it in
+Task 12 alongside the deployment config. Recorded so nobody debugs the 404 twice.
+
+**Ruling 23 - the search does NOT fold diacritics, and the plan's test for it is wrong.**
+Plan Task 4 specified `test('matches a city name with diacritics typed without them')`. The
+original filters with `c.city.toLowerCase().includes(q)` (line 999) - no normalisation - and
+**all 55 city names in `data/cities.json` are pure ASCII**, so the test is both unfaithful and
+untestable against this data. Folding would be an improvement, not a transcription.
+*Decision:* drop that test. Reproduce `toLowerCase().includes()`, the `slice(0, 6)` cap and the
+em-dash empty state exactly. Diacritics still matter for the four-language dictionary, which has
+its own fixture - a different concern that this test was conflating.
+*Cost if wrong:* a Hausa or Yoruba place name added later would not be findable without its
+marks. Worth offering the user as a deliberate improvement; not smuggled in as fidelity.
+
+**Ruling 24 - the mechanism of §9.1 bug 2, for whoever fixes it.**
+`buildRail()` emits `data-on="true"` on every layer toggle unconditionally (line 962), and is
+**re-called on every language change** (line 1015). So switching language silently resets all six
+toggles' visuals while `state.layers` keeps the real values - the desync is not a one-off render
+bug but a rebuild that discards state. The React version must derive `data-on` from state, which
+also makes Review Focus 3's test meaningful rather than incidental.
+
+**Ruling 25 - the basemap keeps its five Esri options. §8.3's PMTiles swap is NOT sanctioned by §3.**
+A conflict between my own spec sections. §8.3 ("the basemap joins the design system") argues for
+replacing Esri with a self-hosted Protomaps basemap styled from our tokens. But §3's Changed
+table - the binding list of permitted visual departures - does not include the basemap, and a
+basemap is about as visual as a map gets. `BASES` (lines 579-590) defines five Esri layers, and
+`renderBaseSeg` renders a button per entry labelled with the second word of each label
+(Dark / Topo / Relief / Gray / Imagery) at an inline `font-size:10.5px`.
+*Decision:* reproduce all five. The engine swap in §8.2 does not require the basemap swap -
+MapLibre consumes Esri raster tiles through a raster source perfectly well - so Task 6 can be
+faithful and still drop Leaflet. PMTiles becomes a later, additive option.
+**This is flagged for the user rather than settled:** replacing five familiar basemaps with one
+styled vector basemap is a real improvement and was in the original brainstorm, but it is a
+visible change to the approved design and that is the user's call, not mine.
+*Cost if wrong:* we keep a third-party tile dependency §8.3 wanted gone, and defer work that is
+additive rather than blocking.

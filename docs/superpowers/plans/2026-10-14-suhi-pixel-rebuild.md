@@ -321,7 +321,8 @@ test('scope label and reset reflect the selected city', …)
 
 // src/rail/Search.test.tsx
 test('matches a city by name and a spot by id', …)
-test('matches a city name with diacritics typed without them', …)
+test('caps results at six and shows an em dash when nothing matches', …)   // ruling 23: the original
+// does NOT fold diacritics, and all 55 city names are ASCII, so folding would be an improvement
 ```
 
 Review Focus 5 is the load-bearing one: assert `pctHot`, `pop_hot` and the share bar all render `—` when the filtered set is empty, and that no rendered text contains `NaN` or `Infinity`.
