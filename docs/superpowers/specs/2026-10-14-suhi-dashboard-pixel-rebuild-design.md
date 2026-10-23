@@ -751,11 +751,33 @@ geometry, and a queryable physiographic layer.
 
 ### 8.3 The basemap joins the design system
 
-Today an Esri basemap sits under two design systems and belongs to neither. A
-self-hosted Protomaps basemap, styled with a MapLibre style JSON that reads our own
-tokens, means roads, water, landuse and labels flip with `data-theme` like everything
-else. It also removes the Esri dependency and makes tile failure (a known risk)
-near-impossible, since we serve our own file.
+Today five Esri raster basemaps sit under two design systems and belong to neither. A
+self-hosted Protomaps **vector** basemap, styled with a MapLibre style JSON built from our
+own tokens, means roads, water, landuse and labels flip with `data-theme` like everything
+else. It removes the Esri dependency and the API-key question, and makes tile failure — a
+known risk — near-impossible, since we serve the file.
+
+**Approved by the user on 2026-10-23**, overriding ruling 25, which had kept the five Esri
+layers on the grounds that §3's Changed table does not list a basemap change. It is
+therefore a sanctioned visible departure and needs an `ALLOWED_DIFFS` entry citing this
+section — the first exemption authorised by the user rather than by §3 or §9.1.
+
+**The asset, and the constraint §8.6 imposes on it.** There is no `.pmtiles` file in the
+repo and the `pmtiles` npm package reads rather than builds one, so a Nigeria extract has
+to be cut with the `go-pmtiles` CLI. Cloudflare Pages caps a single file at **25 MiB**, and
+a Nigeria basemap covering the map's `maxZoom: 16` is well past that — so §8.3 and §8.6, both
+carried over from revision 1, were never reconcilable as written.
+
+Resolved, with the user's choice recorded:
+
+| | Approach | Cost |
+| --- | --- | --- |
+| A | Cloudflare R2 plus a Worker — the standard Protomaps deployment | No longer a pure static site; an account resource to maintain |
+| **B** | **Chosen.** Trim the extract: Nigeria's bbox, a zoom ceiling near 12, only the layers the design draws | Basemap detail thins past z12, where the contour polygons are the subject anyway |
+| C | Protomaps' hosted API | Rejected — reintroduces the third-party dependency and the key this section exists to remove |
+
+B also helps the audience in §1: a smaller file is a faster first paint on a phone or a
+projector. The basemap URL lives in **one** place so moving to A stays a one-line change.
 
 ### 8.4 Deep links
 
@@ -773,7 +795,12 @@ either ground. The current build has **zero** print styles despite planning to c
 
 Cloudflare Pages, static. No `.nojekyll` trap, better tile caching, free custom domain.
 No backend until there is private data, user uploads, or server-side Gi\* recomputation.
-If the contour data outgrows the browser, the answer is PMTiles — not an API.
+
+The **25 MiB per-file cap** is the binding constraint on the basemap, and §8.3 records how
+that was resolved. The contour data is not at risk: `spots.topo.json` is 82 KB gzipped.
+
+Two files need attention at deploy time: `.pmtiles` requires a `Content-Type` and
+HTTP range-request support, and the TopoJSON should be served pre-compressed.
 
 ---
 
