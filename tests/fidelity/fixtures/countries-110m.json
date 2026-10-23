@@ -1,0 +1,15 @@
+{
+  "_comment": "Offline stand-in for world-atlas@2.0.2/countries-110m.json, which the prototype fetches from a CDN (line 595). NOT the real Natural Earth outline: one coarse ring whose extent matches Nigeria's real bounding box (about 2.7E-14.7E, 4.3N-13.9N), which is all the prototype needs from it - NG feeds d3.geoBounds for the graticule extent and fitNation's framing (lines 621-650). A real 110m outline would be better and is a 110 KB download away; this exists so the guard runs with no network at all. Both pages receive the identical stub, so every comparison stays apples-to-apples. No transform key, so arc positions are absolute rather than delta-encoded.",
+  "type": "Topology",
+  "objects": {
+    "countries": {
+      "type": "GeometryCollection",
+      "geometries": [
+        { "type": "Polygon", "arcs": [[0]], "properties": { "name": "Nigeria" } }
+      ]
+    }
+  },
+  "arcs": [
+    [[2.7, 4.3], [14.7, 4.3], [14.7, 13.9], [2.7, 13.9], [2.7, 4.3]]
+  ]
+}

@@ -22,3 +22,8 @@ jobs:
       # The contrast audit has its own in-process suite above; running the CLI as well catches a
       # token change that passes the unit tests but leaves the committed CSS failing WCAG AA.
       - run: npm run audit
+      # The fidelity guard (spec §3). Without it, "pixel-for-pixel" is an intention; with it,
+      # a transcription error fails the build. Chromium only - it compares the rebuild against
+      # the ORIGINAL in the same engine, so cross-browser differences would be noise.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run fidelity

@@ -13,3 +13,9 @@ Thumbs.db
 .idea/
 .vscode/
 .superpowers/sdd/**/review-*.diff
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

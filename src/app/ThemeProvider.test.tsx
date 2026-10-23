@@ -12,7 +12,7 @@
  * decision not to persist on mount. */
 
 import { StrictMode } from 'react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
