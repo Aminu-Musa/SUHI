@@ -768,16 +768,39 @@ to be cut with the `go-pmtiles` CLI. Cloudflare Pages caps a single file at **25
 a Nigeria basemap covering the map's `maxZoom: 16` is well past that — so §8.3 and §8.6, both
 carried over from revision 1, were never reconcilable as written.
 
-Resolved, with the user's choice recorded:
+Resolved, with the user's choice recorded. The sizes below are measured, not estimated -
+cut with `go-pmtiles` v1.31.2 from `build.protomaps.com/20261020.pmtiles`, bbox
+`2.5,3.9,15.0,14.1`:
 
-| | Approach | Cost |
+| Zoom ceiling | Size | Against the 25 MiB Pages cap |
 | --- | --- | --- |
-| A | Cloudflare R2 plus a Worker — the standard Protomaps deployment | No longer a pure static site; an account resource to maintain |
-| **B** | **Chosen.** Trim the extract: Nigeria's bbox, a zoom ceiling near 12, only the layers the design draws | Basemap detail thins past z12, where the contour polygons are the subject anyway |
-| C | Protomaps' hosted API | Rejected — reintroduces the third-party dependency and the key this section exists to remove |
+| z0-12 | 163.08 MB | 6.5x over |
+| z0-10 | 39.23 MB | 1.6x over |
+| z0-9 | ~10 MB | fits |
 
-B also helps the audience in §1: a smaller file is a faster first paint on a phone or a
-projector. The basemap URL lives in **one** place so moving to A stays a one-line change.
+Only z9 fits a static upload, and that is **seven levels below the map's `maxZoom: 16`**.
+Vector tiles upscale without blurring, so the result stays crisp, but at z9 Nigeria carries
+major roads, water and place points and nothing finer - so an official zooming into their own
+city, which is the dashboard's purpose (§1), would find almost nothing beneath the contours.
+
+**Chosen by the user on 2026-10-23: Cloudflare R2 with a small Worker**, the standard Protomaps
+serverless deployment. The free tier covers a file this size. The site stops being a pure static
+upload and gains one resource to maintain; in exchange the basemap is unconstrained.
+
+Two levers that do not exist, recorded so nobody re-tries them: `pmtiles extract` cannot filter
+layers, so dropping buildings, transit and POIs would mean re-encoding every tile through
+tippecanoe; and an extract's own output is not clustered, so it cannot be re-cut to a lower
+ceiling - every ceiling costs a fresh fetch from source.
+
+**Development uses a local file, production uses R2.** `public/nigeria-z10.pmtiles` (39 MB,
+gitignored) is ample for working on the style and the layers. The basemap URL lives in **one**
+place so the two differ by configuration, not code.
+
+Rebuild either with:
+
+```
+pmtiles extract https://build.protomaps.com/<YYYYMMDD>.pmtiles nigeria.pmtiles   --bbox=2.5,3.9,15.0,14.1 --maxzoom=<ceiling>
+```
 
 ### 8.4 Deep links
 
@@ -796,8 +819,9 @@ either ground. The current build has **zero** print styles despite planning to c
 Cloudflare Pages, static. No `.nojekyll` trap, better tile caching, free custom domain.
 No backend until there is private data, user uploads, or server-side Gi\* recomputation.
 
-The **25 MiB per-file cap** is the binding constraint on the basemap, and §8.3 records how
-that was resolved. The contour data is not at risk: `spots.topo.json` is 82 KB gzipped.
+The **25 MiB per-file cap** is why the basemap does not live here. It is served from
+Cloudflare R2 through a Worker instead (§8.3), which keeps Pages for the application itself.
+The contour data is not at risk: `spots.topo.json` is 82 KB gzipped.
 
 Two files need attention at deploy time: `.pmtiles` requires a `Content-Type` and
 HTTP range-request support, and the TopoJSON should be served pre-compressed.

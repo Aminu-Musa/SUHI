@@ -752,3 +752,18 @@ that call because it is their infrastructure. Put to them with the measurements.
 
 `*.pmtiles` is gitignored - 39 MB has no business in this repo, and the file is reproducible from
 one command, which is recorded in the spec.
+
+**Ruling 29 - the basemap goes to Cloudflare R2 with a Worker. The user chose A over my earlier B.**
+My ruling 27 picked B (a trimmed static extract) on an estimate that turned out to be wrong by a
+factor of six. With the measurements in hand - z12 at 163 MB, z10 at 39 MB, only z9 under the cap -
+the user chose A, and that is the right answer: a z9 basemap under a z16 map would be empty exactly
+where §1's audience looks hardest.
+
+*Consequences for Task 6:* the basemap URL is configuration, not code, and sits in one place.
+Development reads `public/nigeria-z10.pmtiles` (already cut, 39 MB, gitignored); production reads
+the R2 URL. Nothing else in Task 6 depends on which. The `ALLOWED_DIFFS` entry citing §8.3 is still
+required - the basemap is a sanctioned visible departure, authorised by the user rather than by §3.
+
+*Deferred to Task 12:* cutting the production extract, the R2 bucket, the Worker, and the
+`Content-Type` plus range-request requirements. Not now - a multi-gigabyte fetch buys nothing until
+the map renders.
