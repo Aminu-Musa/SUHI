@@ -2,10 +2,17 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "suhi-dashboard",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5178", "--directory", "project"],
-      "port": 5178
+      "name": "suhi-rebuild",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5180", "--strictPort"],
+      "port": 5180
+    },
+    {
+      "name": "suhi-original",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tests/fidelity/server.mjs"],
+      "port": 5179,
+      "url": "http://localhost:5179"
     }
   ]
 }

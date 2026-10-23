@@ -550,3 +550,37 @@ styled vector basemap is a real improvement and was in the original brainstorm, 
 visible change to the approved design and that is the user's call, not mine.
 *Cost if wrong:* we keep a third-party tile dependency §8.3 wanted gone, and defer work that is
 additive rather than blocking.
+
+**Ruling 25 REVERSED by the user, 2026-10-23: the vector basemap is approved.**
+I ruled to keep the five Esri raster basemaps because §3's Changed table does not list a basemap
+change. The user overrode it: *"go with the vector basemap"*. So spec §8.3 is reinstated -
+a self-hosted PMTiles/Protomaps basemap styled from the theme tokens, flipping with
+`data-theme` like everything else, and the Esri dependency goes.
+
+Consequences to carry:
+- **Task 6 owns it.** The basemap becomes a MapLibre vector source with a style built from
+  `THEME_TOKENS`, not a raster tile layer.
+- **Task 4's basemap segment is affected.** `BASES` has five Esri entries and
+  `renderBaseSeg` labels each from the second word of its label. With one vector basemap the
+  segment's options change. Task 4 is mid-flight building the five; **it finishes as specified**
+  and Task 6 revises the segment, because changing the brief under a running implementer costs
+  more than one later edit.
+- **`ALLOWED_DIFFS` needs an entry** citing §8.3 - the basemap is a visible departure from the
+  approved page and the guard will see it. This is the first entry whose citation is a §8
+  section rather than §3 or §9.1, which is correct: the user authorised it.
+- **Ruling 7's latch survives.** A theme change still moves the basemap until the reader picks
+  one; with a single vector basemap the "pick" becomes the style variant rather than a provider.
+
+**Process correction, raised by the user, 2026-10-23.** The user pointed out that four tasks in,
+they had still never seen the application running - only the original HTML. That is a fair and
+accurate criticism of how I have been working. I verified Tasks 1-3 with md5s, computed-box
+comparisons, contrast ratios and mutation tests, all of which are real evidence, and never once
+rendered the thing and looked at it. A fidelity guard that compares computed boxes cannot tell
+you whether the result looks right to a person, and it cannot be shown to a stakeholder.
+
+Corrected now: `.claude/launch.json` rewritten with working configs for both the rebuild
+(`npm run dev`, port 5180) and the original (the repo-rooted server from ruling 22, port 5179),
+and screenshots of both captured and sent to the user.
+
+**Standing rule from here: every task that changes something visible ends with a screenshot of
+the running app sent to the user, not just a green suite.** Put it in each remaining dispatch.
