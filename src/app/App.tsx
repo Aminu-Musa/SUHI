@@ -14,6 +14,9 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { I18nProvider, useLang, useT, type Lang } from './I18nProvider';
 import { ThemeProvider, useTheme, type Theme } from './ThemeProvider';
 import { AppStateProvider, useAppState, type State, type Tab } from './state';
+import { useSuhiData, type SuhiData } from './data';
+import { Rail } from '../rail/Rail';
+import type { BaseKey } from '../rail/BasemapSeg';
 
 /** Which basemap a theme change reaches for, prototype line 561. */
 export type ThemeBaseKey = 'dark' | 'topo';
@@ -28,29 +31,62 @@ export interface AppProps {
    * it is an effect dependency, and a fresh function each render would re-fire the effect.
    */
   onBaseFromTheme?: (key: ThemeBaseKey) => void;
+  /**
+   * Ruling 7, the other half. A click in the rail's basemap segment latches
+   * `userPickedBase` and would call Task 6's `setBase`; until that exists it calls this.
+   * `onBaseFromTheme` covers the theme-driven path, this one the reader-driven path, and
+   * Task 6 collapses both into `setBase`.
+   */
+  onBasePicked?: (key: BaseKey) => void;
+  /**
+   * Test/composition seam. Passing data (or `null`) SUPPRESSES the fetch in `useSuhiData`
+   * entirely, so component suites render the rail against fixtures instead of reaching for
+   * /data/*.json over a network jsdom does not have.
+   */
+  data?: SuhiData | null;
 }
 
 const NOOP_BASE = () => {};
 
-export default function App({ initialState, onBaseFromTheme = NOOP_BASE }: AppProps = {}) {
+export default function App({
+  initialState,
+  onBaseFromTheme = NOOP_BASE,
+  onBasePicked = NOOP_BASE,
+  data,
+}: AppProps = {}) {
   return (
     <ThemeProvider>
       <I18nProvider>
         <AppStateProvider initial={initialState}>
-          <Shell onBaseFromTheme={onBaseFromTheme} />
+          <Shell onBaseFromTheme={onBaseFromTheme} onBasePicked={onBasePicked} injectedData={data} />
         </AppStateProvider>
       </I18nProvider>
     </ThemeProvider>
   );
 }
 
-function Shell({ onBaseFromTheme }: { onBaseFromTheme: (key: ThemeBaseKey) => void }) {
+function Shell({
+  onBaseFromTheme,
+  onBasePicked,
+  injectedData,
+}: {
+  onBaseFromTheme: (key: ThemeBaseKey) => void;
+  onBasePicked: (key: BaseKey) => void;
+  injectedData?: SuhiData | null;
+}) {
   const t = useT();
   const { lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
-  const [state] = useAppState();
+  const [state, patch] = useAppState();
   const [tab, setTab] = useState<Tab>('map');
   const [framed, setFramed] = useState(false);
+  const fetched = useSuhiData(injectedData === undefined);
+  const data = injectedData === undefined ? fetched.data : injectedData;
+
+  /* `baseKey` is the prototype's module-level `let baseKey='dark'` (line 577), lifted here
+   * because two things write it: the theme effect below and the rail's basemap segment. One
+   * owner, so the segment's aria-pressed and the theme's choice can never disagree. */
+  const [baseKey, setBaseKey] = useState<BaseKey>('dark');
 
   /* Ruling 7, transcribed from `applyTheme` (prototype line 561): a theme change drags the
    * basemap with it, but ONLY while the reader has not chosen one.
@@ -71,8 +107,20 @@ function Shell({ onBaseFromTheme }: { onBaseFromTheme: (key: ThemeBaseKey) => vo
     const key: ThemeBaseKey = theme === 'nocturne' ? 'dark' : 'topo';
     if (lastApplied.current === key) return;
     lastApplied.current = key;
+    setBaseKey(key);
     onBaseFromTheme(key);
   }, [theme, state.userPickedBase, onBaseFromTheme]);
+
+  /* Ruling 7's latch, set here and nowhere else. It is never cleared: once the reader has
+   * chosen a basemap, their choice outlives every later theme change for the session. */
+  const pickBase = useCallback(
+    (key: BaseKey) => {
+      setBaseKey(key);
+      patch({ userPickedBase: true });
+      onBasePicked(key);
+    },
+    [patch, onBasePicked],
+  );
 
   const onTabChange = useCallback((value: string) => setTab(value as Tab), []);
 
@@ -147,9 +195,11 @@ function Shell({ onBaseFromTheme }: { onBaseFromTheme: (key: ThemeBaseKey) => vo
           </header>
 
           <div className="body">
-            {/* Rail groups are Task 4's. The element itself, its id and its display behaviour are
-             * Task 2's, because selectTab addresses it by id. */}
-            <aside className="rail" id="rail" style={offMap}></aside>
+            {/* The element, its id and its display behaviour are Task 2's, because selectTab
+             * addresses it by id; groups 1-5 inside it are Task 4's and 6-10 Task 5's. */}
+            <aside className="rail" id="rail" style={offMap}>
+              <Rail data={data} baseKey={baseKey} onPickBase={pickBase} />
+            </aside>
 
             <main
               className={framed ? 'stage framed' : 'stage'}

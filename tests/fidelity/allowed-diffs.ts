@@ -56,31 +56,19 @@ export const IGNORED_PROPERTIES: readonly { readonly name: string; readonly why:
  * The guard SKIPS a pending selector, and FAILS if a pending selector now matches in the
  * rebuild - so the list cannot rot into a permanent exemption (ruling 2). Task 12 asserts it is
  * empty. Tasks 4-10 each delete their own lines; nobody deletes someone else's. */
+/* `.bar` was tagged task 5 and is NOT in this list: the first `.bar` in the document is the KPI
+ * share bar, which task 4 renders (prototype line 1046), and nothing in rail groups 6-10 has
+ * one. Task 4 deleted that line because the guard's own failure message asks the task that
+ * makes a selector exist to delete it, and deleting it makes the guard COMPARE `.bar` rather
+ * than skip it - strictly more coverage, never a silenced selector. Task 7's drawer bars are
+ * covered separately by the `.drawer .bar i` entry above. */
 export const PENDING: readonly { readonly selector: string; readonly task: number }[] = [
-  // Task 4 - rail groups 1-5
-  { selector: '.search', task: 4 },
-  { selector: '.rowlist', task: 4 },
-  { selector: '.rw', task: 4 },
-  { selector: '.sec-h', task: 4 },
-  { selector: '.kpis', task: 4 },
-  { selector: '.kpi', task: 4 },
-  { selector: '.kpi .lab', task: 4 },
-  { selector: '.kpi .val', task: 4 },
-  { selector: '.kpi .sub', task: 4 },
-  { selector: '.seg', task: 4 },
-  { selector: '.seg button', task: 4 },
-  { selector: '.cbar', task: 4 },
-  { selector: '.cbar .t', task: 4 },
-  { selector: '.cbar .track', task: 4 },
-  { selector: '.cbar .v', task: 4 },
-  { selector: '.note', task: 4 },
   // Task 5 - rail groups 6-10
   { selector: '.layers', task: 5 },
   { selector: '.ly', task: 5 },
   { selector: '.sw', task: 5 },
   { selector: '.ly .chip', task: 5 },
   { selector: '.ly .key', task: 5 },
-  { selector: '.bar', task: 5 },
   { selector: '.ramp', task: 5 },
   { selector: '.rampL', task: 5 },
   { selector: 'input[type=range]', task: 5 },
