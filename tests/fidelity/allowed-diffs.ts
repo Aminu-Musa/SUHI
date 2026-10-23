@@ -39,6 +39,8 @@ const FROM_SPEC_9: readonly AllowedDiff[] = [
     why: 'state graticule used an unclipped d3.geoBounds extent, running over Niger and the sea' },
   { target: '.kpi.wide:last-of-type .val', property: 'exists', cite: 'spec §9.1 bug 7',
     why: 'the typology tile had no .val, breaking the tile grammar of the other five' },
+  { target: '.kpis', property: 'box', cite: 'spec §9.1 bug 7',
+    why: "the container of the tile that bug 7 fixes: a figure line cannot be added without the grid growing by it. Measured +26.00px in Nocturne (a 24px line box plus the sub's 2px top margin) and +9.73px in Modernist, where the shortened .sub reflows from two lines to one and recovers 16.27px. Exempting the .val's existence without its container's height would have made the bug-7 fix unshippable" },
   { target: '.citycircle', property: 'z-order', cite: 'spec §9.1 bug 10 / ruling 14',
     why: 'cityPane was 410, under the spot panes; docs specify 460, so circles now sit above' },
 ];

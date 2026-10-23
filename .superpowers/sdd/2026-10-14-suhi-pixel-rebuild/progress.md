@@ -584,3 +584,47 @@ and screenshots of both captured and sent to the user.
 
 **Standing rule from here: every task that changes something visible ends with a screenshot of
 the running app sent to the user, not just a green suite.** Put it in each remaining dispatch.
+
+### Task 4 — rail groups 1-5
+
+Commit `2cdc892` (implementer) + the ruling below. Controller-verified: 129 tests / 14 files,
+audit 80/80 exit 0, build clean, **fidelity 6/6 green**.
+
+**Ruling 26 - `.kpis` gets a box exemption citing §9.1 bug 7. The implementer was right to refuse
+to silence it.**
+It reported DONE_WITH_CONCERNS with one difference per theme and added nothing:
+`.kpis height: 325.67 vs 351.67` (Nocturne, +26.00) and `387.66 vs 397.39` (Modernist, +9.73).
+I re-ran it and confirmed that is the only difference in either theme.
+
+The cause is mechanical and the implementer diagnosed it correctly: bug 7 gives the sixth tile a
+`.val`, which is a 24px line box plus the sub's inline 2px top margin; Modernist nets less
+because the shortened `.sub` reflows from two lines to one and recovers 16.27px. **A figure line
+cannot be added without its container growing by it.** The existing bug-7 entry exempts
+`.kpi.wide:last-of-type .val` with `property: 'exists'`, which covers the element appearing but
+not the grid's height, so my dispatch's claim that this task "needs no new ALLOWED_DIFFS entry"
+was simply wrong.
+*Decision:* add `{ target: '.kpis', property: 'box', cite: 'spec §9.1 bug 7' }` with the measured
+numbers in its `why`. This is the sanctioned fix's own geometry, not a new departure - exempting
+the `.val` and not its container would have made bug 7 unshippable.
+*Cost if wrong:* a real regression in the KPI grid's height would now pass. Narrow: the tiles
+themselves are still compared, so only the grid's total height is unguarded.
+
+**The implementer deleted a 17th PENDING line, `.bar`, tagged task 5 - accepted.** The first
+`.bar` in the document is the KPI share bar, which Task 4 renders, so the anti-rot clause fired
+correctly. Deleting it makes the guard *compare* `.bar` (it passes clean in both themes) instead
+of skipping it, which is strictly more coverage, and the guard's own failure message instructs
+the task that makes a selector exist to delete its line. Verified nothing in groups 6-10 renders
+a `.bar` before the drawer's, which is Task 7's and sits below this one in document order.
+
+**"Every figure renders an em dash" was my overstatement, correctly narrowed.** With Lagos +
+cluster 1 (genuinely 0 of 441, asserted) only `d3.mean([])` is indeterminate: `[].length` and
+`d3.sum([])` are `0`, and `cityArea` is a real 1,465 km2. The faithful output is
+`0 / 0 / 0.00% hot · 0.00% cold / 0 / 0 / — °C`, which is what the test asserts, plus all six
+bar widths at `0%` and no `NaN`/`Infinity`/`undefined`/`null` anywhere in `#rail`.
+
+**Carried forward:** `src/types/d3.d.ts` declares only the three d3 members in use rather than
+pulling `@types/d3`, because d3 formats negatives with U+2212 where `toFixed` and `Intl` do not,
+and the typology mean goes negative once the year slider back-casts. **Later tasks extend that
+file; they do not widen it to `@types/d3`.** Data is fetched from the prototype's own
+`../data/*.json` against `document.baseURI` rather than bundled, which is why no polygon geometry
+reaches the 319 kB chunk.
