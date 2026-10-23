@@ -636,3 +636,45 @@ they are a subject line plus a paragraph or two of plain prose; the rulings and 
 in this ledger, which is where a future reader should look for them anyway. Saved as a durable
 preference in project memory (`commit-message-voice`), along with the fidelity-rebuild framing
 and the show-the-running-app rule.
+
+## Task 6 pre-flight — the vector basemap has an asset problem the spec glosses over
+
+**Ruling 27 - the basemap asset is sourced separately from Task 6's code, and the hosting needs
+the user's decision.**
+
+Spec §8.3 says "a self-hosted Protomaps basemap... we serve our own file", and §8.6 says
+"Cloudflare Pages, static". Those two do not fit together, and nothing in the repo closes the gap:
+
+- **There is no `.pmtiles` file anywhere** (`find . -name "*.pmtiles"` outside node_modules returns
+  nothing). It has to be built from an OSM extract.
+- **The `pmtiles` npm package is a reader, not a builder.** `npx pmtiles` fails - "could not
+  determine executable to run". Cutting a regional extract needs the Go CLI
+  (`go-pmtiles`), which is a separate binary download.
+- **Cloudflare Pages caps a single file at 25 MiB.** A Nigeria vector basemap covering the
+  dashboard's zoom range (the map goes to maxZoom 16) is comfortably past that. So "static upload"
+  and "self-hosted basemap" are in direct tension - §8.3 and §8.6 were both carried over from
+  revision 1 and never checked against each other.
+
+Three ways out, and the choice is the user's because it is about infrastructure and cost rather
+than code:
+
+**A. Cloudflare R2 plus a small Worker** - the standard Protomaps serverless deployment. R2's free
+tier covers this comfortably. Correct and unconstrained, but it stops being a pure static site and
+adds an account resource to manage.
+
+**B. Trim the extract to fit** - Nigeria only, a reduced zoom ceiling, and only the layers the
+design actually draws (water, roads, boundaries, landuse, places). Keeps deployment to a single
+static upload, matching §8.6. The cost is basemap detail at high zoom - though by z13 the contour
+polygons are the subject and the basemap is backdrop.
+
+**C. Protomaps' hosted API** - rejected: §8.3's stated reasons include removing a third-party
+dependency and needing no key, and this reintroduces both.
+
+*Decision for now:* pursue **B**, fall back to **A** if the trimmed file will not fit, and have
+Task 6 read the basemap URL from **one place** so swapping between them is a one-line change. The
+style JSON, the token mapping and all the spot layers - the great majority of Task 6 - do not
+depend on which we pick, so this does not block the task.
+*Cost if wrong:* a basemap that is thin at high zoom (B) or a deployment with a moving part (A).
+Neither is expensive to reverse, which is why the URL is isolated.
+
+**Flagged to the user**, because A costs them a Cloudflare resource and B costs visible detail.
