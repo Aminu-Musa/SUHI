@@ -767,3 +767,42 @@ required - the basemap is a sanctioned visible departure, authorised by the user
 *Deferred to Task 12:* cutting the production extract, the R2 bucket, the Worker, and the
 `Content-Type` plus range-request requirements. Not now - a multi-gigabyte fetch buys nothing until
 the map renders.
+
+## Task 6 pre-flight, second pass — initMap
+
+**Ruling 30 - Nigeria's bounds become a documented constant and the world-atlas CDN fetch goes.**
+`initMap` draws the national outline from `NG`, the Nigeria feature plucked out of
+world-atlas@2.0.2 (line 599), and both `fitNation()` and the state graticule's extent derive from
+`d3.geoBounds(NG)` (lines 623, 650). That is a 110 KB CDN download whose only products are an
+outline and a bounding box.
+
+With the vector basemap approved, the outline can come from the basemap's own `boundaries` layer
+styled to `--ui-line-strong` at 2px, and the bounding box is a constant we already know - it is the
+bbox the extract was cut with, `2.5,3.9,15.0,14.1`.
+*Decision:* hardcode the bounds as a named constant with a comment saying where it came from, style
+the boundary from the basemap, and drop the world-atlas fetch. This finishes what §8.3 started -
+the Esri tiles were one third-party dependency, this was the other - and it removes the failure
+mode the Task 3 guard had to stub around, where a dropped atlas request left the prototype rendering
+zero KPIs behind a removed loading overlay.
+*Cost if wrong:* a hand-entered bound could be subtly wrong. Cheap to check: `fitNation()` framing
+is visible, and the guard measures `.mapwrap`.
+
+**Ruling 31 - the "state boundaries" layer could stop being a placeholder, but that is the user's
+call and not Task 6's to take.**
+The layer labelled *State boundaries* with the chip *placeholder* is a `d3.geoGraticule` at
+1.6-degree steps - a grid, not boundaries - and §9.1 bug 6 is that its extent is unclipped, so the
+grid runs over Niger, Cameroon and the sea. §10.2 lists real state boundaries as blocked, needing
+GRID3 or GADM.
+
+The Protomaps basemap carries real administrative boundaries, so that blocker is now partly lifted.
+*Decision for Task 6:* fix bug 6 as specified - clip the graticule to Nigeria - and **do not**
+substitute real boundaries. Swapping a grid for actual state lines changes what the layer means and
+makes its own chip wrong; it is an improvement to offer, not a transcription.
+**Flagged to the user:** the basemap we are adding can give that layer real state boundaries and
+retire the placeholder chip. Worth doing, worth asking first.
+
+Also carried into the dispatch: initial view `setView([9.1, 8.7], 5.6)` is immediately overridden by
+`fitNation()`; `minZoom: 5`, `maxZoom: 16`; `zoomend` drives both the exaggeration bucket and the
+zoom hint; and the `setInterval` container-sizing hack (lines 639-645) exists because Leaflet needs a
+sized container - MapLibre does not, so it goes, and the tab-change resize is handled by the
+mounted-but-hidden rule from ruling 5.
