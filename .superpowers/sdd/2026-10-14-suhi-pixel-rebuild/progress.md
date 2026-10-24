@@ -869,3 +869,56 @@ Esri segment finish as specified rather than rewrite a running implementer's bri
 is where the work sits: Task 4's basemap segment was a separate component a later task could revise
 cheaply, while this lives inside the style JSON Task 6 is authoring this minute. Judged per case,
 not by the earlier precedent.
+
+### Task 6 — the MapLibre map
+
+Commit `8bb1d0d`. Controller-verified: 212 tests / 23 files, audit 80/80 exit 0, build clean,
+**fidelity 6/6 with `#map`, `.ovl` and `.mapsub` deleted from CONTENT_PENDING and now actively
+compared**. Both screenshots show a real map and were sent to the user.
+
+**The screenshot rule paid for itself immediately.** MapLibre's worker failed to load in dev *and*
+emitted no chunk in the production build - a template-literal specifier Rollup cannot analyse - so
+**the map drew nothing while 212 tests, a clean build and a green fidelity guard all passed**.
+Nothing in the automated stack could see it, because the guard measures the container's computed
+box and the container was correct. The user asked for screenshots two tasks ago and this is exactly
+the class of failure they catch. Fixed with `?worker&url` plus `setWorkerUrl`.
+
+**My basemap extract was corrupt and I reported its size as fact.** `public/nigeria-z10.pmtiles` as
+I left it had an all-zero header, no magic string anywhere, and 7.3% non-zero bytes - the file was
+never a PMTiles archive. The cause is almost certainly that my `pmtiles extract` runs were
+interrupted twice mid-write, leaving a correctly-sized sparse file. I then quoted "39.23 MB" into
+spec §8.3's measured table as though it were a measurement. The implementer reimplemented the
+extractor in Node and cut a valid archive - 1,522 tiles, 40,347,650 bytes, which is close enough to
+confirm the size claim was right even though the file was not. **Verified independently: the header
+now reads `PMTiles`.** The z12 figure of 163.08 MB came from an uninterrupted run and is probably
+sound, but it is an extrapolation basis I would not lean on again without re-cutting.
+
+**Ruling 33 - the state boundaries cannot be clipped to Nigeria, and the user has to see it.**
+Admin level 1 is present (`kind: 'region'`, `kind_detail: 4`) but the features **carry no country
+code, name or ISO field at any zoom**, so there is nothing to filter on. Niger's, Benin's,
+Cameroon's and Chad's first-level divisions therefore render inside the bbox alongside Nigeria's,
+and it is plainly visible in both screenshots. The implementer reported this rather than inventing a
+clip, which is what I asked for.
+Options: accept it (neighbours' admin lines in a dashed, half-opacity, muted treatment are arguably
+just context); clip by geometry against Nigeria's own outline at render time (real work, and the
+national outline comes from the same unlabelled source); or go back to GRID3/GADM for Nigeria-only
+state lines, which is what §10.2 always said. **Put to the user.**
+
+**Ruling 34 - `.seg button` gets a box exemption citing §8.3.** The basemap segment went from five
+Esri providers to three vector variants, so each button is wider: 56.67 to 95.80 px in Nocturne,
+53.59 to 90.66 px in Modernist, with the `.seg` container identical on both pages. That is the
+direct geometry of a user-approved change. Accepted.
+
+**Found by me, not reported: the basemap note is now false.** `basemap_note` still reads "Esri and
+Carto tile services - free, no key required." in all four languages (`src/i18n/dictionary.mjs:30-33`).
+We self-host Protomaps now; Esri and Carto are gone. The copy has to change in four languages, and
+the Hausa, Igbo and Yoruba lines are a first pass already flagged as needing native review (§10.2),
+so this is a translation question rather than a string edit. Assigned to Task 12 with the other copy
+work; recorded here so it is not shipped as-is.
+
+**Also noted:** the original boots at zoom 5 showing `×9`, not its fitted zoom, because its
+`fitNation` runs before the container is measured and Leaflet clamps to `minZoom` - the implementer
+transcribed that first frame faithfully and left `fitNation` correct, so `Fit` moves the map on
+first press. No symbol layers and no `glyphs` endpoint, because a glyph CDN would undo rulings 29
+and 30 and ruling 13 keeps labels in the DOM anyway. Bundle is now 1,400 kB JS plus a 506 kB worker,
+up from 337 kB - that is maplibre-gl, and it matters for §1's phone and projector audience.
