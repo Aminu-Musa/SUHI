@@ -49,13 +49,22 @@ import { useT } from '../app/I18nProvider';
 import type { Spots } from '../app/data';
 import { useAppState, type LayerKey, type State } from '../app/state';
 
-/** Prototype lines 959-960, verbatim: key, dictionary key, chip. `'placeholder'` is a sentinel
- * the original swapped for `T('placeholder')`; the other chips are literal strings. */
+/* Prototype lines 959-960: key, dictionary key, chip. The other chips are literal strings; the
+ * original's `states` chip was the sentinel `'placeholder'`, swapped at render for
+ * `T('placeholder')`.
+ *
+ * TASK 6 CHANGED THE `states` CHIP TO `37`. The chip said "placeholder" because the layer WAS
+ * one: a `d3.geoGraticule` at 1.6 degree steps standing in for state boundaries. The user
+ * approved real admin-level-1 boundaries from the vector basemap on 2026-10-24, reversing ruling
+ * 31, so the layer now draws Nigeria's actual states - 36 of them plus the Federal Capital
+ * Territory - and a chip reading "placeholder" would be the only thing on screen still lying
+ * about it. `37` is a plain number like `441`, `55` and `1`, so this needs NO dictionary entry
+ * and `src/i18n/` is untouched; `T('placeholder')` simply stops being reached from here. */
 export const LAYER_ROWS: readonly { readonly key: LayerKey; readonly i18n: string; readonly chip: string }[] = [
   { key: 'spots', i18n: 'layer_spots', chip: '441' },
   { key: 'exag', i18n: 'layer_exag', chip: '' },
   { key: 'cities', i18n: 'layer_cities', chip: '55' },
-  { key: 'states', i18n: 'layer_states', chip: 'placeholder' },
+  { key: 'states', i18n: 'layer_states', chip: '37' },
   { key: 'nation', i18n: 'layer_nation', chip: '1' },
   { key: 'labels', i18n: 'layer_labels', chip: '' },
 ];

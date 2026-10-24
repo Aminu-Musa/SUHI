@@ -35,8 +35,8 @@ const FROM_SPEC_9: readonly AllowedDiff[] = [
     why: 'population bar was divided by the magic number 230; now proportional' },
   { target: '.kpi.wide .bar i', property: 'box', cite: 'spec §9.1 bug 5',
     why: 'share bar used Math.min(50, pct*6), proportional to nothing' },
-  { target: '.leaflet-overlay-pane path.stategrid', property: 'box', cite: 'spec §9.1 bug 6',
-    why: 'state graticule used an unclipped d3.geoBounds extent, running over Niger and the sea' },
+  { target: '.leaflet-overlay-pane path.stategrid', property: 'box', cite: 'spec §9.1 bug 6 / spec §8.3',
+    why: "the state graticule used an unclipped d3.geoBounds extent - a RECTANGLE - so its 1.6 degree lines ran over Niger, Cameroon, Benin and the Bight of Benin. APPROVED BY THE USER ON 2026-10-24, reversing ruling 31: the layer is no longer a graticule at all. It draws the vector basemap's own admin-level-1 boundaries (kind=region, disputed excluded), so bug 6 is fixed by deletion rather than by clipping - there is nothing left to run anywhere and src/map/graticule.ts is gone. The §8.3 citation is here because the self-hosted vector basemap is what made real boundaries available at all. The treatment is still prototype line 625 exactly (--ui-muted, 1px, opacity .5, dashed 3 4) so the lines stay subordinate to the 2px national border, and the rail chip moved from 'placeholder' to '37'" },
   { target: '.kpi.wide:last-of-type .val', property: 'exists', cite: 'spec §9.1 bug 7',
     why: 'the typology tile had no .val, breaking the tile grammar of the other five' },
   { target: '.kpis', property: 'box', cite: 'spec §9.1 bug 7',
@@ -45,7 +45,25 @@ const FROM_SPEC_9: readonly AllowedDiff[] = [
     why: 'cityPane was 410, under the spot panes; docs specify 460, so circles now sit above' },
 ];
 
-export const ALLOWED_DIFFS: readonly AllowedDiff[] = [...FROM_SPEC_3, ...FROM_SPEC_9];
+/* Spec §8.3, APPROVED BY THE USER ON 2026-10-23 - the first exemption authorised by the user
+ * rather than by §3's Changed table or §9.1's bug list, and the one that overrides ruling 25.
+ *
+ * The five Esri raster basemaps are replaced by one self-hosted Protomaps vector basemap styled
+ * from THEME_TOKENS. Five raster PROVIDERS become three vector variants (palette plus density:
+ * Dark, Topo, Plain), because there is one provider now and `Relief` and `Imagery` have no
+ * vector counterpart - shaded relief is a raster product and imagery is photographs, so a
+ * synthesised version of either would be a label making a claim about data that is not there.
+ *
+ * `.seg button{flex:1}`, so three buttons are wider than five, and `.seg button` is a measured
+ * selector whose first match in the document is #baseSeg's first button. That width is the only
+ * thing this exempts: TYPE_PROPS are still compared (the inline font-size:10.5px still has to
+ * match), and the `.seg` container itself is not exempt because it is full-width in both. */
+const FROM_SPEC_8: readonly AllowedDiff[] = [
+  { target: '.seg button', property: 'box', cite: 'spec §8.3',
+    why: "ruling 29: five Esri raster providers become three vector basemap variants, so .seg button{flex:1} divides #baseSeg's width three ways instead of five. MEASURED, original vs rebuild: 56.67 -> 95.80px in Nocturne and 53.59 -> 90.66px in Modernist, while the .seg container itself is unchanged (297.41px and 282.00px, identical on both pages) - so this is the option count and nothing else. The buttons' type (including the inline font-size:10.5px), their padding, the container's box and the aria-pressed background are all still compared" },
+];
+
+export const ALLOWED_DIFFS: readonly AllowedDiff[] = [...FROM_SPEC_3, ...FROM_SPEC_8, ...FROM_SPEC_9];
 
 /* Attributes and properties the guard NEVER compares, with the reason each is excluded. */
 export const IGNORED_PROPERTIES: readonly { readonly name: string; readonly why: string }[] = [
@@ -96,13 +114,12 @@ export const pendingSelectors = new Set(PENDING.map((p) => p.selector));
  *
  * The guard requires them PRESENT, skips their box and type, and Task 12 asserts this list is
  * empty - so "content comes later" cannot quietly become "we never compared it". */
-export const CONTENT_PENDING: readonly { readonly selector: string; readonly task: number; readonly why: string }[] = [
-  { selector: '#map', task: 6,
-    why: "leaflet.css sets .leaflet-container{font-size:12px} once L.map('map') runs; the rebuild's #map is a bare div inheriting body's 13px until MapLibre mounts" },
-  { selector: '.ovl', task: 6,
-    why: '.ov-tl is position:absolute with max-width:60%, so its box is content-driven, and #zoomHint is empty until updateZoomHint runs (prototype line 739)' },
-  { selector: '.mapsub', task: 6,
-    why: 'same cause: #zoomHint is a .mapsub with no text until the exaggeration factor is known' },
-];
+/* TASK 6 DELETED ITS THREE ENTRIES - `#map`, `.ovl` and `.mapsub` - and all three are now
+ * compared. They were here because none of them could be SIZED until a map existed: `#map` had
+ * no `.leaflet-container` type to inherit, and `.ovl`'s height and `.mapsub`'s width both
+ * depend on `#zoomHint`, which stayed empty until the exaggeration factor was known. The map
+ * mounts, `ZoomHint` renders ruling 9's disclosure, and `#map`'s type is pinned in app.css next
+ * to the Leaflet rules it mirrors - so the reason is gone and so are the lines. */
+export const CONTENT_PENDING: readonly { readonly selector: string; readonly task: number; readonly why: string }[] = [];
 
 export const contentPendingSelectors = new Set(CONTENT_PENDING.map((c) => c.selector));

@@ -69,8 +69,30 @@ describe('markup', () => {
      * and its padding are still there and visible in both themes; removing the element because
      * it has no text would be a design change. */
     mount();
-    expect(chips()).toEqual([String(441), '', '55', 'placeholder', '1', '']);
+    expect(chips()).toEqual([String(441), '', '55', '37', '1', '']);
     for (const r of rows()) expect(r.querySelector('.chip')).not.toBeNull();
+  });
+
+  test('the states chip reads 37, not "placeholder", because the layer is no longer one', () => {
+    /* The original's chip was the sentinel `'placeholder'`, rendered through `T('placeholder')`,
+     * because the "State boundaries" layer was a 1.6 degree graticule standing in for the real
+     * thing. The user approved the vector basemap's admin-level-1 boundaries on 2026-10-24
+     * (reversing ruling 31), so the layer draws Nigeria's 36 states plus the Federal Capital
+     * Territory. A chip still reading "placeholder" would be the only thing on screen lying
+     * about what is drawn. `37` is a plain number like the other chips, so no dictionary entry
+     * was added and src/i18n is untouched - which is also why this test asserts the LITERAL and
+     * not a translation. */
+    mount();
+    expect(LAYER_ROWS.find((r) => r.key === 'states')!.chip).toBe('37');
+    const states = rows().find((r) => (r as HTMLElement).dataset.k === 'states')!;
+    expect(states.querySelector('.chip')!.textContent).toBe('37');
+    // And it stays 37 in every language, exactly as 441 / 55 / 1 do.
+    for (const lang of ['ha', 'ig', 'yo']) {
+      cleanup();
+      mount();
+      (document.getElementById('lang') as HTMLSelectElement).value = lang;
+      expect(chips()[3]).toBe('37');
+    }
   });
 
   test('the spots chip is LIVE, tracking the contour filter rather than the literal 441', () => {

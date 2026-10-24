@@ -19,6 +19,7 @@ import { cleanup, render } from '@testing-library/react';
 import App from '../app/App';
 import { FIXTURE } from './fixtures';
 import { COLD_RAMP, COLD_TICKS, HOT_RAMP, HOT_TICKS } from './Legend';
+import { ENCODE_DOMAIN } from '../lib/encode.mjs';
 
 afterEach(() => {
   cleanup();
@@ -73,12 +74,24 @@ describe('the ramps', () => {
     expect(rampLs().length).toBe(2);
     expect(rampLs()[0].textContent).toBe(HOT_TICKS.join(''));
     expect(rampLs()[1].textContent).toBe(COLD_TICKS.join(''));
-    expect(HOT_TICKS).toEqual(['+0.0', '+1.8', '+3.7']);
     for (const tick of COLD_TICKS) {
       expect(tick.charCodeAt(0)).toBe(0x2212);
       expect(tick).not.toContain('-');
     }
     for (const r of rampLs()) expect(r.querySelectorAll('span').length).toBe(3);
+  });
+
+  test('the ticks are spec §6.2`s ±4.5 domain, derived from ENCODE_DOMAIN, not suhii quantiles', () => {
+    /* TASK 6 CHANGED THESE. They used to read `+0.0 / +1.8 / +3.7` and `−0.0 / −0.8 / −1.6`,
+     * which are quantiles of `suhii` - the variable the rebuild no longer colours by. §6.2 is
+     * one continuous diverging scale over `lst_rel` clamped at ±4.5 °C, and the ramp above
+     * these numbers is now literally the same expression that fills the polygons, so a legend
+     * carrying the old numbers would disagree with its own map. They are DERIVED from
+     * ENCODE_DOMAIN rather than typed, so a future domain change cannot leave them behind. */
+    expect([...HOT_TICKS]).toEqual(['+0.0', '+2.3', '+4.5']);
+    expect([...COLD_TICKS]).toEqual(['−0.0', '−2.3', '−4.5']);
+    expect(Math.abs(ENCODE_DOMAIN[1])).toBe(4.5);
+    expect(HOT_TICKS[2]).toBe(`+${ENCODE_DOMAIN[1].toFixed(1)}`);
   });
 });
 

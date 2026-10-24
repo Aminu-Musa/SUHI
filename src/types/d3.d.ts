@@ -41,4 +41,5 @@ declare module 'd3' {
     range(range: readonly number[]): PowerScale;
   }
   export function scaleSqrt(): PowerScale;
+
 }

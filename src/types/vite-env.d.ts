@@ -9,3 +9,11 @@
  */
 
 /// <reference types="vite/client" />
+
+/* Ruling 29's one configuration knob, declared so `import.meta.env.VITE_BASEMAP_URL` is a
+ * `string | undefined` rather than `any`. Production sets it to the Cloudflare R2 Worker host;
+ * development leaves it unset and `src/map/basemap.ts` falls back to the local `public/` file.
+ * ADDITIVE: extend this interface, do not widen `ImportMetaEnv` itself. */
+interface ImportMetaEnv {
+  readonly VITE_BASEMAP_URL?: string;
+}

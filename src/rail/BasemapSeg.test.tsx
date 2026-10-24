@@ -28,29 +28,31 @@ afterEach(() => {
 const renderApp = (ui: React.ReactElement) => render(<StrictMode>{ui}</StrictMode>);
 const buttons = () => [...document.querySelectorAll<HTMLButtonElement>('#baseSeg button')];
 
-test('ruling 25: all FIVE Esri options stay, although spec §8.3 argues for PMTiles and fewer', () => {
-  /* §8.3 proposes a vector basemap and two or three choices; §3's Changed table does not
-   * sanction it, and §3 is the authority for what this rebuild renders. Dropping options here
-   * would be the easiest unsanctioned change in the whole rail to make by accident. */
+test('ruling 29 overrides ruling 25: three VECTOR variants, and dark/topo keep their keys', () => {
+  /* Ruling 25 froze five Esri raster layers because §3's Changed table does not list a basemap
+   * change. §8.3 is approved by the user and overrides it. The `dark` and `topo` KEYS are the
+   * part that must not drift: ruling 7's theme effect maps `nocturne -> dark` and
+   * `modernist -> topo`, so those two strings are a contract between App and this segment, not
+   * labels. See the §8.3 entry in tests/fidelity/allowed-diffs.ts for the sanctioned width. */
   renderApp(<App data={null} />);
-  expect(buttons().map((b) => b.dataset.v)).toEqual(['dark', 'topo', 'relief', 'gray', 'imagery']);
-  expect(Object.keys(BASES).length).toBe(5);
+  expect(buttons().map((b) => b.dataset.v)).toEqual(['dark', 'topo', 'plain']);
+  expect(Object.keys(BASES)).toEqual(['dark', 'topo', 'plain']);
 });
 
-test("each label is the SECOND WORD of its BASES label, so 'Esri Dark' renders as 'Dark'", () => {
+test("each label is the SECOND WORD of its config label, so 'Vector Dark' renders as 'Dark'", () => {
   renderApp(<App data={null} />);
-  expect(buttons().map((b) => b.textContent)).toEqual(['Dark', 'Topo', 'Relief', 'Gray', 'Imagery']);
-  expect(baseButtonLabel('imagery')).toBe('Imagery');
+  expect(buttons().map((b) => b.textContent)).toEqual(['Dark', 'Topo', 'Plain']);
+  expect(baseButtonLabel('plain')).toBe('Plain');
   // Derived from the config at render time, which is why they are not in the dictionary and
-  // stay English in all four languages.
-  for (const def of Object.values(BASES)) expect(def.label.split(' ')[0]).toBe('Esri');
+  // stay English in all four languages - exactly as the Esri ones did.
+  for (const def of Object.values(BASES)) expect(def.label.split(' ')[0]).toBe('Vector');
 });
 
 test('every button carries the inline font-size:10.5px the original set on it', () => {
   // This is also the `.seg button` the fidelity guard measures: the basemap group precedes the
   // contour group, so the first `.seg button` in the document is this one.
   renderApp(<App data={null} />);
-  expect(buttons().map((b) => b.style.fontSize)).toEqual(Array(5).fill('10.5px'));
+  expect(buttons().map((b) => b.style.fontSize)).toEqual(Array(3).fill('10.5px'));
   expect(document.querySelector<HTMLElement>('.seg button')!.style.fontSize).toBe('10.5px');
 });
 
@@ -67,16 +69,16 @@ test('the active key follows the theme until the reader picks one, and never aga
   expect(pressed()).toBe('topo');
 
   // The reader picks. The latch is set, and setBase's seam fires with the chosen key.
-  await user.click(buttons().find((b) => b.dataset.v === 'imagery')!);
-  expect(pressed()).toBe('imagery');
-  expect(onBasePicked).toHaveBeenCalledWith('imagery');
+  await user.click(buttons().find((b) => b.dataset.v === 'plain')!);
+  expect(pressed()).toBe('plain');
+  expect(onBasePicked).toHaveBeenCalledWith('plain');
 
   /* And it is PERMANENT. Nothing in the original ever clears userPickedBase, so two more theme
    * changes - including back to the one that was active when the reader chose - must leave the
    * reader's basemap alone. */
   await user.selectOptions(theme, 'nocturne');
-  expect(pressed()).toBe('imagery');
+  expect(pressed()).toBe('plain');
   await user.selectOptions(theme, 'modernist');
-  expect(pressed()).toBe('imagery');
+  expect(pressed()).toBe('plain');
   expect(onBasePicked).toHaveBeenCalledTimes(1);
 });

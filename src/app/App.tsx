@@ -17,6 +17,8 @@ import { AppStateProvider, useAppState, type State, type Tab } from './state';
 import { useSuhiData, type SuhiData } from './data';
 import { Rail } from '../rail/Rail';
 import type { BaseKey } from '../rail/BasemapSeg';
+import { MapStage, type MapApi } from '../map/MapStage';
+import { ZoomHint } from '../map/ZoomHint';
 
 /** Which basemap a theme change reaches for, prototype line 561. */
 export type ThemeBaseKey = 'dark' | 'topo';
@@ -82,6 +84,16 @@ function Shell({
   const [framed, setFramed] = useState(false);
   const fetched = useSuhiData(injectedData === undefined);
   const data = injectedData === undefined ? fetched.data : injectedData;
+  const error = injectedData === undefined ? fetched.error : null;
+
+  /* Task 6's map. `api` is the imperative surface the three zoom buttons in `.ovl.ov-tr` drive -
+   * those buttons are part of the original's overlay markup, not of `#map`, so the handlers that
+   * `initMap` attached to them (prototype lines 635-637) live here and reach the map through the
+   * ref. `exagFactor` is ruling 9's disclosure travelling the other way: `#zoomHint` is a
+   * `.mapsub` in this markup, and the factor is the only thing it needs from the map. */
+  const mapApi = useRef<MapApi | null>(null);
+  const [exagFactor, setExagFactor] = useState(1);
+  const onFactorChange = useCallback((f: number) => setExagFactor(f), []);
 
   /* `baseKey` is the prototype's module-level `let baseKey='dark'` (line 577), lifted here
    * because two things write it: the theme effect below and the rail's basemap segment. One
@@ -198,7 +210,17 @@ function Shell({
             {/* The element, its id and its display behaviour are Task 2's, because selectTab
              * addresses it by id; groups 1-5 inside it are Task 4's and 6-10 Task 5's. */}
             <aside className="rail" id="rail" style={offMap}>
-              <Rail data={data} baseKey={baseKey} onPickBase={pickBase} />
+              <Rail
+                data={data}
+                baseKey={baseKey}
+                onPickBase={pickBase}
+                /* Task 5 left these two as optional seams, noting that nothing imperative was
+                 * lost because the map subscribes to state. These two ARE imperative: a camera
+                 * move is not derivable from `state.city` (the same city can be re-picked, and
+                 * `fitNation` has no state of its own), so they are the two real calls. */
+                onFocusCity={(city) => mapApi.current?.focusCity(city)}
+                onResetScope={() => mapApi.current?.fitNation()}
+              />
             </aside>
 
             <main
@@ -212,10 +234,18 @@ function Shell({
               style={offMap}
             >
               <div className="mapwrap" id="mapwrap">
-                <div id="map"></div>
-                <div className="loading" id="loading">
-                  Loading geometry…
-                </div>
+                <MapStage data={data} baseKey={baseKey} api={mapApi} onFactorChange={onFactorChange} />
+                {/* The original REMOVED this element once Promise.all settled (prototype line
+                  * 600) and wrote the failure into it from the `.catch` (line 607) - which
+                  * could never work, because by then it had been removed and the handler threw
+                  * writing to null, so the real cause never surfaced. Rendering it
+                  * conditionally fixes both halves: it is gone the moment data lands, and an
+                  * error has somewhere to be said. */}
+                {data ? null : (
+                  <div className="loading" id="loading">
+                    {error ? `Could not load data: ${error.message}` : 'Loading geometry…'}
+                  </div>
+                )}
                 <div className="swipetag" id="tagDay">
                   {t('day')} · LST
                 </div>
@@ -234,13 +264,13 @@ function Shell({
                     Getis-Ord Gi* contours · MODIS LST 2024
                   </p>
                   <br />
-                  <p className="mapsub" id="zoomHint"></p>
+                  <ZoomHint factor={exagFactor} />
                 </div>
                 <div className="ovl ov-tr">
-                  <button className="zbtn" id="zin">
+                  <button className="zbtn" id="zin" onClick={() => mapApi.current?.zoomIn()}>
                     +
                   </button>
-                  <button className="zbtn" id="zout">
+                  <button className="zbtn" id="zout" onClick={() => mapApi.current?.zoomOut()}>
                     −
                   </button>
                   <button
@@ -248,6 +278,12 @@ function Shell({
                     id="zreset"
                     style={{ width: 'auto', padding: '0 8px', fontSize: '10.5px' }}
                     data-i18n="fit"
+                    /* Prototype line 637: clear the city scope, refit the nation, close the
+                     * drawer. The drawer is Task 7's; the first two are here. */
+                    onClick={() => {
+                      patch({ city: null });
+                      mapApi.current?.fitNation();
+                    }}
                   >
                     {t('fit')}
                   </button>

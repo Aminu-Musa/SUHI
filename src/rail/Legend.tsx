@@ -23,18 +23,21 @@
  * four languages exactly as "— SUHI °C" did. Translating it would need four new dictionary
  * entries, and src/i18n is outside this task.
  *
- * THE TICK NUMBERS ARE STILL THE ORIGINAL'S. `+0.0 / +1.8 / +3.7` and `−0.0 / −0.8 / −1.6` are
- * `suhii` quantiles, and spec §6.2 specifies a different domain for `lst_rel`: one continuous
- * diverging scale clamped at ±4.5 °C. **Task 6 owns that**, because the numbers have to come
- * from the same `encodeValue` that colours the polygons - a legend whose ticks and whose map
- * disagree is worse than one that is merely out of date. When §6.2's domain lands these become
- * +0.0 / +2.3 / +4.5 and −0.0 / −2.3 / −4.5. Note the minus signs are U+2212, not hyphens.
+ * THE TICK NUMBERS ARE SPEC §6.2's DOMAIN, AS OF TASK 6. They used to be `+0.0 / +1.8 / +3.7`
+ * and `−0.0 / −0.8 / −1.6` - `suhii` quantiles, matching an encoding the rebuild no longer uses.
+ * §6.2 is one continuous diverging scale over `lst_rel`, clamped at ±4.5 °C, so the ticks are
+ * now the start, midpoint and end of THAT domain. They are derived from `ENCODE_DOMAIN` rather
+ * than typed, because the alternative is a legend whose numbers and whose map disagree, which is
+ * worse than a legend that is merely out of date: the ramp under them is the same expression
+ * that colours the polygons. Note the minus signs are U+2212, not hyphens - `d3.format` emits
+ * that character and the original's markup used it, so a test pins it.
  *
  * Both strips keep `.ramp i{flex:1}`, so the five swatches are equal widths - the ramp is a
  * KEY to the colours, not a histogram of how many spots fall in each band.
  */
 
 import { useT } from '../app/I18nProvider';
+import { ENCODE_DOMAIN } from '../lib/encode.mjs';
 
 /* Exported so the fill-not-ink rule can be asserted on the token list itself. jsdom's CSS
  * parser is unreliable about `background:var(--x)` (it drops the gradient form outright - see
@@ -43,9 +46,19 @@ import { useT } from '../app/I18nProvider';
 export const HOT_RAMP = ['--hot-1', '--hot-2', '--hot-3', '--hot-4', '--hot-5'] as const;
 export const COLD_RAMP = ['--cold-1', '--cold-2', '--cold-3', '--cold-4', '--cold-5'] as const;
 
-/** Prototype lines 340 and 345. See the header note on why these are still `suhii` quantiles. */
-export const HOT_TICKS = ['+0.0', '+1.8', '+3.7'] as const;
-export const COLD_TICKS = ['−0.0', '−0.8', '−1.6'] as const;
+/* Spec §6.2's domain, from the one place that owns it. `ENCODE_DOMAIN` is `[-4.5, 4.5]`; each
+ * ramp shows its own half - 0 to +4.5 for hot, 0 to −4.5 for cold - at three ticks, as the
+ * original's markup did (prototype lines 340 and 345).
+ *
+ * U+2212 MINUS SIGN, not a hyphen, including on `−0.0`: the original wrote the character and
+ * `d3.format` renders it, so a hyphen here would be a one-character visible difference in a
+ * `.rampL` the fidelity guard measures. */
+const MINUS = '−';
+const HALF = Math.abs(ENCODE_DOMAIN[1]);
+const ticks = (sign: string) => [0, HALF / 2, HALF].map((v) => `${sign}${v.toFixed(1)}`) as unknown as readonly string[];
+
+export const HOT_TICKS: readonly string[] = ticks('+');
+export const COLD_TICKS: readonly string[] = ticks(MINUS);
 
 function Ramp({ tokens, ticks }: { readonly tokens: readonly string[]; readonly ticks: readonly string[] }) {
   return (

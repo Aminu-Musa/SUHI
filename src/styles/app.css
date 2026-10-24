@@ -117,6 +117,29 @@ input[type=range]{width:100%;accent-color:var(--color-accent);height:18px}
 .leaflet-control-attribution{background:var(--ui-scrim)!important;color:var(--ui-muted)!important;
   font-size:9.5px!important}
 .leaflet-control-attribution a{color:var(--ui-muted)!important}
+
+/* TASK 6, spec §8.2 - the MapLibre counterparts of the three Leaflet rules above. The three
+ * rules they mirror stay exactly as transcribed; these are additive, for a vendor class the
+ * original's engine never emitted.
+ *
+ * THE TYPE IS PINNED ON `#map` ITSELF, not on `.maplibregl-map`, and that is deliberate.
+ * `#map` is a selector the fidelity guard measures, and in the original its computed type comes
+ * from leaflet.css's `.leaflet-container{font-family:"Helvetica Neue",…; font-size:12px}` with
+ * app.css overriding the family to `var(--font-body)`. MapLibre's own stylesheet sets
+ * `font:12px/20px Helvetica Neue,…` on `.maplibregl-map`, which agrees on the size and not on
+ * the family. Declaring both on `#map` makes the match independent of whether MapLibre
+ * initialised at all - a headless run with no WebGL context would otherwise leave the container
+ * classless and inheriting body's 13px, and the guard would report a type difference that says
+ * nothing about fidelity. */
+#map{font-family:var(--font-body);font-size:12px;line-height:1.5}
+.maplibregl-map{background:var(--ui-panel);font-family:var(--font-body)}
+.maplibregl-ctrl-attrib{background:var(--ui-scrim)!important;color:var(--ui-muted)!important;
+  font-size:9.5px!important}
+.maplibregl-ctrl-attrib a{color:var(--ui-muted)!important}
+/* MapLibre renders the attribution behind a toggle button by default; `compact:false` is asked
+ * for in MapStage, so the button is redundant chrome the original never had. */
+.maplibregl-ctrl-attrib-button{display:none!important}
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl{margin:0}
 .spotpath{cursor:pointer}
 .citylabel{font-size:10px;color:var(--color-text);white-space:nowrap;text-shadow:0 0 3px var(--color-bg),0 0 3px var(--color-bg);
   pointer-events:none;font-family:var(--font-body)}
