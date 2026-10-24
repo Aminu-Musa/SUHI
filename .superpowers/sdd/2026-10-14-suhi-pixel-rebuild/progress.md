@@ -835,3 +835,37 @@ makes the border inherit the fix for free.
   `onclick="focusCity('${p.city.replace(/'/g,"\'")}')"`, hand-escape a quote into generated HTML.
   No city in the data contains an apostrophe (all 55 names are ASCII), so it never fires - but React
   handlers remove the whole class of bug, and that is worth stating rather than silently fixing.
+
+**Ruling 31 REVERSED by the user, 2026-10-24: use real state boundaries.**
+I ruled to keep the 1.6-degree graticule and merely clip it, on the grounds that swapping a grid
+for real administrative lines changes what the layer means. The user decided it should mean that:
+*"use real"*.
+
+So the layer now draws Nigeria's first-level admin boundaries from the Protomaps basemap's own
+boundaries source, keeping the original's treatment - `--ui-muted`, 1px, `opacity .5`, dashed
+`3 4` - and staying visually subordinate to the 2px `--ui-line-strong` national outline from
+ruling 30. The `d3.geoGraticule` goes entirely.
+
+Three consequences, all sent to the Task 6 implementer mid-flight rather than deferred, because it
+is authoring the style JSON right now and reopening it later would cost more than a precise
+message does:
+- **§9.1 bug 6 is now fixed by deletion, not clipping.** There is no graticule left to clip. Its
+  `ALLOWED_DIFFS` entry stays - the output still departs from the original - but its citation
+  gains `spec §8.3`, since the basemap is what made the fix possible, and its `why` records the
+  user's approval.
+- **The rail chip was lying.** `buildRail`'s layer list shows `441` / `55` / `1` / `placeholder`;
+  with real boundaries that last one is false. It becomes `37` - 36 states plus the FCT. The other
+  chips are plain numbers rather than translated strings, so this needs **no dictionary change**
+  and `src/i18n/` stays untouched.
+- **§10.2's "state and national boundaries" backlog item is now partly closed.** It was blocked on
+  sourcing GRID3 or GADM; the approved basemap supplies admin lines, so the blocker is gone for
+  level 1. Whether the finer GRID3 data is still wanted is a separate question.
+
+I also told it: if the basemap's boundaries layer turns out not to carry admin-level-1 lines for
+Nigeria at the zooms we ship, report what it does contain rather than inventing a substitute.
+
+**Note on the mid-flight change.** This contradicts the precedent I set at Task 4, where I let the
+Esri segment finish as specified rather than rewrite a running implementer's brief. The difference
+is where the work sits: Task 4's basemap segment was a separate component a later task could revise
+cheaply, while this lives inside the style JSON Task 6 is authoring this minute. Judged per case,
+not by the earlier precedent.
