@@ -314,6 +314,7 @@ complete inventory of coloured **text** (fills are in §5.7):
 | `.tip dd` | 11.5px | `--ui-tip` | `--hot-4`, `--cold-4` |
 | `.seg button[aria-pressed]` | 11.5px | `--color-accent` | `#ffffff` |
 | Reports brief figure grid | **23px** / heading | `--ui-panel-2` | `--hot-4`, `--cold-4`, `--hot-5` |
+| Drawer `.pill` (text **and** border, via `currentColor`) | 9.5px | `--color-bg` | `spotFill()` — the whole ramp |
 
 The failures, with the floor each pair actually takes (§5.1):
 
@@ -325,6 +326,7 @@ The failures, with the floor each pair actually takes (§5.1):
 | Nocturne | `--cold-4` on `--color-bg` (12px) | 3.09 | 4.5 | fail |
 | Nocturne | `--cold-4` on `--ui-tip` (11.5px) | 2.91 | 4.5 | fail |
 | Nocturne | `--hot-5` on `--color-bg` (12px) | 3.43 | 4.5 | fail |
+| Nocturne | `--cold-5` on `--color-bg` (9.5px `.pill`) | 1.75 | 4.5 | fail |
 | Nocturne | `--cold-3` on `--ui-panel-2` | 4.38 | 4.5 | fail |
 | Nocturne | `--color-accent` on `--ui-panel-2` (11px) | 4.38 | 4.5 | fail |
 | Nocturne | `#ffffff` on `--color-accent` | 3.23 | 4.5 | fail |

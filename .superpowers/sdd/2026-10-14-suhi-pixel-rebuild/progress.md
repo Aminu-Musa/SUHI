@@ -806,3 +806,32 @@ Also carried into the dispatch: initial view `setView([9.1, 8.7], 5.6)` is immed
 zoom hint; and the `setInterval` container-sizing hack (lines 639-645) exists because Leaflet needs a
 sized container - MapLibre does not, so it goes, and the tab-change resize is handled by the
 mounted-but-hidden rule from ruling 5.
+
+## Task 7 pre-flight — the drawer
+
+**Ruling 32 - `.pill` is a fourth ramp-as-text usage my §5.2 inventory missed.**
+`openSpot` renders `<div class="pill" style="color:${spotFill(p)}">` (line 880), and `.pill` is
+`font-size: 9.5px` with `border: var(--ui-rule) solid currentColor` (line 202) - so the
+interpolated ramp colour is both the text and the border, on `--color-bg`, at 9.5px, floor 4.5.
+Nocturne `--cold-5` sits at 1.75 against that ground; a severe night cold spot's pill would be
+very nearly invisible.
+
+That is the **third** time (rulings 8, 20, now 32) that hand-enumerating usages missed one, and the
+third time the derived ink scale had already covered it - every ink token clears 4.5 on all three
+grounds in both themes, so `.pill` was fixed before I knew it was broken. I am going to stop
+treating the §5.2 inventory as complete and start treating the scale as the guarantee, which is
+what §5.5 argued in the first place.
+*Decision:* add `.pill` to §5.2, use the ink scale for its colour, and note that `currentColor`
+makes the border inherit the fix for free.
+*Cost if wrong:* none to the implementation.
+
+**Also carried into Task 7's dispatch:**
+- `.dl2` appears four times in the drawer, and Task 5 flagged that `.dl2` **already exists in the
+  rail** behind a non-default cluster selection. The guard measures the first match, so Task 7 must
+  use a scoped selector (`.drawer .dl2`) or it will silently measure the rail's.
+- The `bh_significant` row colours with `--hot-4` as text at 12px - another fill token used as
+  ink; it passes at 5.29 but should still take `--hot-4-ink` under the fill/ink rule.
+- Two inline handlers, `onclick="closeDrawer()"` and
+  `onclick="focusCity('${p.city.replace(/'/g,"\'")}')"`, hand-escape a quote into generated HTML.
+  No city in the data contains an apostrophe (all 55 names are ASCII), so it never fires - but React
+  handlers remove the whole class of bug, and that is worth stating rather than silently fixing.
