@@ -999,3 +999,34 @@ one test run.
 This is the first task whose scope I have widened rather than narrowed, and the first time a task
 will touch `scripts/` since plan 1 merged - so the dispatch says so explicitly, and says that
 `cities.json`, `clusters.json` and `spots.topo.json` must come out byte-identical.
+
+## Task 11 pre-flight — both its features are out of scope by §3's own rule
+
+**Ruling 37 - deep links (§8.4) and the print stylesheet (§8.5) are NEW FEATURES, not corrections,
+and §3 excludes them. Put to the user rather than built or dropped on my judgement.**
+
+§3's rule is explicit: *"A change that is not in the second table and not in §9 is out of scope."*
+Neither feature is in either:
+- **The original has zero URL state.** No `location`, `history`, `URLSearchParams`, `pushState` or
+  hash handling anywhere in its 1,179 lines.
+- **The original has zero print styles**, and - contrary to §8.5's claim that the build does this
+  "despite planning to call `window.print()`" - **it never calls `window.print()` either**. That
+  sentence is false for this prototype.
+
+Both sections are revision-1 carry-overs I never re-checked, and both carry factual errors:
+- §8.4's list of what to encode includes **"density"**, a control that revision 1 added to the
+  header and that §11 records as *rejected*. The word appears nowhere else in the spec. It is
+  encoding state for a control that does not exist.
+- §8.5's premise about `window.print()` is simply wrong, as above.
+
+So Task 11 - "Deep links and print" - is a task built entirely on two unsanctioned features
+described by two stale sections. That is not a small drafting slip; it is most of a task.
+
+**Both are genuinely valuable and I am not arguing against them.** Deep links are what make a
+screenshot in a ministry memo reproducible, which speaks directly to §1's audience. The Reports tab
+produces a one-page brief "for circulation" that currently prints badly. But adding features is a
+different decision from rebuilding faithfully, and the user has been clear which project this is.
+*Decision:* ask. If yes, §8.4 and §8.5 are rewritten to drop the density reference and the false
+`window.print()` premise, and both become sanctioned additions like the vector basemap - needing
+`ALLOWED_DIFFS` entries only where they change rendered output, which deep links do not and print
+styles do not either, since `@media print` never affects the screen.
