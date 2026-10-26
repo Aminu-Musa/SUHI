@@ -1397,3 +1397,40 @@ gitignored for local work and R2 serves production.
 
 Second-best is a CI step that builds the extract, but that puts a multi-minute network fetch on
 every push to save committing a few hundred kilobytes.
+
+### Task 9 — the data table
+
+Commits `e72c78e` and `a9a0a74`. Controller-verified: **328 tests / 31 files**, audit 80/80, build
+clean, **fidelity 6/6 with no new `ALLOWED_DIFFS` entry** - every table selector matched the
+original on both themes first run, which is the first tab to manage that.
+
+**Ruling 46 - TanStack Table is removed. The plan named it; a measured reason beats the plan.**
+`sortCities` is seven lines of plain code and does something TanStack fights: the original negates
+`sortDir` **in the string branch only** (line 1113), so direction means the opposite thing for the
+four string columns than it does for the thirteen numeric ones. Driving that through v9's
+feature-plugin `useTable` means a custom `sortingFn` plus inverting the library's own semantics for
+four of seventeen columns - more code than the seven lines, and the asymmetry buried in
+configuration instead of pinned by a test named for it.
+*Decision:* `npm uninstall @tanstack/react-table`. An unused dependency is weight, a security
+surface and a lie about what the code does. Verified unimported first, then removed; typecheck
+clean, 328 tests still green.
+
+**Two of its own tests could not fail, and it rewrote both.** The second is the better find:
+- The direction-reversal test asserted `cityOrder().reverse()`, which is false because a stable
+  sort keeps four tied `suhii` pairs in source order. Now asserts the value sequence reverses.
+- The two-theme ink test **set `data-theme` directly** - an attribute `ThemeProvider` *writes*
+  rather than reads - so the modernist half ran against nocturne's hexes and passed. It now seeds
+  `localStorage['suhi.theme']` and asserts the theme actually applied. **That is a trap for every
+  future theme test in this codebase**, and it is now documented at the call site.
+
+**Two findings left alone deliberately, both matching the original exactly, both worth the user's
+eye:**
+- `table.dt td` is **68.78px tall** on both pages because `geol` strings wrap and nothing stops
+  them - 55 rows is 3,218px of table. `white-space: nowrap` would halve it. Guard is silent
+  because it matches; changing it is a design change §3 does not sanction.
+- The panel **scrolls sideways with no affordance**: 1,592px of table (1,621 in Modernist) in a
+  1,440px window, so columns 15-17 are off-screen with no cue they exist. Same gap in the original.
+  Spec §7.6 already records that reverting the 7-column toggle was deliberate; this is the cost of
+  that decision made concrete.
+
+*Both are raised with the user, not fixed.*
