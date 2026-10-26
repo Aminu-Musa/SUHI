@@ -124,10 +124,10 @@ export const IGNORED_PROPERTIES: readonly { readonly name: string; readonly why:
  * SELECTORS below: a third pass that switches both pages to the Compare tab and measures the
  * geometry where it actually exists. */
 export const PENDING: readonly { readonly selector: string; readonly task: number }[] = [
-  // Task 9 - table
-  { selector: 'table.dt', task: 9 },
-  { selector: 'table.dt th', task: 9 },
-  { selector: 'table.dt td', task: 9 },
+  /* Task 9's three - `table.dt`, `table.dt th`, `table.dt td` - are GONE from this list. The
+   * main pass now compares their type and box properties, and TABLE_SELECTORS in fidelity.spec
+   * measures their real geometry on the Data table tab, for the same display:none reason the
+   * note above gives for Compare. */
   // Task 10 - reports
   { selector: '.brief', task: 10 },
   { selector: '.brief h3', task: 10 },

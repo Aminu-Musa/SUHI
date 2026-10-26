@@ -24,6 +24,7 @@ import { Swipe } from '../map/Swipe';
 import { Tooltip } from '../map/Tooltip';
 import { Drawer } from '../map/Drawer';
 import { Compare } from '../views/Compare';
+import { Table } from '../views/Table';
 
 /** Which basemap a theme change reaches for, prototype line 561. */
 export type ThemeBaseKey = 'dark' | 'light';
@@ -148,6 +149,19 @@ function Shell({
   );
 
   const onTabChange = useCallback((value: string) => setTab(value as Tab), []);
+
+  /* Prototype line 1130: a click on a table row does `selectTab('map')` AND `focusCity(…)`.
+   * Assembled here because it is the only place that holds both the tab value and the camera -
+   * `setTab` is this component's `useState`, `focusCity` comes from the interactions context.
+   * Order matters: `focusCity` moves the camera, and a map that is still `display:none` has no
+   * size to fit to, so the tab is switched first exactly as the original switches it. */
+  const openCityFromTable = useCallback(
+    (city: string) => {
+      setTab('map');
+      focusCity(city);
+    },
+    [focusCity],
+  );
 
   /* Ruling 5: `selectTab` (prototype lines 1020-1026) sets `style.display` on the rail and the
    * stage. They stay MOUNTED on every tab - the map instance, its viewport and the rail's
@@ -331,6 +345,11 @@ function Shell({
               <p className="lede" data-i18n="tbl_lede">
                 {t('tbl_lede')}
               </p>
+              {/* Task 9, mounted on every tab for Task 8's reason: the panel is hidden with
+                * display:none rather than unmounted (ruling 5), the original built every panel
+                * at boot, and a tab that renders on first visit is a different page from the
+                * one the fidelity guard measures. */}
+              <Table data={data} onOpenCity={openCityFromTable} />
             </section>
 
             <section className="panel" id="panel-report" data-on={tab === 'report'}>

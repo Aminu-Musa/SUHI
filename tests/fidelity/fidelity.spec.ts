@@ -76,23 +76,51 @@ const COMPARE_SELECTORS: readonly string[] = [
   '#panel-compare .lede', '#panel-compare h2',
 ];
 
-/** Switches both pages to the Compare tab. The two routes differ for the same reason the drawer
+/* TASK 9's TABLE SELECTORS, measured in a FOURTH pass with the Data table tab active on both
+ * pages.
+ *
+ * Exactly the trap pass 3c exists for, and worth spelling out because `table.dt` was in PENDING
+ * until this task and a reader could reasonably assume deleting the PENDING line was the whole
+ * job. `#panel-table` is `display:none` on the Map tab, which is the tab both pages load on. A
+ * display:none element still resolves every computed property, so the main pass really does
+ * compare all five TYPE_PROPS and all six BOX_PROPS for `table.dt`, `table.dt th` and
+ * `table.dt td` - but `getBoundingClientRect()` is 0x0 on BOTH pages, so the width and height
+ * comparisons are 0 vs 0 and prove nothing. The widths are the interesting measurement here:
+ * seventeen columns with `white-space:nowrap` headings mean the browser solves the column
+ * widths from the content, so a width match is evidence the content and the type match too.
+ *
+ * SCOPED TO `#panel-table` for the usual reason - `document.querySelector` returns the FIRST
+ * match - although `table.dt` happens to be unique to this panel today. Scoping it costs
+ * nothing and stops a later task's second `.dt` silently redirecting the measurement.
+ *
+ * `table.dt td` resolves to the FIRST cell of the FIRST row on both pages, so the default sort
+ * has to agree: `sortKey='suhii', sortDir=-1` (prototype line 1112) puts the same city first,
+ * and that cell is the city name - a 12px left-aligned string whose width is its text. If the
+ * rebuild's default sort ever differed, this pass would report a td width difference. */
+const TABLE_SELECTORS: readonly string[] = [
+  '#panel-table table.dt', '#panel-table table.dt th', '#panel-table table.dt td',
+  '#panel-table .lede', '#panel-table h2',
+];
+
+/** Switches both pages to a panel tab. The two routes differ for the same reason the drawer
  * pass's do: the guard compares the resulting STATE, not the road to it. Both pages carry a
- * `.tab[data-tab=compare]` button, so here the road happens to be the same one a reader takes.
+ * `.tab[data-tab=…]` button, so here the road happens to be the same one a reader takes.
  *
  * The wait is on the panel's own `data-on`, which both pages set - `selectTab` writes it
  * directly (prototype line 1023) and the rebuild binds it to the Radix tab value. */
-async function openCompareTab(page: Page): Promise<void> {
-  await page.waitForSelector('.tab[data-tab=compare]', { timeout: 30_000 });
-  await page.locator('.tab[data-tab=compare]').click();
+async function openPanelTab(page: Page, name: 'compare' | 'table'): Promise<void> {
+  await page.waitForSelector(`.tab[data-tab=${name}]`, { timeout: 30_000 });
+  await page.locator(`.tab[data-tab=${name}]`).click();
   await page.waitForFunction(
-    () => document.getElementById('panel-compare')?.dataset.on === 'true',
-    undefined,
+    (n) => document.getElementById(`panel-${n}`)?.dataset.on === 'true',
+    name,
     { timeout: 30_000, polling: 100 },
   );
   /* The panel goes from display:none to display:block and then lays out 55 wrapping buttons and
-   * a four-column auto-fit grid. A plain delay rather than rAF: the guard holds two pages open
-   * in one context, so one is always backgrounded and its rAF is throttled to nothing. */
+   * a four-column auto-fit grid - or, for the table, 55 rows of seventeen cells whose column
+   * widths the browser solves from their content. A plain delay rather than rAF: the guard
+   * holds two pages open in one context, so one is always backgrounded and its rAF is throttled
+   * to nothing. */
   await page.waitForTimeout(400);
 }
 
@@ -220,7 +248,7 @@ for (const theme of ['nocturne', 'modernist'] as Theme[]) {
     /* 3c. TASK 8's COMPARE PANEL, with its tab active on both pages. AFTER 3b, not before: the
      *     drawer lives inside `.stage`, which `selectTab` hides off the Map tab (ruling 5), so
      *     measuring the drawer from the Compare tab would measure a 0x0 box. */
-    await Promise.all([openCompareTab(a), openCompareTab(b)]);
+    await Promise.all([openPanelTab(a, 'compare'), openPanelTab(b, 'compare')]);
     const [origCmp, builtCmp] = await Promise.all([
       capture(a, [], COMPARE_SELECTORS),
       capture(b, [], COMPARE_SELECTORS),
@@ -236,6 +264,39 @@ for (const theme of ['nocturne', 'modernist'] as Theme[]) {
       .soft(origCmp.boxes['#panel-compare .picker'].height, 'the picker must have real height on the Compare tab')
       .toBeGreaterThan(20);
     expect.soft(boxDiffs, `${boxDiffs.length} box/type difference(s) including compare`).toEqual([]);
+
+    /* 3d. TASK 9's TABLE PANEL, with its tab active on both pages. See TABLE_SELECTORS. */
+    await Promise.all([openPanelTab(a, 'table'), openPanelTab(b, 'table')]);
+    const [origTbl, builtTbl] = await Promise.all([
+      capture(a, [], TABLE_SELECTORS),
+      capture(b, [], TABLE_SELECTORS),
+    ]);
+    const tblCompared: string[] = [];
+    compare(TABLE_SELECTORS, origTbl, builtTbl, tblCompared, boxDiffs);
+    expect
+      .soft(tblCompared.length, `only ${tblCompared.length} table selector(s) were compared`)
+      .toBe(TABLE_SELECTORS.length);
+    /* Guard the guard, the way the picker's height does for Compare. A table whose rows failed
+     * to render measures a few px high and a th that never laid out measures 0 wide, and either
+     * would compare 0 against 0 and pass. 55 rows of seventeen 10px/7px-padded headings is
+     * ~900px tall and the first heading is at least 40px wide. */
+    expect
+      .soft(origTbl.boxes['#panel-table table.dt'].height, 'the original table must have real height')
+      .toBeGreaterThan(400);
+    expect
+      .soft(origTbl.boxes['#panel-table table.dt th'].width, 'the original heading must have real width')
+      .toBeGreaterThan(30);
+    expect
+      .soft(builtTbl.boxes['#panel-table table.dt'].height, 'the rebuilt table must have real height')
+      .toBeGreaterThan(400);
+    // Both pages must agree on the row count as well as on the box: a table with one row and
+    // the right column widths would otherwise satisfy everything above.
+    const rowCounts = await Promise.all(
+      [a, b].map((p) => p.evaluate(() => document.querySelectorAll('#panel-table table.dt tbody tr').length)),
+    );
+    expect.soft(rowCounts[1], `row count: original ${rowCounts[0]} vs rebuild ${rowCounts[1]}`).toBe(rowCounts[0]);
+    expect.soft(rowCounts[0], 'the original must have rendered its 55 rows').toBe(55);
+    expect.soft(boxDiffs, `${boxDiffs.length} box/type difference(s) including the table`).toEqual([]);
     await ctx.close();
 
     // 4. The anti-rot clause (ruling 2): a PENDING selector that now exists has become a silent
