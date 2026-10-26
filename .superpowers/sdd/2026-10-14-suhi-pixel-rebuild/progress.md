@@ -922,3 +922,48 @@ transcribed that first frame faithfully and left `fitNation` correct, so `Fit` m
 first press. No symbol layers and no `glyphs` endpoint, because a glyph CDN would undo rulings 29
 and 30 and ruling 13 keeps labels in the DOM anyway. Bundle is now 1,400 kB JS plus a 506 kB worker,
 up from 337 kB - that is maplibre-gl, and it matters for §1's phone and projector audience.
+
+## Task 7 pre-flight — the swipe does not survive the engine change
+
+**Ruling 35 - the day/night swipe becomes two synced MapLibre instances with the top one
+CSS-clipped. Nothing else reproduces it.**
+`positionSwipe` (lines 838-850) sets `clipPath: inset(...)` on Leaflet's `dayPane` and
+`nightPane` - two separate DOM elements holding two separate SVG overlays, each independently
+clippable. **MapLibre has no panes.** Every layer renders into one WebGL canvas, so there is no
+element to clip that contains only the night spots.
+
+What was considered and rejected:
+- *Filter by longitude.* The swipe is a screen-space vertical line, which does correspond to a
+  longitude for a given view - but it would have to be recomputed on every pan and zoom, and
+  polygons straddling the line would pop in and out whole rather than being cut. The original cuts
+  geometry mid-polygon; this does not.
+- *Clip the single canvas.* Clips both periods identically. Pointless.
+- *Split each period's GeoJSON at the line on every move.* Correct output, but a full re-tessellation
+  of 441 polygons per frame, and `setData` on every pointermove is exactly the Leaflet problem §8.2
+  exists to escape.
+
+**Decision:** two MapLibre instances, bottom showing day, top showing night, the top one clipped
+with CSS `clip-path` and both kept in sync on `move`/`zoom`/`rotate`. This is the established
+compare pattern (what `mapbox-gl-compare` does), it reproduces the original's behaviour exactly
+including mid-polygon cuts, and the clip stays a CSS property on a DOM element as it is today.
+
+*The cost is real and worth stating:* two WebGL contexts and two basemap loads on a page whose
+bundle is already 1,400 kB plus a 506 kB worker, for an audience §1 says is mostly on phones and
+projectors. The basemap tiles are shared through the same PMTiles source and the browser cache, so
+the second instance costs GPU and memory rather than bandwidth, but it is not free.
+*Cost if wrong:* a heavy page on a mid-range phone. The fallback is to drop to one instance and
+accept that the swipe reveals whole polygons rather than cutting them - a visible fidelity loss,
+which is why it is the fallback and not the plan.
+**Flag to the user if it measurably hurts on a phone; do not pre-emptively trade the fidelity away.**
+
+**Also carried into the dispatch:**
+- `showTip` clamps to `window.innerWidth - 256` and `window.innerHeight - 190` (line 854), magic
+  numbers tied to `.tip{max-width:240px}` plus padding. Reproduce them; do not "fix" them to read
+  the element.
+- `spotTip`'s `<b style="color:${spotFill(p)}">` at 13px and `cityTip`'s `--hot-4` / `--cold-4`
+  spans at 11.5px are **more ramp-as-text usages**, on `--ui-tip`. Ink tokens, per ruling 32 - and
+  this is the fifth and sixth such usage I did not enumerate, which is the argument for treating the
+  scale rather than the inventory as the guarantee.
+- `cityTip` also colours the cluster line with `--color-accent` on `--ui-tip`: `--accent-ink`.
+- `.dl2` is used by the drawer four times and already exists in the rail (Task 5's warning), so the
+  guard needs `.drawer .dl2`. The tooltip's `dl` is a bare `dl` inside `.tip`, not `.dl2`.
