@@ -1337,3 +1337,36 @@ discipline catching a test that proved nothing, which is exactly what it is for.
 was empty - true only while nothing outside the rail had bars. Scoped to `#rail`. And `src/map/ink.ts`
 was **not** moved: it already imports from `src/rail/stats`, so it is not map-private, and
 `Compare.tsx` imports `hotInkScale` from it. One owner, as required.
+
+## Task 12 item 8, measured — and there is an obvious fix that costs no fidelity
+
+Re-verified security first: **`npm audit --omit=dev` is 0** even after MapLibre, Leaflet,
+Playwright, TanStack, Observable Plot and pmtiles were added. The two dev-only advisories
+(`tinypool` critical, `@vitest/mocker` moderate) are unchanged and still reach nothing that ships.
+
+Bundle, measured gzipped, which is what crosses the wire:
+
+| | raw | gzip |
+| --- | --- | --- |
+| `index.js` | 1,409 KB | **405 KB** |
+| `maplibre-gl-worker.js` | 494 KB | **142 KB** |
+| `index.css` | 109 KB | **16 KB** |
+
+**MapLibre is essentially all of it** - 338 references to it in the main chunk, against 77 for
+React and 9 for Radix. TanStack and Plot are not in there yet.
+
+**And it is statically imported** (`src/map/MapStage.tsx:44`), so every visitor downloads the whole
+map engine before the page renders - including a ministry official who opens the Data table from a
+deep link and never touches the Map tab.
+
+*Recommendation for Task 12:* put `MapStage` behind a dynamic `import()` and lazy-render it. The
+Map tab is the default, so the common path is unchanged; what changes is that Compare, Table and
+Reports stop paying 405 KB plus a 142 KB worker for an engine they never use. **This costs no
+fidelity at all** - the guard compares the Map tab with the map rendered, exactly as now - which
+makes it the one weight saving available that does not trade against §3. Worth doing before the
+second-instance question (ruling 35, ~1.7x per-frame) gets decided, because it changes the terms:
+a lighter first paint buys headroom the swipe can spend.
+
+*Also for Task 12:* the CSS went 27 KB to 109 KB raw when the map landed, which is `maplibre-gl.css`.
+It gzips to 16 KB, so it is not urgent, but it is worth checking how much of that stylesheet a map
+with no symbol layers and no default controls actually needs.
