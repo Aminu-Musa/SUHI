@@ -1063,3 +1063,29 @@ of this next to the file.
 files right now. It needs the `ALLOWED_DIFFS` entry for bug 6 updated again - the citation is
 already `§9.1 bug 6 / §8.3` and gains this - and the rail chip stays `37`, which is now literally
 the feature count.
+
+## Coordination note for Tasks 8 and 9 — the interpolated ink scale needs ONE home
+
+The original has two continuous scales, `hotScale` and `coldScale` (lines 569-570), which
+interpolate across all five steps of a ramp. They are used as a **text** colour in three places,
+and that is what forced the whole ink scale into existence (spec §5.3):
+
+| Consumer | Where | Size |
+| --- | --- | --- |
+| Table `suhii` column | Task 9 | 12px |
+| Compare card SUHI figure | Task 8 | 13px |
+| Drawer `.pill` and the tooltips (`spotFill`) | Task 7 | 9.5px and 13px |
+
+The rail's components use **discrete** ink tokens, which is correct for them - a KPI figure is
+`--hot-4-ink`, not an interpolation. But nothing committed yet exports an **interpolated** ink
+scale, and Task 7 is currently creating `src/map/ink.ts` for its own use.
+
+Three consumers deriving the same interpolation separately is how the Compare tab and the Table
+end up disagreeing about the colour of the same number - the identical failure mode ruling 36
+guarded against for the day/night aggregation.
+
+*To do when Task 7 lands:* check whether its `src/map/ink.ts` is the right home. If it is, Tasks 8
+and 9 import from it and the file moves somewhere less map-specific. If it is private to the map,
+the shared scale goes in `src/lib/` beside `encode.mjs`. Either way **one definition**, and the
+fill-vs-ink split stays: map polygons interpolate the FILL ramp, text interpolates the INK ramp.
+Put it in both briefs.
