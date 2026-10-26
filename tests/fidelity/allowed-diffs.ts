@@ -60,7 +60,7 @@ const FROM_SPEC_9: readonly AllowedDiff[] = [
  * match), and the `.seg` container itself is not exempt because it is full-width in both. */
 const FROM_SPEC_8: readonly AllowedDiff[] = [
   { target: '.seg button', property: 'box', cite: 'spec §8.3',
-    why: "ruling 29: five Esri raster providers become three vector basemap variants, so .seg button{flex:1} divides #baseSeg's width three ways instead of five. MEASURED, original vs rebuild: 56.67 -> 95.80px in Nocturne and 53.59 -> 90.66px in Modernist, while the .seg container itself is unchanged (297.41px and 282.00px, identical on both pages) - so this is the option count and nothing else. The buttons' type (including the inline font-size:10.5px), their padding, the container's box and the aria-pressed background are all still compared" },
+    why: "the basemap segment's own geometry. The original offers five Esri providers; the rebuild offers two vector grounds (ruling 39), so each button is wider. Re-measured after ruling 39 cut three options to two: 56.67 -> 144.70 px in Nocturne and 53.59 -> 137.00 px in Modernist, with the `.seg` container identical on both pages. The earlier figures in this entry were taken with three buttons and were stale the moment the user chose two" },
 ];
 
 export const ALLOWED_DIFFS: readonly AllowedDiff[] = [...FROM_SPEC_3, ...FROM_SPEC_8, ...FROM_SPEC_9];

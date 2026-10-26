@@ -40,7 +40,7 @@ test('no colour in the style is a var() or a token name - MapLibre cannot read C
 
 test('the style is built from THEME_TOKENS, so the two themes really differ', () => {
   const a = JSON.stringify(style('nocturne', 'dark'));
-  const b = JSON.stringify(style('modernist', 'topo'));
+  const b = JSON.stringify(style('modernist', 'light'));
   expect(a).not.toBe(b);
   // And the values present are that theme's own tokens, not an average or an invention.
   expect(a).toContain(THEME_TOKENS.nocturne['--ui-panel']);
@@ -48,23 +48,31 @@ test('the style is built from THEME_TOKENS, so the two themes really differ', ()
   expect(b).toContain(THEME_TOKENS.modernist['--ui-panel']);
 });
 
-test('the `plain` variant follows data-theme while dark and topo are fixed palettes', () => {
-  /* Ruling 7 needs `dark` and `topo` to MEAN something, because a theme change drags the
-   * basemap along by key until the reader picks one. §8.3 asks the basemap to flip with
-   * data-theme. `plain` is where those two meet: it is the design system's own ground. */
+test('both palettes are FIXED, so the two options differ whatever the UI theme is doing (ruling 39)', () => {
+  /* The property ruling 29's three-variant scheme lacked. Its `plain` followed `data-theme`, so
+   * in Nocturne it resolved to the nocturne palette and rendered the same picture as `dark` -
+   * measured at 209 differing pixels out of 864,000. Two options that look identical read as a
+   * broken control, which is exactly how the user reported it. */
   expect(variantTheme('dark', 'modernist')).toBe('nocturne');
-  expect(variantTheme('topo', 'nocturne')).toBe('modernist');
-  expect(variantTheme('plain', 'nocturne')).toBe('nocturne');
-  expect(variantTheme('plain', 'modernist')).toBe('modernist');
+  expect(variantTheme('dark', 'nocturne')).toBe('nocturne');
+  expect(variantTheme('light', 'nocturne')).toBe('modernist');
+  expect(variantTheme('light', 'modernist')).toBe('modernist');
+
+  // And therefore the two styles differ under either UI theme, which is the point.
+  for (const theme of THEMES) {
+    expect(JSON.stringify(style(theme, 'dark'))).not.toBe(JSON.stringify(style(theme, 'light')));
+  }
 });
 
-test('`plain` drops roads and landuse and keeps land, water and the national outline', () => {
+test('every variant draws the full layer set, since ruling 39 removed the reduced-detail mode', () => {
   const ids = (base: (typeof BASE_KEYS)[number]) =>
     ((style('nocturne', base).layers as { id: string }[]) ?? []).map((l) => l.id);
-  expect(ids('dark')).toContain('roads-major');
-  expect(ids('dark')).toContain('landuse');
-  expect(ids('plain')).not.toContain('roads-major');
-  expect(ids('plain')).not.toContain('landuse');
+  /* `detail: 'ground'` went with `plain`. It only ever existed to make a third option feel
+   * different, and at national zoom it did not even manage that. */
+  for (const base of BASE_KEYS) {
+    expect(ids(base)).toContain('roads-major');
+    expect(ids(base)).toContain('landuse');
+  }
   for (const base of BASE_KEYS) {
     expect(ids(base)).toContain('earth');
     expect(ids(base)).toContain('water');
@@ -76,14 +84,22 @@ test('ruling 30: the national outline is the basemap`s own boundaries at --ui-li
   /* The world-atlas fetch is gone, and this is what replaces it. The original styled the atlas
    * outline `color: cssv('--ui-line-strong'), weight: 2, opacity: .9` (prototype line 621), so
    * dropping the CDN costs nothing visually. */
+  /* RULING 39: the palette is the VARIANT's, not the UI theme's - so the expected token is
+   * resolved through `variantTheme`, not read from `THEME_TOKENS[theme]`. The basemap still
+   * follows the theme by DEFAULT, but through ruling 7's latch (which changes the key) rather
+   * than through palette resolution. An explicit pick overrides it, exactly as the original's
+   * `userPickedBase` did. */
   for (const theme of THEMES) {
-    const nation = (style(theme, 'plain').layers as Record<string, unknown>[]).find((l) => l.id === NATION_LAYER)!;
+    for (const base of BASE_KEYS) {
+    const paletteTheme = variantTheme(base, theme);
+    const nation = (style(theme, base).layers as Record<string, unknown>[]).find((l) => l.id === NATION_LAYER)!;
     expect(nation['source-layer']).toBe('boundaries');
     expect(nation.filter).toEqual(['==', ['get', 'kind'], 'country']);
     const paint = nation.paint as Record<string, unknown>;
-    expect(paint['line-color']).toBe(THEME_TOKENS[theme]['--ui-line-strong']);
+    expect(paint['line-color']).toBe(THEME_TOKENS[paletteTheme]['--ui-line-strong']);
     expect(paint['line-width']).toBe(2);
     expect(paint['line-opacity']).toBe(0.9);
+    }
   }
 });
 
@@ -98,7 +114,9 @@ test('the State boundaries layer draws REAL admin-level-1 lines, not a graticule
    * `disputed` is excluded because a disputed line in the same hairline as a settled one would
    * be an assertion this dashboard has no business making. */
   for (const theme of THEMES) {
-    const layers = style(theme, 'plain').layers as Record<string, unknown>[];
+    for (const base of BASE_KEYS) {
+    const paletteTheme = variantTheme(base, theme);
+    const layers = style(theme, base).layers as Record<string, unknown>[];
     const states = layers.find((l) => l.id === STATES_LAYER)!;
     expect(states['source-layer']).toBe('boundaries');
     /* MEASURED from the archive at z5: a boundaries feature carries exactly `kind`,
@@ -110,7 +128,7 @@ test('the State boundaries layer draws REAL admin-level-1 lines, not a graticule
      * features at any zoom, which is why the layer cannot be restricted to Nigeria's own states. */
     expect(states.filter).toEqual(['all', ['==', ['get', 'kind'], 'region'], ['==', ['get', 'kind_detail'], 4], ['!=', ['get', 'disputed'], true]]);
     const paint = states.paint as Record<string, unknown>;
-    expect(paint['line-color']).toBe(THEME_TOKENS[theme]['--ui-muted']);
+    expect(paint['line-color']).toBe(THEME_TOKENS[paletteTheme]['--ui-muted']);
     expect(paint['line-width']).toBe(1);
     expect(paint['line-opacity']).toBe(0.5);
     expect(paint['line-dasharray']).toEqual([3, 4]);
@@ -118,6 +136,7 @@ test('the State boundaries layer draws REAL admin-level-1 lines, not a graticule
      * lines where the two coincide, which they do along the whole frontier. */
     expect(layers.findIndex((l) => l.id === STATES_LAYER)).toBeLessThan(layers.findIndex((l) => l.id === NATION_LAYER));
   }
+    }
 });
 
 test('both boundary layers survive the `plain` variant, because they are not decoration', () => {
@@ -179,6 +198,6 @@ test('ruling 29: the basemap URL has exactly ONE home, and production overrides 
 });
 
 test('each variant`s button label is its SECOND word, and dark/topo keep ruling 7`s keys', () => {
-  expect(BASE_KEYS).toEqual(['dark', 'topo', 'plain']);
+  expect(BASE_KEYS).toEqual(['dark', 'light']);
   for (const k of BASE_KEYS) expect(BASEMAP_VARIANTS[k].label.split(' ').length).toBe(2);
 });

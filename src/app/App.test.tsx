@@ -192,10 +192,10 @@ describe('theme drags the basemap (ruling 7)', () => {
     expect(moves).toEqual(['dark']); // boot, matching the original's baseKey = 'dark'
 
     await user.selectOptions(sel('theme'), 'modernist');
-    expect(moves).toEqual(['dark', 'topo']);
+    expect(moves).toEqual(['dark', 'light']);
 
     await user.selectOptions(sel('theme'), 'nocturne');
-    expect(moves).toEqual(['dark', 'topo', 'dark']);
+    expect(moves).toEqual(['dark', 'light', 'dark']);
   });
 
   test('changing theme leaves the basemap alone once userPickedBase is true, and the latch is never reset', async () => {

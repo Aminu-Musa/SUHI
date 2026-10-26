@@ -25,13 +25,13 @@ import { Tooltip } from '../map/Tooltip';
 import { Drawer } from '../map/Drawer';
 
 /** Which basemap a theme change reaches for, prototype line 561. */
-export type ThemeBaseKey = 'dark' | 'topo';
+export type ThemeBaseKey = 'dark' | 'light';
 
 export interface AppProps {
   /** Test/composition seam: seeds the app state. Task 4 onward mutate it through `useAppState`. */
   initialState?: Partial<State>;
   /**
-   * Ruling 7. `applyTheme` called `setBase(theme === 'nocturne' ? 'dark' : 'topo')`, but
+   * Ruling 7. `applyTheme` called `setBase(theme === 'nocturne' ? 'dark' : 'light')`, but
    * `setBase` is Task 6's. Until then a theme change calls this injected callback instead, so
    * the behaviour exists and is testable before the map does. MUST be referentially stable:
    * it is an effect dependency, and a fresh function each render would re-fire the effect.
@@ -128,7 +128,7 @@ function Shell({
   const lastApplied = useRef<ThemeBaseKey | null>(null);
   useEffect(() => {
     if (state.userPickedBase) return;
-    const key: ThemeBaseKey = theme === 'nocturne' ? 'dark' : 'topo';
+    const key: ThemeBaseKey = theme === 'nocturne' ? 'dark' : 'light';
     if (lastApplied.current === key) return;
     lastApplied.current = key;
     setBaseKey(key);

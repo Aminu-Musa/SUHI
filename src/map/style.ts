@@ -35,24 +35,34 @@ import { EXTRACT_BBOX } from './nigeria';
 import { token } from './expressions';
 import type { Theme } from '../app/ThemeProvider';
 
-/* RULING 29's revision of the basemap segment. `palette: 'theme'` means "follow data-theme",
- * which is what §8.3 asks of the design system; the two fixed palettes are what ruling 7 needs,
- * because a theme change drags the basemap along by KEY (`nocturne -> dark`,
- * `modernist -> topo`) until the reader picks one, and a key has to mean something for that to
- * be a choice at all. See BasemapSeg.tsx for why these three and not five. */
-export type BasemapDetail = 'full' | 'ground';
-
+/* RULING 39 (user, 2026-10-26): TWO variants, and both palettes FIXED.
+ *
+ * Ruling 29 offered three - dark, topo, and a `plain` that followed `data-theme` at reduced
+ * detail. Measured on the live app, Dark and Plain differed by **209 pixels out of 864,000** in
+ * Nocturne: `palette: 'theme'` resolves to nocturne in that theme, so the palettes were identical
+ * and the only difference left was detail the national zoom does not draw. Two of three options
+ * were the same picture, and the user reasonably read the control as broken. (Topo differed by
+ * 94.8%, so the wiring was never the problem.)
+ *
+ * Fixed palettes are the property that scheme lacked: `dark` and `light` differ from each other
+ * whatever the UI theme is doing. It is also nearer what the original's five Esri options really
+ * offered - Dark Gray / Topo / Shaded Relief / Light Gray / Imagery is two grounds and three
+ * textures, and the choice that mattered was the ground.
+ *
+ * Ruling 7's latch reads properly now: a theme change drags the basemap by key until the reader
+ * picks one, and `nocturne -> dark`, `modernist -> light` says what it does. `modernist -> topo`
+ * only worked if you knew Topo happened to use the light palette.
+ *
+ * `palette: 'theme'` and `detail: 'ground'` are gone with `plain`; both existed only to serve it. */
 export interface BasemapVariant {
   /** `label.split(' ')[1]` is the button's text, as in the original (prototype line 665). */
   readonly label: string;
-  readonly palette: Theme | 'theme';
-  readonly detail: BasemapDetail;
+  readonly palette: Theme;
 }
 
 export const BASEMAP_VARIANTS = {
-  dark: { label: 'Vector Dark', palette: 'nocturne', detail: 'full' },
-  topo: { label: 'Vector Topo', palette: 'modernist', detail: 'full' },
-  plain: { label: 'Vector Plain', palette: 'theme', detail: 'ground' },
+  dark: { label: 'Vector Dark', palette: 'nocturne' },
+  light: { label: 'Vector Light', palette: 'modernist' },
 } as const satisfies Record<string, BasemapVariant>;
 
 export type BaseKey = keyof typeof BASEMAP_VARIANTS;
@@ -82,8 +92,10 @@ export const SOURCE_MAX_ZOOM = 10;
 
 /** Which palette a variant paints with, under the active UI theme. */
 export function variantTheme(key: BaseKey, theme: Theme): Theme {
-  const p = BASEMAP_VARIANTS[key].palette;
-  return p === 'theme' ? theme : p;
+  /* Both palettes are fixed now (ruling 39), so the active UI theme does not enter into it. The
+   * parameter stays for call-site symmetry with the other style builders. */
+  void theme;
+  return BASEMAP_VARIANTS[key].palette;
 }
 
 type Layer = Record<string, unknown>;
@@ -98,7 +110,8 @@ type Layer = Record<string, unknown>;
 export function buildBasemapStyle(theme: Theme, base: BaseKey = 'dark', baseUrl?: string): Record<string, unknown> {
   const t = variantTheme(base, theme);
   const c = (name: string) => token(t, name);
-  const ground = BASEMAP_VARIANTS[base].detail === 'ground';
+  /* RULING 39 removed `detail: 'ground'`; every variant draws full detail. */
+  const ground = false;
 
   const layers: Layer[] = [
     /* The ground the whole map sits on. app.css gives `.leaflet-container` (and now

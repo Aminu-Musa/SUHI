@@ -1242,3 +1242,25 @@ option, it would `aria-hidden` the document and block the map. `Math.max(2.5, r)
 (`popScale`'s range starts at 3, so the floor never fires for any city, metric or mode) -
 transcribed rather than deleted, and stated in a test. `swipeGeometry` rounds to 4 dp where the
 original writes `55.00000000000001` into `style.left`; a deliberate, unmovable departure.
+
+**Ruling 39 applied.** `BASEMAP_VARIANTS` is two fixed-palette entries, `plain` is gone with the
+`palette: 'theme'` and `detail: 'ground'` modes, the latch maps `modernist -> light`, and the
+`.seg button` exemption is re-measured: **56.67 -> 144.70 px Nocturne, 53.59 -> 137.00 px
+Modernist** (five buttons to two). 272 tests, audit 80/80, build clean, fidelity 6/6.
+
+**One real consequence surfaced while fixing the tests.** With fixed palettes, `style(theme, base)`
+no longer resolves the palette from the UI theme - so the national outline and state lines take the
+**variant's** palette, not the active theme's. Two tests asserted `THEME_TOKENS[theme]` and failed
+with modernist's `#201e1d` where they wanted nocturne's `#595d6c`. That is correct behaviour, not a
+regression, and the tests now resolve through `variantTheme(base, theme)`.
+
+It is worth being precise about what this does to §8.3's claim that the basemap "flips with
+`data-theme` like everything else". **It still does, but by a different mechanism:** ruling 7's latch
+changes the KEY on a theme change (`nocturne -> dark`, `modernist -> light`), so the default basemap
+follows the theme exactly as before. What changed is that an explicit pick now sticks to a palette
+rather than to a palette-resolution rule - which is what the original's `userPickedBase` always
+meant. Coherent, and arguably clearer than ruling 29's three-way scheme.
+
+The latch test got stronger in the process: the reader now picks **the option the active theme would
+not have chosen**, so a broken latch would drag the key back and fail the next assertion. With three
+options it picked `plain`, which the theme never chose anyway, and proved less.
