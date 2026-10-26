@@ -16,19 +16,32 @@
  * THE MAP IS THE ONLY CONSUMER OF `paintEpoch`. Every other part of the UI repaints because
  * `html[data-theme]` flips and CSS custom properties cascade. MapLibre does not: paint values
  * are resolved hex baked into a parsed style object, and it never re-reads CSS. So the counter
- * in ThemeProvider exists for this component and nothing else. Task 7 owns the repaint TEST;
- * this is the mechanism.
+ * in ThemeProvider exists for this component and nothing else - and it has to reach BOTH map
+ * instances, which is new with ruling 35. `theme-repaint.test.ts` pins that.
  *
- * NOT IN SCOPE HERE (Task 7), and left as documented seams rather than invented props: the
- * day/night swipe (`positionSwipe`), the hover tooltip (`showTip`), the spot drawer
- * (`openSpot` / `openCity` / `closeDrawer`), and the city circles and labels. Ruling 13 settles
- * that city circles and labels stay DOM overlays, because a MapLibre circle layer cannot be
- * dashed and `.citylabel` is styled text - so `state.layers.cities` and `state.layers.labels`
- * are deliberately NOT read here. They belong to the overlay component that draws them.
+ * ══ RULING 35 - THERE ARE TWO MAPS, AND THE SWIPE IS WHY ══
+ *
+ * `positionSwipe` (lines 838-850) clipped Leaflet's `dayPane` and `nightPane`: two DOM elements
+ * holding two SVG overlays, each independently clippable, which is what let the original cut a
+ * polygon MID-GEOMETRY at the swipe line. MapLibre renders every layer into ONE canvas, so
+ * there is no element to clip that contains only the night spots. Filtering by longitude was
+ * rejected (it pops whole polygons rather than cutting them), and re-splitting the GeoJSON per
+ * frame was rejected (it is the Leaflet problem §8.2 exists to escape).
+ *
+ * So: `#map` holds the DAY instance and `#mapNight` the NIGHT one, stacked on top and clipped
+ * with CSS `clip-path` (Swipe.tsx computes the inset, this component applies it). Each instance
+ * carries only its own period's three layers - there is no point tessellating 225 day polygons
+ * into a canvas that will never show them - and the two are kept in sync on `move`.
+ *
+ * THE COST IS TWO WEBGL CONTEXTS AND TWO COPIES OF THE SPOT SOURCE. Measured numbers are in the
+ * task 7 report. The basemap tiles come from one PMTiles archive through the browser cache, so
+ * the second instance costs GPU and memory rather than bandwidth. The fallback, if it ever has
+ * to be taken, is one instance and a longitude filter - whole-polygon reveals instead of
+ * mid-polygon cuts, which is a visible fidelity loss and therefore the fallback and not the plan.
  */
 
-import { useCallback, useEffect, useRef, type RefObject } from 'react';
-import { Map as MaplibreMap, addProtocol, setWorkerUrl, type GeoJSONSource, type LngLatBoundsLike } from 'maplibre-gl';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Map as MaplibreMap, addProtocol, setWorkerUrl, type GeoJSONSource, type LngLatBoundsLike, type MapMouseEvent } from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 /* THE WORKER URL IS WIRED EXPLICITLY, AND WITHOUT IT THE MAP IS BLANK.
@@ -51,24 +64,36 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useTheme } from '../app/ThemeProvider';
 import { useAppState } from '../app/state';
-import type { SuhiData } from '../app/data';
+import type { SpotProperties, SuhiData } from '../app/data';
 import { BASEMAP_ATTRIBUTION } from './basemap';
 import { FIT_BOUNDS } from './nigeria';
 import { exagFactor } from './exaggerate';
 import { spotSource } from './source';
+/* The layer set and its paint live in `paint.ts` as pure data, so that `addLayer` and
+ * `setPaintProperty` read from ONE derivation - which is what makes Review Focus 4's repaint
+ * testable without a WebGL context. See that file's header. */
 import {
-  NOT_SIGNIFICANT_FILTER,
-  SIGNIFICANT_FILTER,
-  spotFillExpression,
-  spotFillOpacityExpression,
-  spotFilter,
-  spotLineExpressions,
-} from './expressions';
+  PERIODS,
+  SPOT_LAYERS,
+  SPOT_SOURCE,
+  fillLayerId,
+  layerFilter,
+  layerPaint,
+  lineLayerId,
+  overlayLayers,
+  periodLayers,
+  repaintPatch,
+  type Period,
+} from './paint';
 import { MAX_ZOOM, MIN_ZOOM, NATION_LAYER, STATES_LAYER, buildBasemapStyle, type BaseKey } from './style';
+import { CityCircles } from './CityCircles';
+import { useInteractions } from './interactions';
+import { swipeGeometry } from './Swipe';
 
 /* The pmtiles protocol handler is registered on the maplibregl SINGLETON, so it is per module,
  * not per map. Registering twice throws, and StrictMode mounts every effect twice on purpose -
- * so this is module scope with a latch rather than an effect. */
+ * so this is module scope with a latch rather than an effect. It is also why TWO map instances
+ * cost nothing extra here: the protocol and the worker URL are global, registered once. */
 let protocolAdded = false;
 function ensurePmtilesProtocol(): void {
   if (protocolAdded) return;
@@ -108,50 +133,52 @@ export function hasWebGl(): boolean {
   }
 }
 
-export const SPOT_SOURCE = 'spots';
-
-/** Day under night, as the original's panes were (dayPane 420, nightPane 421). */
-export const PERIODS = ['day', 'night'] as const;
-export type Period = (typeof PERIODS)[number];
-
-export const fillLayerId = (p: Period) => `spots-${p}-fill`;
-export const lineLayerId = (p: Period, significant: boolean) => `spots-${p}-line-${significant ? 'sig' : 'nonsig'}`;
-
-/** Every layer `state.layers.spots` switches. */
-export const SPOT_LAYERS: readonly string[] = PERIODS.flatMap((p) => [
-  fillLayerId(p),
-  lineLayerId(p, true),
-  lineLayerId(p, false),
-]);
+/* Re-exported so a reader who starts at the map component finds the ids and the period type
+ * where they expect them; `paint.ts` is where they are declared. */
+export { PERIODS, SPOT_LAYERS, SPOT_SOURCE, fillLayerId, lineLayerId, periodLayers };
+export type { Period };
 
 /** Imperative surface for the three zoom buttons and the scope seams, which live in App's markup
  * (`.ovl.ov-tr`, prototype lines 369-372) rather than inside `#map`. A ref rather than a context
- * because there is one map and a handful of callers, and a context would re-render the whole
- * shell on every map event. */
+ * value because a context value would re-render the whole shell on every map event; the ref
+ * itself is carried BY the interactions context, because `focusCity` needs the camera and the
+ * drawer in one call (see interactions.tsx).
+ *
+ * Every method drives the DAY instance only. The night one follows through the `move` sync, so
+ * a second call would be a second animation racing the first. */
 export interface MapApi {
   zoomIn(): void;
   zoomOut(): void;
   /** `fitNation`, prototype lines 649-652. */
   fitNation(): void;
-  /** `focusCity`'s map half, prototype lines 818-825. The drawer half is Task 7's. */
+  /** `focusCity`'s map half, prototype lines 818-825. The scope and the drawer are the
+   * interactions context's (`focusCity` there calls this). */
   focusCity(city: string): void;
 }
 
 export interface MapStageProps {
   readonly data: SuhiData | null;
   readonly baseKey: BaseKey;
-  /** Filled on mount so App's zoom buttons can drive the map. */
-  readonly api?: RefObject<MapApi | null>;
   /** Ruling 9's disclosure: the active exaggeration factor, pushed out only when it CHANGES.
    * A zoom fires per frame; the factor depends on the bucket, so the bucket is what crosses. */
   readonly onFactorChange?: (factor: number) => void;
 }
 
-export function MapStage({ data, baseKey, api, onFactorChange }: MapStageProps) {
-  const host = useRef<HTMLDivElement | null>(null);
-  const map = useRef<MaplibreMap | null>(null);
+interface Instance {
+  readonly map: MaplibreMap;
+  readonly period: Period;
+}
+
+export function MapStage({ data, baseKey, onFactorChange }: MapStageProps) {
+  const dayHost = useRef<HTMLDivElement | null>(null);
+  const nightHost = useRef<HTMLDivElement | null>(null);
+  const instances = useRef<Instance[]>([]);
+  /* The day instance as STATE as well as in the ref, because `CityCircles` has to re-run
+   * `map.project()` the moment the map exists and a ref assignment does not re-render. */
+  const [dayMap, setDayMap] = useState<MaplibreMap | null>(null);
   const { theme, paintEpoch } = useTheme();
   const [state] = useAppState();
+  const { mapApi, showTip, hideTip, openSpot, closeDrawer, swipePct } = useInteractions();
 
   /* Read inside effects that must NOT re-run when these change: the paint, filter and
    * visibility effects each own their dependency list, and the style effect would otherwise
@@ -165,104 +192,79 @@ export function MapStage({ data, baseKey, api, onFactorChange }: MapStageProps) 
   const styleReady = useRef(false);
 
   /* ── the four apply* passes. Each is also called after a setStyle, which is why they are
-   *    callbacks over `latest` rather than effect bodies closing over props. ─────────────── */
+   *    callbacks over `latest` rather than effect bodies closing over props. Each now runs over
+   *    EVERY instance: a pass that reached only the day map would leave the night side on the
+   *    previous theme, filter or opacity, and the swipe would show the difference. ───────── */
 
   const applyPaint = useCallback(() => {
-    const m = map.current;
-    if (!m) return;
     const { theme: th, state: st } = latest.current;
-    const fill = spotFillExpression(th, st.year);
-    const opacity = spotFillOpacityExpression(st.contour, st.opacity);
-    const line = spotLineExpressions(th);
-    for (const p of PERIODS) {
-      if (m.getLayer(fillLayerId(p))) {
-        m.setPaintProperty(fillLayerId(p), 'fill-color', fill as never);
-        m.setPaintProperty(fillLayerId(p), 'fill-opacity', opacity as never);
-      }
-      for (const significant of [true, false]) {
-        const id = lineLayerId(p, significant);
-        if (!m.getLayer(id)) continue;
-        m.setPaintProperty(id, 'line-color', line.color as never);
-        m.setPaintProperty(id, 'line-width', line.width as never);
+    for (const { map: m, period } of instances.current) {
+      for (const layer of overlayLayers()) {
+        if (layer.period !== period || !m.getLayer(layer.id)) continue;
+        const patch = repaintPatch(layer, th, st);
+        for (const key of Object.keys(patch)) m.setPaintProperty(layer.id, key as never, patch[key] as never);
       }
     }
   }, []);
 
   const applyFilters = useCallback(() => {
-    const m = map.current;
-    if (!m) return;
     const { state: st } = latest.current;
-    for (const p of PERIODS) {
-      const base = spotFilter(p, st.contour, st.cluster, st.city);
-      if (m.getLayer(fillLayerId(p))) m.setFilter(fillLayerId(p), base as never);
-      for (const significant of [true, false]) {
-        const id = lineLayerId(p, significant);
-        if (!m.getLayer(id)) continue;
-        m.setFilter(id, ['all', base, significant ? SIGNIFICANT_FILTER : NOT_SIGNIFICANT_FILTER] as never);
+    for (const { map: m, period } of instances.current) {
+      for (const layer of overlayLayers()) {
+        if (layer.period !== period || !m.getLayer(layer.id)) continue;
+        m.setFilter(layer.id, layerFilter(layer, st.contour, st.cluster, st.city) as never);
       }
     }
   }, []);
 
   const applyVisibility = useCallback(() => {
-    const m = map.current;
-    if (!m) return;
     const { state: st } = latest.current;
-    const set = (id: string, on: boolean) => {
-      if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
-    };
-    for (const id of SPOT_LAYERS) set(id, st.layers.spots);
-    set(STATES_LAYER, st.layers.states);
-    set(NATION_LAYER, st.layers.nation);
+    for (const { map: m, period } of instances.current) {
+      const set = (id: string, on: boolean) => {
+        if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+      };
+      for (const id of periodLayers(period)) set(id, st.layers.spots);
+      set(STATES_LAYER, st.layers.states);
+      set(NATION_LAYER, st.layers.nation);
+    }
   }, []);
 
   /** Everything that is not part of the basemap style: added on boot and again after every
    * setStyle, because setStyle replaces the style object and with it every layer we added. */
-  const addOverlays = useCallback(() => {
-    const m = map.current;
-    if (!m) return;
+  const addOverlays = useCallback((only?: MaplibreMap) => {
     const { theme: th, state: st, data: d } = latest.current;
-    const line = spotLineExpressions(th);
-
-    /* The `states` and `nation` layers are NOT added here. Both draw the basemap's own
-     * `boundaries` source-layer (state boundaries by the user's 2026-10-24 reversal of ruling
-     * 31, the national outline by ruling 30), so they belong to the style, not to the overlays -
-     * see the bottom of `buildBasemapStyle`. `applyVisibility` still switches them by id. */
     if (!d) return;
-    if (!m.getSource(SPOT_SOURCE)) {
-      m.addSource(SPOT_SOURCE, { type: 'geojson', data: spotSource(d.spots, factor.current) as never });
-    }
-    for (const p of PERIODS) {
-      const base = spotFilter(p, st.contour, st.cluster, st.city);
-      if (!m.getLayer(fillLayerId(p))) {
-        m.addLayer({
-          id: fillLayerId(p),
-          type: 'fill',
-          source: SPOT_SOURCE,
-          filter: base as never,
-          paint: {
-            'fill-color': spotFillExpression(th, st.year) as never,
-            'fill-opacity': spotFillOpacityExpression(st.contour, st.opacity) as never,
-          },
-        });
+
+    for (const { map: m, period } of instances.current) {
+      if (only && m !== only) continue;
+      /* The `states` and `nation` layers are NOT added here. Both draw the basemap's own
+       * `boundaries` source-layer (state boundaries by the user's 2026-10-24 reversal of ruling
+       * 31, the national outline by ruling 30), so they belong to the style, not to the
+       * overlays - see the bottom of `buildBasemapStyle`. `applyVisibility` still switches them
+       * by id. */
+      if (!m.getSource(SPOT_SOURCE)) {
+        m.addSource(SPOT_SOURCE, { type: 'geojson', data: spotSource(d.spots, factor.current) as never });
       }
-      /* TWO line layers per period, and the split is forced rather than chosen:
+      /* ONE PERIOD PER INSTANCE (ruling 35). The day instance never draws night spots and vice
+       * versa, so the layers the other instance owns are simply absent rather than hidden -
+       * which is also why `applyVisibility` loops `periodLayers(period)` and not `SPOT_LAYERS`.
+       *
+       * TWO line layers per period, and the split is forced rather than chosen:
        * `line-dasharray` is a cross-faded style property, so it takes zoom expressions and NOT
        * feature expressions - `bh_significant` cannot pick a dash pattern inside one layer. See
-       * `spotLineExpressions`. */
-      for (const significant of [true, false]) {
-        const id = lineLayerId(p, significant);
-        if (m.getLayer(id)) continue;
+       * `spotLineExpressions`.
+       *
+       * The paint comes from `layerPaint`, which is the SAME derivation `applyPaint` re-sets
+       * from. That is Review Focus 4's fix: there is no second copy to forget. */
+      for (const layer of overlayLayers()) {
+        if (layer.period !== period || m.getLayer(layer.id)) continue;
         m.addLayer({
-          id,
-          type: 'line',
+          id: layer.id,
+          type: layer.type,
           source: SPOT_SOURCE,
-          filter: ['all', base, significant ? SIGNIFICANT_FILTER : NOT_SIGNIFICANT_FILTER] as never,
-          paint: {
-            'line-color': line.color as never,
-            'line-width': line.width as never,
-            ...(significant ? {} : { 'line-dasharray': [...line.dasharray] }),
-          },
-        });
+          filter: layerFilter(layer, st.contour, st.cluster, st.city) as never,
+          paint: layerPaint(layer, th, st) as never,
+        } as never);
       }
     }
   }, []);
@@ -274,110 +276,192 @@ export function MapStage({ data, baseKey, api, onFactorChange }: MapStageProps) 
 
   /** Ruling 9. Re-asks the bucket and, only if it moved, re-walks the geometry through setData. */
   const pushFactor = useCallback(() => {
-    const m = map.current;
-    if (!m) return;
-    const next = exagFactor(m.getZoom(), latest.current.state.layers.exag);
+    const day = instances.current[0]?.map;
+    if (!day) return;
+    const next = exagFactor(day.getZoom(), latest.current.state.layers.exag);
     if (next === factor.current) return;
     factor.current = next;
-    const src = m.getSource(SPOT_SOURCE) as GeoJSONSource | undefined;
     const d = latest.current.data;
-    if (src && d) src.setData(spotSource(d.spots, next) as never);
+    if (d) {
+      const payload = spotSource(d.spots, next);
+      for (const { map: m } of instances.current) {
+        const src = m.getSource(SPOT_SOURCE) as GeoJSONSource | undefined;
+        if (src) src.setData(payload as never);
+      }
+    }
     onFactorChange?.(next);
   }, [onFactorChange]);
 
-  /* ── boot ──────────────────────────────────────────────────────────────────────────────── */
+  /* ── boot: two instances, synced ───────────────────────────────────────────────────────── */
   useEffect(() => {
-    if (!host.current || map.current) return;
+    if (!dayHost.current || !nightHost.current || instances.current.length) return;
     if (!hasWebGl()) return;
     ensurePmtilesProtocol();
     const { theme: th, baseKey: bk } = latest.current;
-    const container = host.current;
-    const m = new MaplibreMap({
-      container,
-      style: buildBasemapStyle(th, bk) as never,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
-      /* Prototype line 610: `zoomControl: false, attributionControl: true`. MapLibre's zoom
-       * control is opt-in, so only attribution is asked for - the original's own `#zin`/`#zout`
-       * buttons ARE the control, and a second one in the corner would be a visible addition. */
-      attributionControl: { compact: false, customAttribution: BASEMAP_ATTRIBUTION },
-      // Leaflet cannot rotate, so bearing and pitch gestures would be new interactions rather
-      // than transcribed ones.
-      dragRotate: false,
-      pitchWithRotate: false,
-      /* THE INITIAL VIEW IS THE ORIGINAL'S RENDERED VIEW, WHICH IS minZoom - NOT ITS fitBounds.
-       * This is measured, not assumed. The original does `setView([9.1, 8.7], 5.6)` and then
-       * `fitNation()` (prototype lines 612, 647), but `initMap` runs fitBounds before the
-       * container has been measured - the 140 ms `invalidateSize` interval on lines 638-646 is
-       * there because of that - so Leaflet's `getBoundsZoom` works from a stale size, falls
-       * below minZoom and clamps to 5. The approved page therefore boots at zoom 5 with
-       * `#zoomHint` reading "scaled x9", which is what spec §3 makes the authority, and the
-       * probe behind the §9.1-style note in the task 6 report measured `.ovl` at 564.25 px in
-       * both themes because of it. A correctly fitted boot lands at 6.47, factor 6, and a
-       * 331.53 px `.ovl` - a visible difference, in the first frame, with no sanction.
-       *
-       * `fitNation` below is NOT bent to match: it really fits, exactly as the original's own
-       * `Fit` button does once the container has a size. Only the FIRST frame is transcribed. */
-      center: [8.7, 9.1],
-      zoom: MIN_ZOOM,
-      fadeDuration: 0,
-    });
-    map.current = m;
+
+    const build = (container: HTMLDivElement, period: Period): Instance => {
+      const m = new MaplibreMap({
+        container,
+        style: buildBasemapStyle(th, bk) as never,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
+        /* Prototype line 610: `zoomControl: false, attributionControl: true`. MapLibre's zoom
+         * control is opt-in, so only attribution is asked for - the original's own
+         * `#zin`/`#zout` buttons ARE the control, and a second one in the corner would be a
+         * visible addition. The NIGHT instance declines attribution outright: it sits on top of
+         * the day one, so two identical credits would stack in the same corner. */
+        attributionControl: period === 'day' ? { compact: false, customAttribution: BASEMAP_ATTRIBUTION } : false,
+        // Leaflet cannot rotate, so bearing and pitch gestures would be new interactions rather
+        // than transcribed ones.
+        dragRotate: false,
+        pitchWithRotate: false,
+        /* THE INITIAL VIEW IS THE ORIGINAL'S RENDERED VIEW, WHICH IS minZoom - NOT ITS fitBounds.
+         * This is measured, not assumed. The original does `setView([9.1, 8.7], 5.6)` and then
+         * `fitNation()` (prototype lines 612, 647), but `initMap` runs fitBounds before the
+         * container has been measured - the 140 ms `invalidateSize` interval on lines 638-646 is
+         * there because of that - so Leaflet's `getBoundsZoom` works from a stale size, falls
+         * below minZoom and clamps to 5. The approved page therefore boots at zoom 5 with
+         * `#zoomHint` reading "scaled x9", which is what spec §3 makes the authority, and the
+         * probe behind the §9.1-style note in the task 6 report measured `.ovl` at 564.25 px in
+         * both themes because of it. A correctly fitted boot lands at 6.47, factor 6, and a
+         * 331.53 px `.ovl` - a visible difference, in the first frame, with no sanction.
+         *
+         * `fitNation` below is NOT bent to match: it really fits, exactly as the original's own
+         * `Fit` button does once the container has a size. Only the FIRST frame is transcribed. */
+        center: [8.7, 9.1],
+        zoom: MIN_ZOOM,
+        fadeDuration: 0,
+      });
+      m.touchZoomRotate.disableRotation();
+      return { map: m, period };
+    };
+
+    const day = build(dayHost.current, 'day');
+    const night = build(nightHost.current, 'night');
+    instances.current = [day, night];
+    setDayMap(day.map);
+
     /* DEV-ONLY HANDLE. `import.meta.env.DEV` is statically false in a production build, so Rollup
      * removes this branch entirely - the shipped bundle has no global. It exists because the map
      * is the one part of this app that cannot be inspected from the DOM: verifying what the
-     * basemap's `boundaries` source-layer actually contains, or which spots a filter selects,
-     * means asking MapLibre, and there is no other way in. */
-    if (import.meta.env.DEV) (globalThis as unknown as Record<string, unknown>).__suhiMap = m;
-    m.touchZoomRotate.disableRotation();
+     * basemap's `boundaries` source-layer actually contains, which spots a filter selects, or
+     * what the second instance costs, means asking MapLibre, and there is no other way in. */
+    if (import.meta.env.DEV) {
+      (globalThis as unknown as Record<string, unknown>).__suhiMap = day.map;
+      (globalThis as unknown as Record<string, unknown>).__suhiMaps = { day: day.map, night: night.map };
+    }
 
-    /* NOT `m.on('load')`, AND THE DIFFERENCE IS LOAD-BEARING. MapLibre's `load` fires only once
-     * the style AND every source's metadata have resolved, so a basemap archive that 404s, or
-     * is served without range-request support, means `load` never fires - and the contour
-     * polygons and the zoom hint would both be waiting behind a basemap they do not need. The fidelity guard found this as a race before it could be found as an outage:
-     * Nocturne passed and Modernist failed on `.ovl width: 564.25 vs 355.81`, which is the zoom
-     * hint still reading "true extent" because the factor had not been pushed yet.
+    /* ONE SUBSCRIPTION, `move`, AND THE GUARD IS WHAT MAKES IT ONE. Ruling 35 names
+     * `move`/`zoom`/`rotate`; MapLibre fires `move` during all three (and during pitch), so
+     * `move` alone is the complete set and the other two would only re-enter this handler.
+     * `jumpTo` on the target fires its own `move`, which is why `syncing` exists - without it
+     * the two instances bounce a camera update back and forth until the stack gives out. */
+    let syncing = false;
+    const syncFrom = (from: MaplibreMap, to: MaplibreMap) => () => {
+      if (syncing) return;
+      syncing = true;
+      /* `jumpTo`, never `easeTo`: the follower must be on the leader's camera THIS frame or the
+       * swipe line would cut across two different views. */
+      to.jumpTo({ center: from.getCenter(), zoom: from.getZoom(), bearing: from.getBearing(), pitch: from.getPitch() });
+      syncing = false;
+    };
+    const dayToNight = syncFrom(day.map, night.map);
+    const nightToDay = syncFrom(night.map, day.map);
+    day.map.on('move', dayToNight);
+    night.map.on('move', nightToDay);
+
+    /* ── hover and click, which were per-FEATURE handlers in Leaflet ──────────────────────
      *
-     * So: the camera and the factor are set SYNCHRONOUSLY, and the overlays go in on
-     * `styledata` - which fires when the style JSON is parsed, before any tile request. Our
-     * data is then independent of the basemap's availability, which is also the honest
-     * dependency direction: the contours are the deliverable and the basemap is context. */
-    m.on('styledata', () => {
-      styleReady.current = true;
-      addOverlays();
-      applyVisibility();
-    });
+     * `onEachFeature` attached three listeners to each of 441 paths (lines 680-685). MapLibre
+     * has no feature nodes, so the map is asked what is under the pointer instead
+     * (`queryRenderedFeatures`), which is one hit test per move rather than 441 live listeners.
+     *
+     * THE EVENT GOES TO WHICHEVER INSTANCE IS VISIBLE AT THAT POINT, FOR FREE. `clip-path`
+     * clips hit-testing as well as painting, so the night canvas receives pointer events only
+     * inside its own band and everything to the left of the swipe falls through to the day
+     * canvas underneath. That is the whole reason the night instance keeps its pointer events
+     * rather than being `pointer-events:none`.
+     *
+     * `.spotpath{cursor:pointer}` (line 168) was a class on the SVG path; there is no path, so
+     * the canvas cursor carries it. */
+    for (const inst of instances.current) {
+      const m = inst.map;
+      const hit = (e: MapMouseEvent): SpotProperties | null => {
+        const layers = periodLayers(inst.period).filter((id) => m.getLayer(id));
+        if (layers.length === 0) return null;
+        const found = m.queryRenderedFeatures(e.point, { layers: layers as string[] });
+        return found.length ? (found[0].properties as unknown as SpotProperties) : null;
+      };
+      m.on('mousemove', (e) => {
+        const spot = hit(e);
+        m.getCanvas().style.cursor = spot ? 'pointer' : '';
+        if (spot) showTip({ kind: 'spot', spot }, e.originalEvent.clientX, e.originalEvent.clientY);
+        else hideTip();
+      });
+      m.on('mouseout', hideTip);
+      /* Prototype lines 684 and 632 together: a spot click opens the drawer and stops
+       * propagating, and the map's own click handler is `closeDrawer`. One handler with a
+       * branch is the same behaviour without the propagation dance. */
+      m.on('click', (e) => {
+        const spot = hit(e);
+        if (spot) openSpot(spot);
+        else closeDrawer();
+      });
+
+      /* NOT `m.on('load')`, AND THE DIFFERENCE IS LOAD-BEARING. MapLibre's `load` fires only
+       * once the style AND every source's metadata have resolved, so a basemap archive that
+       * 404s, or is served without range-request support, means `load` never fires - and the
+       * contour polygons and the zoom hint would both be waiting behind a basemap they do not
+       * need. The fidelity guard found this as a race before it could be found as an outage:
+       * Nocturne passed and Modernist failed on `.ovl width: 564.25 vs 355.81`, which is the
+       * zoom hint still reading "true extent" because the factor had not been pushed yet.
+       *
+       * So: the camera and the factor are set SYNCHRONOUSLY, and the overlays go in on
+       * `styledata` - which fires when the style JSON is parsed, before any tile request. Our
+       * data is then independent of the basemap's availability, which is also the honest
+       * dependency direction: the contours are the deliverable and the basemap is context. */
+      m.on('styledata', () => {
+        styleReady.current = true;
+        addOverlays(m);
+        applyVisibility();
+      });
+    }
+
+    // `zoomend` in the original (line 627) re-rendered everything; here only a bucket change
+    // does, and the bucket is read off the day instance - the night one is on the same camera.
     pushFactor();
-    // `zoomend` in the original (line 627) re-rendered everything; here only a bucket change does.
-    m.on('zoom', pushFactor);
+    day.map.on('zoom', pushFactor);
 
     /* Replaces TWO pieces of the original: the 140 ms polling interval that waited for
      * `#mapwrap` to have a size (lines 638-646) and the 240 ms timeout after `#frameToggle`
      * (line 1009). A ResizeObserver is the same answer to both, fires once per actual change
-     * instead of 250 times, and leaves no timer running in a hidden document. */
-    const ro = new ResizeObserver(() => m.resize());
-    ro.observe(container);
+     * instead of 250 times, and leaves no timer running in a hidden document. One observer for
+     * both containers: they are the same box. */
+    const ro = new ResizeObserver(() => {
+      for (const { map: m } of instances.current) m.resize();
+    });
+    ro.observe(dayHost.current);
 
     return () => {
       ro.disconnect();
-      m.remove();
-      map.current = null;
+      for (const { map: m } of instances.current) m.remove();
+      instances.current = [];
+      setDayMap(null);
     };
-  }, [addOverlays, applyVisibility, pushFactor]);
+  }, [addOverlays, applyVisibility, pushFactor, showTip, hideTip, openSpot, closeDrawer]);
 
   /* ── the imperative surface App's zoom buttons use ─────────────────────────────────────── */
   useEffect(() => {
-    if (!api) return;
-    const ref = api;
+    const ref = mapApi;
     ref.current = {
-      zoomIn: () => map.current?.zoomIn(),
-      zoomOut: () => map.current?.zoomOut(),
+      zoomIn: () => instances.current[0]?.map.zoomIn(),
+      zoomOut: () => instances.current[0]?.map.zoomOut(),
       fitNation: () => {
-        const m = map.current;
+        const m = instances.current[0]?.map;
         if (m) fit(m);
       },
       focusCity: (city: string) => {
-        const m = map.current;
+        const m = instances.current[0]?.map;
         const d = latest.current.data;
         if (!m || !d) return;
         /* Prototype lines 820-823: the bounds of that city's spots, padded 60%, maxZoom 13.
@@ -402,30 +486,34 @@ export function MapStage({ data, baseKey, api, onFactorChange }: MapStageProps) 
     return () => {
       ref.current = null;
     };
-  }, [api, fit]);
+  }, [mapApi, fit]);
 
   /* ── theme / basemap: rebuild the style, then put the overlays back ────────────────────── */
   const booted = useRef(false);
   useEffect(() => {
-    const m = map.current;
-    if (!m) return;
+    if (!instances.current.length) return;
     /* Skip the first run: boot already built the style with this theme, and a setStyle here
-     * would throw away the layers `load` is about to add. StrictMode's double mount makes that
-     * a real case, not a theoretical one. */
+     * would throw away the layers `styledata` is about to add. StrictMode's double mount makes
+     * that a real case, not a theoretical one. */
     if (!booted.current) {
       booted.current = true;
       return;
     }
     styleReady.current = false;
-    m.setStyle(buildBasemapStyle(theme, baseKey) as never, { diff: false });
-    /* The boot effect's `styledata` listener re-adds the overlays (it was registered first, so
-     * it runs first); this one re-applies the passes that depend on state the new style does
-     * not carry. */
-    m.once('styledata', () => {
-      applyPaint();
-      applyFilters();
-      applyVisibility();
-    });
+    /* BOTH instances, which is the whole of ruling 35's contribution to Review Focus 4: a
+     * repaint that reached only the day map would leave the night side of the swipe on the
+     * previous palette, and it would look like a rendering artefact rather than a bug. */
+    for (const { map: m } of instances.current) {
+      m.setStyle(buildBasemapStyle(theme, baseKey) as never, { diff: false });
+      /* The boot effect's `styledata` listener re-adds the overlays (it was registered first,
+       * so it runs first); this one re-applies the passes that depend on state the new style
+       * does not carry. */
+      m.once('styledata', () => {
+        applyPaint();
+        applyFilters();
+        applyVisibility();
+      });
+    }
     /* `paintEpoch` IS the subscription, and it is in this list on purpose even though `theme`
      * changes with it: the counter is what says "CSS-resolved paint is stale", and a future
      * repaint trigger that is not a theme change (a token edit in dev, say) would bump only the
@@ -436,11 +524,17 @@ export function MapStage({ data, baseKey, api, onFactorChange }: MapStageProps) 
   useEffect(applyFilters, [applyFilters, state.contour, state.cluster, state.city, data]);
   useEffect(applyVisibility, [applyVisibility, state.layers, data]);
 
+  /* ── ruling 35: the night instance's clip ──────────────────────────────────────────────── */
+  useEffect(() => {
+    const el = nightHost.current;
+    if (el) el.style.clipPath = swipeGeometry(swipePct).nightClip;
+  }, [swipePct]);
+
   /* ── ruling 9: the exaggeration toggle, and the data arriving after `load` ─────────────── */
   useEffect(() => {
-    const m = map.current;
-    if (!m || !data) return;
-    if (!m.getSource(SPOT_SOURCE)) {
+    if (!instances.current.length || !data) return;
+    const day = instances.current[0].map;
+    if (!day.getSource(SPOT_SOURCE)) {
       /* The data landed after the style. `styleReady` rather than `isStyleLoaded()` or an
        * `idle` wait, both of which depend on every SOURCE having loaded - so an unavailable
        * basemap would mean the contours never get added at all. */
@@ -448,7 +542,7 @@ export function MapStage({ data, baseKey, api, onFactorChange }: MapStageProps) 
         addOverlays();
         applyVisibility();
       } else {
-        m.once('styledata', () => {
+        day.once('styledata', () => {
           addOverlays();
           applyVisibility();
         });
@@ -457,19 +551,32 @@ export function MapStage({ data, baseKey, api, onFactorChange }: MapStageProps) 
     }
     /* `state.layers.exag` changes the factor without the zoom moving, so the bucket comparison
      * has to be re-asked here rather than waited for on a zoom event. */
-    const next = exagFactor(m.getZoom(), state.layers.exag);
+    const next = exagFactor(day.getZoom(), state.layers.exag);
     if (next !== factor.current) {
       factor.current = next;
       onFactorChange?.(next);
     }
-    const src = m.getSource(SPOT_SOURCE) as GeoJSONSource | undefined;
-    if (src) src.setData(spotSource(data.spots, factor.current) as never);
+    const payload = spotSource(data.spots, factor.current);
+    for (const { map: m } of instances.current) {
+      const src = m.getSource(SPOT_SOURCE) as GeoJSONSource | undefined;
+      if (src) src.setData(payload as never);
+    }
   }, [data, state.layers.exag, addOverlays, applyVisibility, onFactorChange]);
 
   /* `#map` keeps its id and its `position:absolute; inset:0` from app.css. MapLibre adds
    * `.maplibregl-map` to it; app.css carries the matching container rules next to the
-   * `.leaflet-container` ones it transcribed. */
-  return <div id="map" ref={host} />;
+   * `.leaflet-container` ones it transcribed. `#mapNight` is the ruling 35 instance and is NOT
+   * a compared selector - the original has no counterpart, because Leaflet put both periods in
+   * one container. It is `aria-hidden` because it duplicates nothing a reader can read: the map
+   * carries no text of its own (Task 6 ships no symbol layers) and the two canvases together
+   * are one picture. */
+  return (
+    <>
+      <div id="map" ref={dayHost} />
+      <div id="mapNight" ref={nightHost} aria-hidden="true" />
+      <CityCircles map={dayMap} cities={data?.cities ?? []} />
+    </>
+  );
 }
 
 /** Depth-first walk of any GeoJSON coordinate nesting. */

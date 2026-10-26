@@ -42,4 +42,17 @@ declare module 'd3' {
   }
   export function scaleSqrt(): PowerScale;
 
+  /** d3-scale, the COLOUR form: a numeric domain over a range of CSS colour strings, which
+   * d3 interpolates in RGB. `clamp(true)` is not optional here - it is what keeps a +6.65 °C
+   * spot on the ramp's last stop instead of extrapolating past it into an invented colour
+   * (prototype lines 569-570 set it on both scales). Declared separately from `PowerScale`
+   * because the output type differs and the setters are self-referential. */
+  export interface ColourScale {
+    (value: number): string;
+    domain(domain: readonly number[]): ColourScale;
+    range(range: readonly string[]): ColourScale;
+    clamp(clamp: boolean): ColourScale;
+  }
+  export function scaleLinear(): ColourScale;
+
 }

@@ -17,8 +17,12 @@ import { AppStateProvider, useAppState, type State, type Tab } from './state';
 import { useSuhiData, type SuhiData } from './data';
 import { Rail } from '../rail/Rail';
 import type { BaseKey } from '../rail/BasemapSeg';
-import { MapStage, type MapApi } from '../map/MapStage';
+import { MapStage } from '../map/MapStage';
 import { ZoomHint } from '../map/ZoomHint';
+import { InteractionsProvider, useInteractions } from '../map/interactions';
+import { Swipe } from '../map/Swipe';
+import { Tooltip } from '../map/Tooltip';
+import { Drawer } from '../map/Drawer';
 
 /** Which basemap a theme change reaches for, prototype line 561. */
 export type ThemeBaseKey = 'dark' | 'topo';
@@ -60,7 +64,13 @@ export default function App({
     <ThemeProvider>
       <I18nProvider>
         <AppStateProvider initial={initialState}>
-          <Shell onBaseFromTheme={onBaseFromTheme} onBasePicked={onBasePicked} injectedData={data} />
+          {/* Task 7. The tooltip, the drawer, the swipe position and the camera handle all sit
+            * here rather than in `Shell`, because `#tip` is a SIBLING of `.app` (prototype line
+            * 404) while `.drawer` is the last child of `.mapwrap` - no single component in the
+            * transcribed markup contains both. See src/map/interactions.tsx. */}
+          <InteractionsProvider>
+            <Shell onBaseFromTheme={onBaseFromTheme} onBasePicked={onBasePicked} injectedData={data} />
+          </InteractionsProvider>
         </AppStateProvider>
       </I18nProvider>
     </ThemeProvider>
@@ -86,12 +96,14 @@ function Shell({
   const data = injectedData === undefined ? fetched.data : injectedData;
   const error = injectedData === undefined ? fetched.error : null;
 
-  /* Task 6's map. `api` is the imperative surface the three zoom buttons in `.ovl.ov-tr` drive -
-   * those buttons are part of the original's overlay markup, not of `#map`, so the handlers that
-   * `initMap` attached to them (prototype lines 635-637) live here and reach the map through the
-   * ref. `exagFactor` is ruling 9's disclosure travelling the other way: `#zoomHint` is a
-   * `.mapsub` in this markup, and the factor is the only thing it needs from the map. */
-  const mapApi = useRef<MapApi | null>(null);
+  /* Task 6's map. `mapApi` is the imperative surface the three zoom buttons in `.ovl.ov-tr`
+   * drive - those buttons are part of the original's overlay markup, not of `#map`, so the
+   * handlers that `initMap` attached to them (prototype lines 635-637) live here and reach the
+   * map through the ref. It comes from the interactions context because Task 7's `focusCity`
+   * needs the camera, the city scope and the drawer in one call. `exagFactor` is ruling 9's
+   * disclosure travelling the other way: `#zoomHint` is a `.mapsub` in this markup, and the
+   * factor is the only thing it needs from the map. */
+  const { mapApi, focusCity, closeDrawer } = useInteractions();
   const [exagFactor, setExagFactor] = useState(1);
   const onFactorChange = useCallback((f: number) => setExagFactor(f), []);
 
@@ -174,7 +186,15 @@ function Shell({
                 id="lang"
                 title="Language"
                 value={lang}
-                onChange={(e) => setLang(e.target.value as Lang)}
+                /* Prototype line 1015: a language change closes the drawer. It has to - the
+                 * original rebuilt the drawer's markup from the dictionary at open time and had
+                 * no way to re-render it in place, and a panel half in English and half in
+                 * Hausa is worse than a closed one. Ours WOULD re-render correctly, but the
+                 * behaviour is the approved page's and is transcribed rather than improved. */
+                onChange={(e) => {
+                  setLang(e.target.value as Lang);
+                  closeDrawer();
+                }}
               >
                 <option value="en">English</option>
                 <option value="ha">Hausa</option>
@@ -218,8 +238,13 @@ function Shell({
                  * lost because the map subscribes to state. These two ARE imperative: a camera
                  * move is not derivable from `state.city` (the same city can be re-picked, and
                  * `fitNation` has no state of its own), so they are the two real calls. */
-                onFocusCity={(city) => mapApi.current?.focusCity(city)}
-                onResetScope={() => mapApi.current?.fitNation()}
+                onFocusCity={focusCity}
+                /* Prototype line 1005: `#scopeReset` clears the scope, refits and closes the
+                 * drawer, exactly as `#zreset` does. */
+                onResetScope={() => {
+                  mapApi.current?.fitNation();
+                  closeDrawer();
+                }}
               />
             </aside>
 
@@ -234,7 +259,7 @@ function Shell({
               style={offMap}
             >
               <div className="mapwrap" id="mapwrap">
-                <MapStage data={data} baseKey={baseKey} api={mapApi} onFactorChange={onFactorChange} />
+                <MapStage data={data} baseKey={baseKey} onFactorChange={onFactorChange} />
                 {/* The original REMOVED this element once Promise.all settled (prototype line
                   * 600) and wrote the failure into it from the `.catch` (line 607) - which
                   * could never work, because by then it had been removed and the handler threw
@@ -246,15 +271,10 @@ function Shell({
                     {error ? `Could not load data: ${error.message}` : 'Loading geometry…'}
                   </div>
                 )}
-                <div className="swipetag" id="tagDay">
-                  {t('day')} · LST
-                </div>
-                <div className="swipetag" id="tagNight">
-                  {t('night')} · LST
-                </div>
-                <div className="swipe" id="swipe" style={{ left: '55%' }}>
-                  <div className="grab">⇄</div>
-                </div>
+                {/* The two `.swipetag`s and the 2px handle, prototype lines 360-362. Ruling 35
+                  * made the clip a property of the night map instance, so the component owns
+                  * the position and `MapStage` owns the element it clips. */}
+                <Swipe />
                 <div className="ovl ov-tl">
                   <h1 className="mapttl" data-i18n="map_title">
                     {t('map_title')}
@@ -279,16 +299,17 @@ function Shell({
                     style={{ width: 'auto', padding: '0 8px', fontSize: '10.5px' }}
                     data-i18n="fit"
                     /* Prototype line 637: clear the city scope, refit the nation, close the
-                     * drawer. The drawer is Task 7's; the first two are here. */
+                     * drawer - all three. */
                     onClick={() => {
                       patch({ city: null });
                       mapApi.current?.fitNation();
+                      closeDrawer();
                     }}
                   >
                     {t('fit')}
                   </button>
                 </div>
-                <aside className="drawer" id="drawer" data-open="false"></aside>
+                <Drawer data={data} />
               </div>
             </main>
 
@@ -316,8 +337,8 @@ function Shell({
         </div>
       </Tabs.Root>
       {/* The shared tooltip, prototype line 404: one node outside `.app`, moved and filled by
-       * whichever layer is hovered. Task 6 onward write to it. */}
-      <div className="tip" id="tip"></div>
+       * whichever layer is hovered. */}
+      <Tooltip data={data} />
     </>
   );
 }

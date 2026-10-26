@@ -132,6 +132,16 @@ input[type=range]{width:100%;accent-color:var(--color-accent);height:18px}
  * classless and inheriting body's 13px, and the guard would report a type difference that says
  * nothing about fidelity. */
 #map{font-family:var(--font-body);font-size:12px;line-height:1.5}
+/* TASK 7, RULING 35 - the SECOND map instance. `#map` holds the day period, this one holds the
+ * night period, stacked on top and clipped with `clip-path` at the swipe line (MapStage applies
+ * the inset Swipe.tsx computes). It has no counterpart in the original, where both periods were
+ * SVG panes inside one Leaflet container, so it is not a compared selector.
+ *
+ * It keeps its pointer events on purpose: `clip-path` clips hit-testing as well as painting, so
+ * the night canvas is only reachable inside its own band and everything left of the swipe falls
+ * through to the day canvas underneath. That is what routes a hover to the right period's spots
+ * with no coordinate arithmetic at all. */
+#mapNight{position:absolute;inset:0;font-family:var(--font-body);font-size:12px;line-height:1.5}
 .maplibregl-map{background:var(--ui-panel);font-family:var(--font-body)}
 .maplibregl-ctrl-attrib{background:var(--ui-scrim)!important;color:var(--ui-muted)!important;
   font-size:9.5px!important}
@@ -143,6 +153,17 @@ input[type=range]{width:100%;accent-color:var(--color-accent);height:18px}
 .spotpath{cursor:pointer}
 .citylabel{font-size:10px;color:var(--color-text);white-space:nowrap;text-shadow:0 0 3px var(--color-bg),0 0 3px var(--color-bg);
   pointer-events:none;font-family:var(--font-body)}
+/* TASK 7, RULING 13 / §9.1 BUG 10 - the city rings. Drawn as SVG `<circle fill="none">` rather
+ * than as a bordered div, because CSS `border-style:dashed` has no dash LENGTH (the original's
+ * `dashArray:'4 3'` is unexpressible) and because an SVG circle with no fill is hit only on its
+ * stroke, which is how Leaflet's `fill:false` markers behaved. Stroke, dash, width and opacity
+ * are set on the element from the data; only the cursor is here, mirroring `.spotpath`.
+ *
+ * The ring's z-order - 460, above the two map canvases - is set on `#cityLayer` in the
+ * component, where it sits next to the label layer's 470 and the pair can be read as one
+ * decision. It is a SANCTIONED VISIBLE CHANGE (ALLOWED_DIFFS, §9.1 bug 10): Leaflet had
+ * `cityPane` at 410, below the spot panes, while the handoff docs specify 460. */
+.citycircle{cursor:pointer}
 
 .swipe{position:absolute;top:0;bottom:0;width:2px;background:var(--color-accent);cursor:ew-resize;z-index:700}
 .swipe .grab{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:26px;height:38px;
@@ -178,6 +199,30 @@ input[type=range]{width:100%;accent-color:var(--color-accent);height:18px}
 .pill{display:inline-block;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;
   border-radius:var(--radius-lg);border:var(--ui-rule) solid currentColor}
 .rule{height:var(--ui-rule);background:var(--ui-line);margin:16px 0;opacity:.55}
+
+/* TASK 7, §9.1 BUG 8 - the drawer's announcement region. Clipped to a 1px box rather than
+ * `display:none` or `visibility:hidden`, both of which remove the element from the
+ * accessibility tree and announce nothing. No pixel is spent: the element is 1x1 at the edge of
+ * its container with its content clipped away. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* TASK 7, §9.1 BUG 8 - the other half. The original declares no `@media` rule of any kind, and
+ * spec §9.1 is explicit that the "zero media queries" finding is NOT fixed here (a responsive
+ * layout is a design decision, deferred to §7.8) - but `prefers-reduced-motion` is, because it
+ * costs no visible pixel for a reader who has not asked for it.
+ *
+ * Three transitions exist on the map stage: the drawer's .22s slide, the tooltip's .1s fade and
+ * the switch knob's .15s. The drawer's is the one that moves a 378px panel across the viewport,
+ * which is exactly what a reader with vestibular sensitivity asks not to happen; the swipe is
+ * listed because its handle and tags are repositioned under a drag and must never ease into
+ * place behind the pointer. Camera moves are already `animate:false` in MapStage - the original
+ * passed that to every `fitBounds` - so there is nothing to disable there. */
+@media (prefers-reduced-motion: reduce){
+  .drawer{transition:none}
+  .swipe,.swipetag{transition:none}
+  .tip{transition:none}
+}
 
 .panel{flex:1;overflow-y:auto;padding:var(--space-8) var(--space-8) 60px;display:none}
 .panel[data-on=true]{display:block}
