@@ -510,6 +510,9 @@ Subscribe to `paintEpoch` and re-apply paint on change. This is Review Focus 4's
 **Files:**
 - Create: `src/views/Compare.tsx`, `src/views/ClusteredBars.tsx`
 - Test: `src/views/Compare.test.tsx`
+- **Modify: `scripts/lib/derive.mjs`, `scripts/derive.mjs`** — emit `data/cities-by-period.json` (ruling 36)
+- Test: `scripts/lib/derive.test.mjs` — a byte-for-byte guard on the new file
+- Create: `data/cities-by-period.json`
 
 **Interfaces:**
 - Consumes: `Seg` (Task 4), `cities.json`
@@ -534,6 +537,16 @@ test('a measure with a null night value renders one bar and a dash', …)
 The scaling test is the one to get right: select two mid-ranked cities only, and assert Lagos's absolute national maximum still sets the scale — so neither selected bar fills the track. Rescaling to the selection was a revision-1 change the spec reverts (§7.5).
 
 - [ ] **Step 2: Run to verify failure**
+
+- [ ] **Step 0: Derive the day/night split (ruling 36)**
+
+`data/cities.json` has **no day/night split** — all 25 fields are aggregated across both periods, so the clustered chart this task is built around has no data behind it. `data/spots.geojson` carries `period` on every feature (225 day, 216 night; 90 and 95 at L50) alongside every measure the chart draws.
+
+Extend `derive.mjs` to emit a **separate** `data/cities-by-period.json`, keyed `${city}|${period}`, under the same L50-only and multiplicity-weighted rules the existing output uses. **Separate, not new fields on `cities.json`**, because `derive.test.mjs` asserts that file reproduces byte for byte and adding fields would break a guard doing its job.
+
+This is the only task that touches `scripts/` since plan 1 merged. `cities.json`, `clusters.json` and `spots.topo.json` must come out **byte-identical** — run `npm run derive` and `git diff --exit-code data/cities.json data/clusters.json data/spots.topo.json` to prove it.
+
+Deriving it here rather than in the component is deliberate: `derive.mjs` is the single owner of what the published figures are, and a second aggregation written client-side would drift, leaving Compare and Table quietly disagreeing about the same city.
 
 - [ ] **Step 3: Implement Compare**
 
