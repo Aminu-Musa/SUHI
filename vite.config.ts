@@ -29,5 +29,14 @@ export default defineConfig({
     // No `globals: true`, so Testing Library's auto-cleanup never registers. Every component
     // suite calls cleanup() in its own afterEach.
     restoreMocks: true,
+    /* CSS is PROCESSED rather than stubbed, which vitest does not do by default.
+     *
+     * One test needs it: spec §9.1 bug 8's `@media (prefers-reduced-motion: reduce)` block is a
+     * CSS rule, so the only thing that can regress is the rule going missing - and jsdom does
+     * not evaluate media queries, so the assertion has to read the stylesheet's own text.
+     * `import app from './app.css?raw'` returns an EMPTY STRING with the default setting, which
+     * would have made that test pass having checked nothing. Measured: with this on, the same
+     * import returns the file. */
+    css: true,
   },
 });

@@ -82,14 +82,20 @@ export const IGNORED_PROPERTIES: readonly { readonly name: string; readonly why:
  * makes a selector exist to delete it, and deleting it makes the guard COMPARE `.bar` rather
  * than skip it - strictly more coverage, never a silenced selector. Task 7's drawer bars are
  * covered separately by the `.drawer .bar i` entry above. */
+/* TASK 7 DELETED ITS SIX ENTRIES - `.citylabel`, `.pill`, `.rule`, `.dl2`, `.dl2 dt` and
+ * `.dl2 dd` - and all six are now compared.
+ *
+ * `.citylabel` joins the main pass: ruling 13's DOM overlay renders one per city on load, in
+ * cities.json order, so the first match is the same city on both pages.
+ *
+ * THE OTHER FIVE ONLY EXIST WHILE THE DRAWER IS OPEN, on BOTH pages, so deleting them plainly
+ * would have made the guard skip them for ever - "absent in the original too: nothing to hold
+ * the rebuild to" is the branch they would have taken. They moved to `DRAWER_SELECTORS` in
+ * fidelity.spec.ts instead, which opens a city on each page and then measures. And they are
+ * scoped to `.drawer`: Task 5 found that the guard reads only the FIRST match of a selector,
+ * and `.dl2` already exists in the RAIL behind a non-default cluster selection, so a bare
+ * `.dl2` would one day verify the rail's list and declare the drawer correct. */
 export const PENDING: readonly { readonly selector: string; readonly task: number }[] = [
-  // Task 6-7 - map and interactions
-  { selector: '.citylabel', task: 7 },
-  { selector: '.pill', task: 7 },
-  { selector: '.rule', task: 7 },
-  { selector: '.dl2', task: 7 },
-  { selector: '.dl2 dt', task: 7 },
-  { selector: '.dl2 dd', task: 7 },
   // Task 8 - compare
   { selector: '.picker', task: 8 },
   { selector: '.pk', task: 8 },
