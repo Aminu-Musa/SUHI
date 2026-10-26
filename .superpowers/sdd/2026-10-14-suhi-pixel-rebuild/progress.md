@@ -1089,3 +1089,36 @@ and 9 import from it and the file moves somewhere less map-specific. If it is pr
 the shared scale goes in `src/lib/` beside `encode.mjs`. Either way **one definition**, and the
 fill-vs-ink split stays: map polygons interpolate the FILL ramp, text interpolates the INK ramp.
 Put it in both briefs.
+
+## User report, 2026-10-26: "the basemap is not applying on the map canvas"
+
+Investigated on the live dev server with Playwright at 1440x900, clicking each option and
+measuring the map area pixel by pixel:
+
+| Comparison | Pixels differing by >8 | Share of the map area |
+| --- | --- | --- |
+| Dark vs Topo | 818,793 | **94.8%** |
+| Topo vs Plain | 818,765 | **94.8%** |
+| **Dark vs Plain** | **209** | **0.0%** |
+
+**The wiring is fine.** `aria-pressed` moves correctly, the `setStyle` effect has `baseKey` in its
+dependency list, and switching to Topo repaints essentially the whole map. The user's observation
+is still correct, for a reason the wiring cannot show:
+
+**In Nocturne, "Dark" and "Plain" render identically.** `dark` is `palette: 'nocturne', detail:
+'full'`; `plain` is `palette: 'theme', detail: 'ground'`. In the Nocturne theme `palette: 'theme'`
+**resolves to nocturne**, so the only difference left is `full` versus `ground` - and the detail
+that distinguishes them (roads, landuse, landcover) is not drawn at national zoom anyway. Two of
+the three options are the same picture. The user clicked Plain, saw nothing change, and reasonably
+concluded the control was dead.
+
+**This is a design defect in ruling 29's variant scheme, not a bug.** I invented three variants
+without checking that they are distinguishable in both themes. By the same logic, in Modernist
+"Topo" and "Plain" will be the identical pair.
+
+Compounding it: the note under the segment still reads *"Esri and Carto tile services - free, no
+key required"* (Task 12 item 1). A control that appears to do nothing, over a caption naming
+providers we no longer use, is why this read as broken rather than subtle.
+
+*Not fixing unilaterally* - the segment's options are a visible part of the approved design and the
+user has overridden me on basemap questions twice. Put to them with the measurements.
