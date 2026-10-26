@@ -160,9 +160,14 @@ function CompareCard({
     <div className="card2">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <h4 style={{ margin: '0 0 2px', fontSize: '17px', fontFamily: 'var(--font-heading)' }}>{city.city}</h4>
-        {/* `+${suhii}` with no sign test, prototype line 1083. See the header note. */}
+        {/* §9.1 BUG 11: the original writes a bare `+` before suhii here (prototype line 1083), so a
+          * negative city renders `+-0.66 °C`. A defect rather than a style, because the SAME VALUE is
+          * formatted correctly elsewhere in the same application - `suhii > 0 ? '+' : ''` at prototype
+          * lines 812, 861 and 886 - so the original disagrees with itself, and 18 of the 55 cities are
+          * negative. Fixed in all three places that carried the bare `+`: here, the city tooltip and
+          * the city drawer. */}
         <span style={{ color: suhiInk, fontSize: '13px', fontVariantNumeric: 'tabular-nums' }}>
-          {`+${city.suhii} °C`}
+          {`${city.suhii > 0 ? '+' : ''}${city.suhii} °C`}
         </span>
       </div>
       <div className="note" style={{ marginBottom: '4px' }}>

@@ -76,7 +76,7 @@ export function CityTip({ city, clusters }: { readonly city: City; readonly clus
           <span style={{ color: 'var(--cold-4-ink)' }}>{city.cold}</span>
         </dd>
         <dt>{t('suhi_int')}</dt>
-        <dd>+{city.suhii} °C</dd>
+        <dd>{signed(city.suhii)} °C</dd>
         <dt>{t('pop_in_hot')}</dt>
         <dd>{fmt(city.pop_hot)}</dd>
         <dt>{t('pop_in_cold')}</dt>

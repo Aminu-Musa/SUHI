@@ -346,7 +346,7 @@ function CityPanel({ name, data }: { readonly name: string; readonly data: SuhiD
       <div className="rule"></div>
       <dl className="dl2">
         <dt>{t('suhi_int')}</dt>
-        <dd>+{c.suhii} °C</dd>
+        <dd>{signed(c.suhii)} °C</dd>
         <dt>
           {t('mean_lst')} / {t('max_lst')}
         </dt>

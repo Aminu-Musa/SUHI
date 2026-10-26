@@ -63,6 +63,18 @@ const FROM_SPEC_8: readonly AllowedDiff[] = [
     why: "the basemap segment's own geometry. The original offers five Esri providers; the rebuild offers two vector grounds (ruling 39), so each button is wider. Re-measured after ruling 39 cut three options to two: 56.67 -> 144.70 px in Nocturne and 53.59 -> 137.00 px in Modernist, with the `.seg` container identical on both pages. The earlier figures in this entry were taken with three buttons and were stale the moment the user chose two" },
 ];
 
+/* Task 8's Compare changes, measured and brought to me rather than registered by the implementer. */
+const FROM_TASK_8: readonly AllowedDiff[] = [
+  { target: '#panel-compare .card2', property: 'box', cite: 'spec §7.5',
+    why: "the clustered chart's own geometry: nine measures each gain a second bar row, so the card is +151.69px taller in Nocturne and +151.68px in Modernist. Everything else about the card - surface, padding, radius, the 11.5px row type - matches" },
+  { target: '#panel-compare .cmp', property: 'box', cite: 'spec §7.5',
+    why: 'the grid containing the cards above; it grows by exactly the same amount and for the same reason' },
+  { target: '#cmpLegend', property: 'exists', cite: 'spec §7.5',
+    why: 'an element the original has no equivalent for. §7.5 fixes both bar gradients, so day and night are distinguished only by opacity, and without a key the pairing is unreadable. A chart that cannot be read is not a faithful rendering of one that could' },
+  { target: '#panel-compare .card2 > div:first-child span', property: 'text', cite: 'spec §9.1 bug 11',
+    why: 'the sign fix: the original renders `+-0.66 °C` for the 18 negative cities, while formatting the same value correctly at prototype lines 812, 861 and 886' },
+];
+
 export const ALLOWED_DIFFS: readonly AllowedDiff[] = [...FROM_SPEC_3, ...FROM_SPEC_8, ...FROM_SPEC_9];
 
 /* Attributes and properties the guard NEVER compares, with the reason each is excluded. */

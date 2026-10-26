@@ -1283,3 +1283,57 @@ no test.
 *Also noted:* the table uses 17 of the 25 fields. The other eight are not dead - `lat`/`lon` feed
 the map, `city_area` the KPI share, `sig` the Reports brief, `pct_cold` Compare - so nothing here
 suggests trimming `derive.mjs`'s output.
+
+### Task 8 — Compare, and the derivation behind it
+
+Commits `9d198c7` (derivation) and `96e106c` (Compare), plus my follow-up. Controller-verified:
+**308 tests / 30 files**, audit 80/80, build clean, **fidelity 6/6**, and
+`git diff --exit-code data/cities.json data/clusters.json data/spots.topo.json` exits **0** - the
+gate that mattered most for the first task to touch `scripts/` since plan 1.
+
+**Ruling 43 - §9.1 gains BUG 11: the bare `+` before `suhii`. Fixed in three places.**
+The implementer transcribed `+${c.suhii}` faithfully, producing `+-0.66 °C`, and raised it rather
+than silently correcting. **It is a defect, not a style**, and the proof is in the original itself:
+the same value is formatted `suhii > 0 ? '+' : ''` at prototype lines 812, 861 and 886, and bare at
+871, 936 and 1083. **The original disagrees with itself, and one of its two spellings produces
+nonsense** for 18 of the 55 cities - Maiduguri among the picker's defaults, so it is on screen by
+default.
+
+Task 7 had faithfully reproduced the bare `+` in the city tooltip and the city drawer too, so the
+rebuild carried it in three surfaces. All three now use the sign test; the three that already had it
+are untouched. Added to §9.1 as bug 11 with an `ALLOWED_DIFFS` entry. The pinning test was rewritten
+from "reads +-0.66 exactly as the original does" to assert the fix, **plus a second test that a
+positive city keeps its plus** - without that, deleting the sign entirely would have passed.
+
+**Ruling 44 - national-max scaling now takes its max over `cities-by-period.json`.** Still national,
+still not per selection. The formula had to move because against `d3.max(CITIES, …)` **19 of 954
+bars exceed 100% and clip** - Akure's day SUHI is 3.66 against a pooled maximum of 2.34, since
+pooling across periods hides the per-period extremes. A bar that clips is a bar that lies about its
+own scale. Accepted.
+
+**Ruling 45 - `#cmpLegend` is a sanctioned addition.** The original has no equivalent, but §7.5 fixes
+both bar gradients, so day and night are distinguished **only by opacity**. Without a key the pairing
+is unreadable, and a chart that cannot be read is not a faithful rendering of one that could.
+`ALLOWED_DIFFS` entry cites §7.5.
+
+**`.card2` and `.cmp` are +151.69px taller** (Nocturne; +151.68 Modernist) - nine measures each
+gaining a second bar row. Registered citing §7.5, same reasoning as ruling 26's `.kpis` entry: a
+sanctioned change's own geometry.
+
+**My 106-vs-110 assumption was wrong, and the implementer corrected it.** It is not four city/period
+pairs lacking L50 spots: **four cities have zero features at any level for one period** - Abonnema
+has no night, and Ado Ekiti, Port Harcourt and Warri no day. `Bida|night` is a separate case and is
+the `encode.mjs` one: it has both periods, but its single night feature carries no LST, so the split
+surfaces a null the pooled table hid. Both render as a track with no bar and an em dash with no
+unit - never zero, because zero is a real value in this data and absence is not.
+
+**The best thing in the report: a test that passed under its own mutation.** Its first per-period
+multiplicity test could not fail, because `suhii`, `slope` and `hotdays` are constant across every
+row of a city+period - the weighting is provably a no-op in that table. It renamed the test to say
+so and moved the all-levels rule onto `mean_lst`, which moves 96 of 106 rows. That is the mutation
+discipline catching a test that proved nothing, which is exactly what it is for.
+
+**Also:** a Task 4 assertion in `Kpis.test.tsx` queried `.cbar` document-wide and asserted every bar
+was empty - true only while nothing outside the rail had bars. Scoped to `#rail`. And `src/map/ink.ts`
+was **not** moved: it already imports from `src/rail/stats`, so it is not map-private, and
+`Compare.tsx` imports `hotInkScale` from it. One owner, as required.

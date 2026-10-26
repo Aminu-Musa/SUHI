@@ -158,15 +158,29 @@ describe('the grid and the cards', () => {
     expect([...footer.children].map((d) => d.lastElementChild?.textContent)).toEqual(['2', '2', '14']);
   });
 
-  // The original writes `+${c.suhii}` with no sign test (prototype line 1083), and 18 of the 55
-  // cities have a negative pooled SUHI - Maiduguri among the four the picker starts with. So the
-  // original really prints "+-0.66 °C". Transcribed, not corrected: §9.1 does not list it and
-  // the original is the visual authority. This test is the record of that decision.
-  test('prints the header figure as +${suhii} verbatim, so a negative city reads "+-0.66 °C" exactly as the original does', () => {
+  /* §9.1 BUG 11. The original writes a bare `+` before suhii (prototype line 1083) and 18 of the 55
+   * cities are negative - Maiduguri among the four the picker starts with - so it really prints
+   * "+-0.66 °C". The implementer transcribed that faithfully and raised it; I ruled it a defect
+   * rather than a style, because the same value is formatted CORRECTLY elsewhere in the same
+   * application (`suhii > 0 ? '+' : ''` at prototype lines 812, 861 and 886). The original
+   * disagrees with itself, and one of the two spellings produces nonsense.
+   *
+   * Fixed in all three places that carried the bare `+`: here, the city tooltip and the city
+   * drawer. The three that already had the sign test keep it. */
+  test('a negative city reads -0.66 °C, where the original prints +-0.66 °C (§9.1 bug 11)', () => {
     mount(['Maiduguri']);
     const [card] = cards();
     expect(FIXTURE.cities.find((c) => c.city === 'Maiduguri')!.suhii).toBe(-0.66);
-    expect(card.querySelector('h4')!.parentElement!.querySelector('span')!.textContent).toBe('+-0.66 °C');
+    expect(card.querySelector('h4')!.parentElement!.querySelector('span')!.textContent).toBe('-0.66 °C');
+  });
+
+  test('a positive city still carries its plus, so the fix did not just delete the sign', () => {
+    const positive = FIXTURE.cities.find((c) => c.suhii > 0)!;
+    mount([positive.city]);
+    const [card] = cards();
+    expect(card.querySelector('h4')!.parentElement!.querySelector('span')!.textContent).toBe(
+      `+${positive.suhii} °C`,
+    );
   });
 });
 
