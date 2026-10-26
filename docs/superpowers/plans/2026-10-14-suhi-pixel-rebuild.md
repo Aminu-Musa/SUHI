@@ -567,6 +567,18 @@ Reuse `serialize()` so the new file gets the same LF-only, BOM-free formatting t
 
 Deriving it here rather than in the component is deliberate: `derive.mjs` is the single owner of what the published figures are, and a second aggregation written client-side would drift, leaving Compare and Table quietly disagreeing about the same city.
 
+**The interpolated ink scale has ONE owner.** The original's `hotScale` / `coldScale` interpolate
+across all five ramp steps and are used as a **text** colour in three places — the table's `suhii`
+column (12px), the Compare card's SUHI figure (13px), and the drawer pill plus tooltips (9.5px and
+13px). That usage is what forced the ink scale into existence (spec §5.3). The rail uses **discrete**
+ink tokens, which is correct for it; this is the continuous case.
+
+Task 7 created `src/map/ink.ts`. **Import from one definition — do not derive your own.** Three
+consumers each interpolating separately is how two tabs end up disagreeing about the colour of the
+same number, the failure mode ruling 36 guards against for the day/night aggregation. If that file
+is map-private, move the shared scale to `src/lib/` beside `encode.mjs` and say so. The fill/ink
+split holds either way: map polygons interpolate the FILL ramp, text interpolates the INK ramp.
+
 - [ ] **Step 3: Implement Compare**
 
 The original's `renderCompare()` (lines 1071–1102) with one change from spec §7.5: each `.cbar` row becomes two bars, day against night, inside the same `.card2`. The card's surface, padding, radius and 11.5px row type are unchanged.
@@ -605,6 +617,18 @@ The 17 columns, in order: `city`, `hot`, `cold`, `suhii`, `mean_lst`, `max_lst`,
 The ink test covers `hot` (`--hot-4-ink`), `cold` (`--cold-4-ink`), `suhii` (the interpolated hot ink scale), `slope` (`--hot-3-ink` / `--cold-3-ink`) and `cluster` (`--accent-ink`). The `suhii` column is the one that uncovered the whole ink-scale requirement (spec §5.3) — it interpolates every step, so a fill-scale regression there is the failure the spec was rewritten around.
 
 - [ ] **Step 2: Run to verify failure**
+
+**The interpolated ink scale has ONE owner.** The original's `hotScale` / `coldScale` interpolate
+across all five ramp steps and are used as a **text** colour in three places — the table's `suhii`
+column (12px), the Compare card's SUHI figure (13px), and the drawer pill plus tooltips (9.5px and
+13px). That usage is what forced the ink scale into existence (spec §5.3). The rail uses **discrete**
+ink tokens, which is correct for it; this is the continuous case.
+
+Task 7 created `src/map/ink.ts`. **Import from one definition — do not derive your own.** Three
+consumers each interpolating separately is how two tabs end up disagreeing about the colour of the
+same number, the failure mode ruling 36 guards against for the day/night aggregation. If that file
+is map-private, move the shared scale to `src/lib/` beside `encode.mjs` and say so. The fill/ink
+split holds either way: map polygons interpolate the FILL ramp, text interpolates the INK ramp.
 
 - [ ] **Step 3: Implement the table**
 
