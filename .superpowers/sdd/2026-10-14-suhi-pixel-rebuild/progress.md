@@ -1370,3 +1370,30 @@ a lighter first paint buys headroom the swipe can spend.
 *Also for Task 12:* the CSS went 27 KB to 109 KB raw when the map landed, which is `maplibre-gl.css`.
 It gzips to 16 KB, so it is not urgent, but it is worth checking how much of that stylesheet a map
 with no symbol layers and no default controls actually needs.
+
+## Task 12, new item 10 — CI runs the fidelity guard with NO basemap
+
+Found by reading the workflow rather than by anything failing. Vite copies `public/` into `dist/`,
+so **locally** the guard tests against a real 38 MB basemap (`dist/nigeria-z10.pmtiles` is there
+right now). But `*.pmtiles` is gitignored and `git ls-files public/` is **empty**, so **CI has no
+basemap archive at all**.
+
+CI's fidelity run therefore exercises the map with a source that 404s. It probably still reports
+6/6, because the compared selectors - `#map`, `.ovl`, `.mapsub` - resolve their type and box from
+CSS and the zoom-hint text rather than from tiles. Task 6 also noted that `styleReady` stays
+"false forever if the basemap archive is unavailable", so the basemap failing is a state the code
+anticipates.
+
+**The problem is not that CI fails. It is that CI passes while testing less than the dev loop
+does** - the opposite of what a CI gate is for, and precisely the shape of every other defect this
+project has produced: the invisible map, the reduced-motion test reading an empty string, six
+pending selectors comparing nothing. A green result that covers less than it appears to.
+
+*Recommendation:* commit a **minimal** pmtiles fixture - Nigeria bbox, z0-4, a handful of tiles -
+small enough for git and sufficient to prove the basemap pipeline resolves, registers its protocol,
+and renders. Exactly the same reasoning as `tests/fidelity/fixtures/countries-110m.json`, which is
+already committed as a small offline stand-in for a CDN download. The full 39 MB extract stays
+gitignored for local work and R2 serves production.
+
+Second-best is a CI step that builds the extract, but that puts a multi-minute network fetch on
+every push to save committing a few hundred kilobytes.
