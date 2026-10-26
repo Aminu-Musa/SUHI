@@ -23,6 +23,7 @@ import { InteractionsProvider, useInteractions } from '../map/interactions';
 import { Swipe } from '../map/Swipe';
 import { Tooltip } from '../map/Tooltip';
 import { Drawer } from '../map/Drawer';
+import { Compare } from '../views/Compare';
 
 /** Which basemap a theme change reaches for, prototype line 561. */
 export type ThemeBaseKey = 'dark' | 'light';
@@ -318,6 +319,11 @@ function Shell({
               <p className="lede" data-i18n="cmp_lede">
                 {t('cmp_lede')}
               </p>
+              {/* Task 8. Rendered on every tab, not only on this one: the panel is hidden with
+                * display:none rather than unmounted (ruling 5), the original built every panel
+                * at boot (prototype line 1175), and a tab that renders on first visit is a
+                * different page from the one the fidelity guard measures. */}
+              <Compare data={data} />
             </section>
 
             <section className="panel" id="panel-table" data-on={tab === 'table'}>

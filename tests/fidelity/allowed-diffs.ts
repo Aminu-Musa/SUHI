@@ -95,12 +95,23 @@ export const IGNORED_PROPERTIES: readonly { readonly name: string; readonly why:
  * scoped to `.drawer`: Task 5 found that the guard reads only the FIRST match of a selector,
  * and `.dl2` already exists in the RAIL behind a non-default cluster selection, so a bare
  * `.dl2` would one day verify the rail's list and declare the drawer correct. */
+/* TASK 8 DELETED ITS FOUR ENTRIES - `.picker`, `.pk`, `.cmp` and `.card2` - and all four are
+ * now compared. Two things about them are worth knowing before you read the guard.
+ *
+ * `.card2` IS A TRAP, and it is Task 5's first-match limitation again. `.card2` already exists
+ * in the RAIL behind a non-default cluster selection (src/rail/ClusterSelect.tsx), so a bare
+ * `.card2` could one day verify the rail's cluster card and declare the Compare card correct.
+ * On BOTH pages the rail's default branch renders `.cbar` rows and no `.card2`, so today the
+ * first match really is Compare's first card on each - but the COMPARE pass in fidelity.spec.ts
+ * scopes every selector to `#panel-compare` so that stops being luck.
+ *
+ * THE COMPARE PANEL IS `display:none` ON THE MAP TAB, which is the tab both pages load on. A
+ * display:none element still resolves every computed property, so the main pass compares all
+ * five TYPE_PROPS and all six BOX_PROPS for real - but `getBoundingClientRect()` is 0x0 on both
+ * pages, so its width and height comparisons are 0 vs 0 and hold nothing down. Hence COMPARE_
+ * SELECTORS below: a third pass that switches both pages to the Compare tab and measures the
+ * geometry where it actually exists. */
 export const PENDING: readonly { readonly selector: string; readonly task: number }[] = [
-  // Task 8 - compare
-  { selector: '.picker', task: 8 },
-  { selector: '.pk', task: 8 },
-  { selector: '.cmp', task: 8 },
-  { selector: '.card2', task: 8 },
   // Task 9 - table
   { selector: 'table.dt', task: 9 },
   { selector: 'table.dt th', task: 9 },

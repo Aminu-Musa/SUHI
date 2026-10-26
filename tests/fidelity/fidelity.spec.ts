@@ -52,6 +52,50 @@ const DRAWER_SELECTORS: readonly string[] = [
   '.drawer .rowlist', '.drawer .rw', '.drawer .sec-h', '.drawer .note',
 ];
 
+/* TASK 8's COMPARE SELECTORS, measured in a THIRD pass with the Compare tab active on both
+ * pages.
+ *
+ * They are not in PENDING any more, so the main pass already compares their type and their box
+ * properties - but `.panel` is `display:none` until its tab is selected, and a display:none box
+ * measures 0x0. Comparing 0 against 0 is the shape of a selector that is never actually
+ * checked, which is the trap Task 7 found with the drawer, so the geometry is taken here where
+ * it exists.
+ *
+ * EVERY ONE IS SCOPED TO `#panel-compare`. `.card2` and `.cbar` both exist in the rail as well
+ * (the cluster card and the top-typology bars), and the guard reads `document.querySelector`,
+ * the FIRST match - so a bare `.card2` would measure the rail's card on a page where a cluster
+ * had been picked and report Compare correct.
+ *
+ * `.cmp` and `#panel-compare .card2` are NOT in this list, and that is a measurement, not an
+ * exemption: spec §7.5 doubles every `.cbar` row into two bars, so the card is taller than the
+ * original's by exactly that second row, and the grid is taller by its tallest card. Their
+ * TYPE and BOX properties are compared in the main pass and match; the two heights are reported
+ * in the task 8 report for a ruling rather than registered in ALLOWED_DIFFS here. */
+const COMPARE_SELECTORS: readonly string[] = [
+  '#panel-compare .picker', '#panel-compare .pk',
+  '#panel-compare .lede', '#panel-compare h2',
+];
+
+/** Switches both pages to the Compare tab. The two routes differ for the same reason the drawer
+ * pass's do: the guard compares the resulting STATE, not the road to it. Both pages carry a
+ * `.tab[data-tab=compare]` button, so here the road happens to be the same one a reader takes.
+ *
+ * The wait is on the panel's own `data-on`, which both pages set - `selectTab` writes it
+ * directly (prototype line 1023) and the rebuild binds it to the Radix tab value. */
+async function openCompareTab(page: Page): Promise<void> {
+  await page.waitForSelector('.tab[data-tab=compare]', { timeout: 30_000 });
+  await page.locator('.tab[data-tab=compare]').click();
+  await page.waitForFunction(
+    () => document.getElementById('panel-compare')?.dataset.on === 'true',
+    undefined,
+    { timeout: 30_000, polling: 100 },
+  );
+  /* The panel goes from display:none to display:block and then lays out 55 wrapping buttons and
+   * a four-column auto-fit grid. A plain delay rather than rAF: the guard holds two pages open
+   * in one context, so one is always backgrounded and its rAF is throttled to nothing. */
+  await page.waitForTimeout(400);
+}
+
 /** Opens the CITY drawer on each page, on the first city in cities.json so both land on the
  * same record.
  *
@@ -172,6 +216,26 @@ for (const theme of ['nocturne', 'modernist'] as Theme[]) {
       .soft(drawerCompared.length, `only ${drawerCompared.length} drawer selector(s) were compared`)
       .toBeGreaterThan(10);
     expect.soft(boxDiffs, `${boxDiffs.length} box/type difference(s) including the drawer`).toEqual([]);
+
+    /* 3c. TASK 8's COMPARE PANEL, with its tab active on both pages. AFTER 3b, not before: the
+     *     drawer lives inside `.stage`, which `selectTab` hides off the Map tab (ruling 5), so
+     *     measuring the drawer from the Compare tab would measure a 0x0 box. */
+    await Promise.all([openCompareTab(a), openCompareTab(b)]);
+    const [origCmp, builtCmp] = await Promise.all([
+      capture(a, [], COMPARE_SELECTORS),
+      capture(b, [], COMPARE_SELECTORS),
+    ]);
+    const cmpCompared: string[] = [];
+    compare(COMPARE_SELECTORS, origCmp, builtCmp, cmpCompared, boxDiffs);
+    expect
+      .soft(cmpCompared.length, `only ${cmpCompared.length} compare selector(s) were compared`)
+      .toBe(COMPARE_SELECTORS.length);
+    // The picker is the load-bearing one: 55 wrapping buttons, so a width or height difference
+    // here means the flex wrap landed differently, which no 0x0 comparison could have seen.
+    expect
+      .soft(origCmp.boxes['#panel-compare .picker'].height, 'the picker must have real height on the Compare tab')
+      .toBeGreaterThan(20);
+    expect.soft(boxDiffs, `${boxDiffs.length} box/type difference(s) including compare`).toEqual([]);
     await ctx.close();
 
     // 4. The anti-rot clause (ruling 2): a PENDING selector that now exists has become a silent

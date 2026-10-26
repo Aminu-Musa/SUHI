@@ -198,11 +198,17 @@ describe('the empty filter', () => {
     expect(text(six[2].querySelector('.val'))).toBe('0.00% hot · 0.00% cold');
     expect(text(six[0].querySelector('.sub'))).toBe('0 km²');
 
-    // The two bars and the four confidence tracks: `0/max` with max||1, so 0%, never NaN%.
-    for (const i of document.querySelectorAll<HTMLElement>('.kpi.wide .bar i, .cbar .track i')) {
+    /* The two bars and the four confidence tracks: `0/max` with max||1, so 0%, never NaN%.
+     *
+     * SCOPED TO `#rail`, and Task 8 is why: Compare renders `.cbar` rows of its own into the
+     * same document - 4 cards x 9 measures x 2 bars - and they are scaled against the NATIONAL
+     * maximum, so they are correctly non-zero while the rail's filter selects nothing. A
+     * document-wide query here asserted "every bar on the page is empty", which was only ever
+     * true because nothing else on the page had bars yet. */
+    for (const i of document.querySelectorAll<HTMLElement>('#rail .kpi.wide .bar i, #rail .cbar .track i')) {
       expect(i.style.width).toBe('0%');
     }
-    expect([...document.querySelectorAll('.cbar .v')].map(text)).toEqual(['0', '0', '0', '0']);
+    expect([...document.querySelectorAll('#rail .cbar .v')].map(text)).toEqual(['0', '0', '0', '0']);
     expect(text(q('#conf .note'))).toBe('0 / 0 — BH');
 
     /* The invariant, over everything the reader can see AND everything the browser is asked to
