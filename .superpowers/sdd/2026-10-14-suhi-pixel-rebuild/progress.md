@@ -967,3 +967,35 @@ which is why it is the fallback and not the plan.
 - `cityTip` also colours the cluster line with `--color-accent` on `--ui-tip`: `--accent-ink`.
 - `.dl2` is used by the drawer four times and already exists in the rail (Task 5's warning), so the
   guard needs `.drawer .dl2`. The tooltip's `dl` is a bare `dl` inside `.tip`, not `.dl2`.
+
+## Task 8 pre-flight — the clustered bars have no data behind them
+
+**Ruling 36 - the day/night split is derived by `derive.mjs` into a NEW file, and Task 8's scope
+widens to cover it.**
+
+Spec §7.5 and the plan both say each Compare measure "renders two bars, day and night" - the
+clustered-bar chart the user asked for. **`data/cities.json` has no day/night split.** Its 25 fields
+(`suhii`, `mean_lst`, `max_lst`, `pop_hot`, `area_hot`, `slope`, `hotdays`, …) are all aggregated
+across both periods; the only field containing the word is `hotdays`. So no task in the plan
+produces the data the chart needs, and Task 8 as written cannot be built.
+
+It *is* derivable: `data/spots.geojson` carries `period` on every feature (225 day, 216 night; 90
+and 95 at L50) alongside every measure the chart draws - `suhii`, `mean_lst`, `max_lst`,
+`population`, `area_km2`, `sen_slope_C_per_decade`, `n_modis_hot_days`.
+
+**Where it gets derived matters more than that it can be.** `scripts/lib/derive.mjs` is the single
+owner of what the published figures are: it encodes the L50-only rule and ruling 18's
+multiplicity-weighted means, and plan 1 verified its output field-by-field against the published
+values. A second aggregation written client-side would drift from it, and the Compare tab would
+quietly disagree with the Table about the same city.
+*Decision:* extend `derive.mjs` to emit a **separate `data/cities-by-period.json`**, and widen
+Task 8's scope to include that change. A separate file rather than new fields on `cities.json`,
+because `derive.test.mjs` asserts the committed JSON reproduces **byte for byte** - adding fields
+would break a guard that is doing exactly its job. The new file carries the same L50-only and
+multiplicity rules, keyed `${city}|${period}`, and gets its own byte-for-byte test.
+*Cost if wrong:* a second data file to keep in step. Mitigated by both coming out of one script and
+one test run.
+
+This is the first task whose scope I have widened rather than narrowed, and the first time a task
+will touch `scripts/` since plan 1 merged - so the dispatch says so explicitly, and says that
+`cities.json`, `clusters.json` and `spots.topo.json` must come out byte-identical.
