@@ -679,6 +679,26 @@ Print: the rail, the header controls and the tab bar are hidden; the map stage a
 
 ## Task 12: Remaining correctness fixes, accessibility, deployment
 
+> **Carried work.** This task accumulated items across the whole plan. Everything below was
+> found during execution and deferred here deliberately — it is not a wish list, and each line
+> names where it came from.
+
+### Carried from earlier tasks
+
+| # | Item | From |
+| --- | --- | --- |
+| 1 | **The basemap note is false.** `basemap_note` still reads "Esri and Carto tile services — free, no key required" in all four languages (`src/i18n/dictionary.mjs:30-33`). We self-host Protomaps. The Hausa, Igbo and Yoruba lines are a first pass already flagged for native review (§10.2), so this is a translation question, not a string edit. | Task 6 |
+| 2 | **State boundaries from `data/boundaries/nga-adm1.topojson`** — 37 features, Nigeria-only. Replaces the basemap's admin lines, which carry no country field and so render Niger's, Benin's, Cameroon's and Chad's divisions too. Keeps the national outline from the basemap (ruling 30). Update bug 6's `ALLOWED_DIFFS` citation again. | Ruling 38 |
+| 3 | **The guard measures only the FIRST match of a selector.** `#cluster` hides behind `.search`; `.dl2` and `.card2` repeat across rail, drawer and compare. Either compare every match or give repeated selectors a positional form. Deferred because changing the capture shape mid-plan would churn every task's baseline. | Task 5 |
+| 4 | **`PENDING` and `CONTENT_PENDING` must both be empty**, and a test must assert it. That is what stops "not built yet" becoming a permanent exemption. | Ruling 2 |
+| 5 | **Two dev-only advisories** — `tinypool` (critical) and `@vitest/mocker` (moderate), both reached only through vitest. `npm audit --omit=dev` is 0, so nothing ships. The fix is a breaking vitest 4 upgrade; re-check now that the dependency surface is final. | Ruling 19 |
+| 6 | **Production basemap on Cloudflare R2 plus a Worker** — cut the extract, create the bucket, serve with `Content-Type` and range-request support. Dev keeps `public/nigeria-z10.pmtiles`. The URL is already configuration in one place. | Ruling 29 |
+| 7 | **§9.1 bug 9 is already closed** — only the repo-root `data/` exists. Verify and assert, do not re-fix. | Task 12 brief |
+| 8 | **Bundle weight.** 1,400 kB JS plus a 506 kB worker, and ruling 35 adds a second WebGL context. §1's audience is mostly phones and projectors. Measure on a throttled profile; report before optimising. | Tasks 6, 7 |
+| 9 | **`.claude/launch.json` is fixed** (it served `project/`, where the prototype's `../data` fetches 404). Verify both configs still start. | Ruling 22 |
+
+
+
 **Files:**
 - Modify: as each fix requires
 - Create: `wrangler.toml` or the Cloudflare Pages build config, `README.md` deployment section
