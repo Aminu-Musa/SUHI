@@ -625,7 +625,7 @@ In order, each a `.sec-h` heading plus its control:
 | 1 | (no heading) | `.search` + `#results` row list |
 | 2 | `National · 55 cities` + `reset` | `.kpis` 2-column grid |
 | 3 | `Confidence` / `Gi* / BH` | `#conf` |
-| 4 | `Basemap` | `.seg` with **five** Esri options - Dark / Topo / Relief / Gray / Imagery, each labelled from the second word of its `BASES` label at an inline `font-size:10.5px` - plus the note. Ruling 25: §8.3's PMTiles swap is **not** in §3's Changed table, so the five stay |
+| 4 | `Basemap` | `.seg` over the **vector** basemap's variants, plus the note. The original's five Esri options are gone: ruling 25 kept them, the user overrode it on 2026-10-23, and §8.3 governs. The segment is wider than the original's, which is why `ALLOWED_DIFFS` carries a `.seg button` box entry citing §8.3. **The note's copy is still wrong** — it credits Esri and Carto in all four languages; Task 12 item 1 |
 | 5 | `Contour level` | `.seg` — All 441 / L50 / L75 / L90 + note |
 | 6 | `Layers` + opacity % | layer toggles + opacity range |
 | 7 | `Cluster typology` + count | select + `#clusterCard` |
@@ -863,7 +863,7 @@ HTTP range-request support, and the TopoJSON should be served pre-compressed.
 | 3 | Layer toggles are `<div onclick>` — no keyboard, no `role="switch"`, no `aria-checked` | Six controls unreachable without a mouse |
 | 4 | `openCity()` population bar divides by the magic number `230` | Wrong bar lengths |
 | 5 | KPI share bar uses `Math.min(50, pctHot*6)` | Bar is not proportional to anything |
-| 6 | State graticule uses `d3.geoBounds(NG)` as extent, unclipped | Dashed "state lines" run over Niger, Cameroon and the sea |
+| 6 | State graticule uses `d3.geoBounds(NG)` as extent, unclipped | Dashed "state lines" run over Niger, Cameroon and the sea. **Fixed by deletion, not clipping:** the graticule is gone and the layer draws real first-level boundaries from `data/boundaries/nga-adm1.topojson` (37 features, Nigeria-only). The basemap's own admin lines could not be used — they carry no country field at any zoom, so neighbours' divisions rendered too |
 | 7 | "Typology & confidence" KPI tile has no `.val` | Breaks the tile grammar of the other five |
 | 8 | No `prefers-reduced-motion`, no `aria-live` | **Fixed here** — neither costs a visible pixel. The matching "zero `@media` queries" finding is *not* fixed here: a responsive layout is a design decision, deferred to §7.8 and §10.3 |
 | 9 | `data/` duplicated in `project/` and `design_handoff_suhi_dashboard/` | Guaranteed drift |
@@ -918,8 +918,16 @@ bounds (§6.2) will need recomputing for the new units.
 
 - **City-total population.** Only in-contour population exists. Joining WorldPop 2024 or
   GRID3 would let the circles show city / hot / cold as three nested rings.
-- **State and national boundaries.** Currently a graticule placeholder and a 1:110m
-  Natural Earth outline. Replace both with GRID3 Nigeria or GADM level 1.
+- ~~**State and national boundaries.**~~ **CLOSED 2026-10-26.** The national outline now comes
+  from the vector basemap (ruling 30), and the state layer from
+  `data/boundaries/nga-adm1.topojson` — 37 features, 36 states plus the FCT, every one
+  `shapeGroup: NGA`. This retires the graticule placeholder and the 1:110m Natural Earth
+  outline, and with them the world-atlas CDN fetch. **Provenance:** the file is geoBoundaries
+  gbOpen ADM1 (ODC-ODbL, 2025-08-26), **not** GRID3's own layer — GRID3's is on a
+  JavaScript-rendered ArcGIS Hub page whose service URL would not resolve, and is dated 2020 and
+  labelled non-authoritative. `data/boundaries/README.md` records this; swapping in GRID3's
+  GeoPackage later is a path change.
+
 - **Native review of Hausa, Igbo and Yorùbá.** The dictionary is a first pass. Tone
   marks carry meaning; a wrong mark changes the word. Each language needs a named
   reviewer recorded in the repo before the standing "first pass" note is removed.
