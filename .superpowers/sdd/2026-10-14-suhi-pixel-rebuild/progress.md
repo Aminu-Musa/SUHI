@@ -1122,3 +1122,37 @@ providers we no longer use, is why this read as broken rather than subtle.
 
 *Not fixing unilaterally* - the segment's options are a visible part of the approved design and the
 user has overridden me on basemap questions twice. Put to them with the measurements.
+
+**Ruling 39 - the basemap segment becomes two options, Dark and Light. User's choice, 2026-10-26.**
+Resolves the defect above: three variants of which two rendered identically per theme.
+
+```
+dark:  { label: 'Vector Dark',  palette: 'nocturne',  detail: 'full' }
+light: { label: 'Vector Light', palette: 'modernist', detail: 'full' }
+```
+
+`plain` is deleted, and with it the `palette: 'theme'` mode and the `detail: 'ground'` mode - both
+existed only to serve it. Each remaining palette is **fixed**, so the two are always distinguishable
+whatever the UI theme, which is the property my three-variant scheme lacked. The labels still come
+from the second word of the label, matching the original's `BASES` convention
+(`'Esri Dark'` to `Dark`), so `Vector Dark` and `Vector Light` give `Dark` and `Light`.
+
+This is also closer to what the original's five Esri options were really offering: a choice of
+ground, not five providers. Dark Gray / Topo / Shaded Relief / Light Gray / Imagery is two grounds
+and three textures.
+
+**Ruling 7's latch still works and reads better.** A theme change drags the basemap by key until the
+reader picks one; the mapping becomes `nocturne -> dark`, `modernist -> light`, which now says
+exactly what it does. Previously `modernist -> topo` was opaque.
+
+*Knock-ons:*
+- `ALLOWED_DIFFS`'s `.seg button` entry cites §8.3 and stays, but its measured widths (56.67 to
+  95.80 px Nocturne, 53.59 to 90.66 Modernist) were taken with three buttons and will be wrong with
+  two. Re-measure and update the `why`.
+- `style.test.ts` and `BasemapSeg.test.tsx` both assert against three keys.
+- A deep link carrying `base=plain` or `base=topo` must fall back to the default rather than break -
+  that is Task 11's untrusted-input rule, and this is its first real case.
+
+*Sequencing:* **not applied yet.** Task 7 is live in `App.tsx` and `MapStage.tsx` and runs the full
+suite plus the fidelity guard; changing the basemap under it would fail its run for reasons that are
+not its fault. Same call as Task 4's segment. Applied as soon as Task 7 commits.
