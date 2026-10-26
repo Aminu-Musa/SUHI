@@ -806,15 +806,37 @@ pmtiles extract https://build.protomaps.com/<YYYYMMDD>.pmtiles nigeria.pmtiles  
 
 ### 8.4 Deep links
 
-Encode scope in the URL: city, contour level, cluster, year, theme, language, basemap,
-density, divider position. This is what makes a screenshot in a ministry memo
-reproducible.
+**A new feature, approved by the user on 2026-10-26.** The original has no URL state at all —
+no `location`, `history`, `URLSearchParams`, `pushState` or hash handling in its 1,179 lines —
+so this falls outside §3's Changed table and needed authorising rather than assuming.
+
+Encode scope in the URL: city, contour level, cluster, year, theme, language, basemap and
+swipe-divider position. This is what makes a screenshot in a ministry memo reproducible by
+whoever reads the memo.
+
+*Corrected:* an earlier draft also listed **density**, a header control revision 1 added and
+§11 records as rejected. There is no density control to encode.
+
+A deep link is untrusted input. An unknown parameter is ignored, and an out-of-range year or an
+unknown contour level falls back to the default rather than reaching the map. Slider movement
+replaces history rather than pushing, or a year drag would bury the back button.
 
 ### 8.5 Print
 
-A real `@media print` stylesheet for the city brief: one A4 page, no clipped text, in
-either ground. The current build has **zero** print styles despite planning to call
-`window.print()`.
+**A new feature, approved by the user on 2026-10-26**, on the same basis as §8.4.
+
+A real `@media print` stylesheet for the city brief: one A4 page, no clipped text, in either
+ground. The rail, the header controls and the tab bar are hidden; the active panel prints at
+full width; `.brief` stays on one page.
+
+*Corrected:* an earlier draft said the build had no print styles "despite planning to call
+`window.print()`". It does not call `window.print()` either — that premise was carried over
+from revision 1 and is false for this prototype. The case for printing rests on §7.7 instead:
+the Reports tab exists to produce a one-page brief **for circulation**, and a brief that prints
+badly is a brief that does not circulate.
+
+`@media print` never affects the screen, so this needs no `ALLOWED_DIFFS` entry and the
+fidelity guard is unaffected.
 
 ### 8.6 Deployment
 

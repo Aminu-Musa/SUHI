@@ -1030,3 +1030,12 @@ different decision from rebuilding faithfully, and the user has been clear which
 `window.print()` premise, and both become sanctioned additions like the vector basemap - needing
 `ALLOWED_DIFFS` entries only where they change rendered output, which deep links do not and print
 styles do not either, since `@media print` never affects the screen.
+
+**Ruling 37 resolved: the user approved BOTH on 2026-10-26.** §8.4 and §8.5 are rewritten - the
+density reference removed, the false `window.print()` premise replaced with the real argument from
+§7.7 (a brief meant for circulation that prints badly does not circulate), and both marked as
+user-approved additions outside §3's Changed table. Neither changes rendered output - a URL is not
+on screen and `@media print` never affects it - so neither needs an `ALLOWED_DIFFS` entry and the
+guard is untouched. Task 11 proceeds as planned, with deep links treated as untrusted input:
+unknown parameters ignored, out-of-range values falling back to defaults, and slider movement
+replacing history rather than pushing it.
