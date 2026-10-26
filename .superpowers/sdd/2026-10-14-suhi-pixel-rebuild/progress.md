@@ -1264,3 +1264,22 @@ meant. Coherent, and arguably clearer than ruling 29's three-way scheme.
 The latch test got stronger in the process: the reader now picks **the option the active theme would
 not have chosen**, so a broken latch would drag the key back and fail the next assertion. With three
 options it picked `plain`, which the theme never chose anyway, and proved less.
+
+## Task 9 pre-flight — one of my tests has nothing to test
+
+Checked all 17 table columns against `data/cities.json`: **all present, and not one null in any of
+them across all 55 rows.** So the plan's `test('a null cell renders an em dash')` cannot be
+exercised by the real data.
+
+Same class as ruling 23, where I specified a diacritic-folding test against 55 city names that are
+all ASCII. Twice now I have written a test for a condition the dataset does not contain.
+*Decision:* keep the test but **drive it from a fixture**, and name it so the reader knows the data
+cannot reach it - something like "renders an em dash for a null cell, which no city currently has
+but derive.mjs can still produce". `fmt()` already returns an em dash for null (Task 4 proved that
+by mutation, getting `NaN °C`), so the behaviour is real even though the data never triggers it. A
+test that silently uses a fixture while reading as though it checks production data is worse than
+no test.
+
+*Also noted:* the table uses 17 of the 25 fields. The other eight are not dead - `lat`/`lon` feed
+the map, `city_area` the KPI share, `sig` the Reports brief, `pct_cold` Compare - so nothing here
+suggests trimming `derive.mjs`'s output.
