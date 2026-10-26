@@ -1156,3 +1156,31 @@ exactly what it does. Previously `modernist -> topo` was opaque.
 *Sequencing:* **not applied yet.** Task 7 is live in `App.tsx` and `MapStage.tsx` and runs the full
 suite plus the fidelity guard; changing the basemap under it would fail its run for reasons that are
 not its fault. Same call as Task 4's segment. Applied as soon as Task 7 commits.
+
+## Task 10 pre-flight, second pass — the exports do not exist
+
+**Ruling 40 - implementing export COMPLETES a promise the UI already makes, so it is in scope. Not
+the same case as deep links.**
+`renderReport` draws six `.card2` export cards, each with a title, a description and a
+`<button class="ghost">Download</button>` - and **the button has no handler**. There is no `Blob`,
+no `createObjectURL`, no CSV or GeoJSON serialisation anywhere in the prototype's 1,179 lines. Six
+buttons that look functional and do nothing.
+
+So Task 10's `buildExport(format, rows, filters)` is not a transcription of anything. The question
+is whether it is a new feature needing the user's approval, like deep links (ruling 37).
+
+**I rule that it is not**, and the distinction is worth stating because it is the line I have been
+holding all project:
+- Deep links were a capability the original **never hints at**. Nothing on screen suggests the URL
+  means anything. Adding them is adding a feature.
+- The export cards **advertise specific deliverables**: "Spot records (CSV) - 441 rows · 30 fields",
+  "Contours (GeoJSON) - EPSG:4326, current view". §7.7's own lede promises "the underlying records
+  for analysis". The UI makes a concrete promise and does not keep it.
+
+That is nearer §9.1 bug 7 - a KPI tile missing the `.val` its siblings have - than it is to a new
+feature. Building it makes the page do what it already says it does.
+*Flagged to the user anyway*, because it is a judgement call on the scope line and they have been
+making those. If they disagree, the cards render and the button does nothing, exactly as today.
+
+*Note:* the header's `#exportBtn` does work - it calls `selectTab('report')`. Task 2 reproduced that
+correctly.
