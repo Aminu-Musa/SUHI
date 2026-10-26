@@ -673,6 +673,14 @@ The CSV diacritics test matters because city and typology strings carry them and
 
 - [ ] **Step 2: Run to verify failure**
 
+**The export buttons have never worked** (ruling 40). The original renders six `.card2` cards each
+with a `<button class="ghost">Download</button>` and **no handler** — there is no `Blob`,
+`createObjectURL`, CSV or GeoJSON code anywhere in its 1,179 lines. So `buildExport` is written from
+scratch. It is in scope rather than a new feature because the cards advertise concrete deliverables
+("441 rows · 30 fields", "EPSG:4326, current view") and §7.7's lede promises "the underlying records
+for analysis" — a promise the UI makes and does not keep, which is nearer §9.1 bug 7 than it is to
+deep links.
+
 - [ ] **Step 3: Implement Reports**
 
 The original's `renderReport()` (lines 1132–1169) with one change from spec §7.7: the `.expgrid` cards become one `select` plus a `Download` button that appears after a format is chosen. The container and its column position are unchanged.
@@ -709,6 +717,12 @@ test('replaces history rather than pushing on every slider tick', …)
 The validation tests are the load-bearing ones: a deep link is untrusted input, and `?year=99999` or `?contour=L99` must not reach the map.
 
 - [ ] **Step 2: Run to verify failure**
+
+**A deep link is untrusted input.** Unknown parameters are ignored; an out-of-range year or an
+unknown contour level falls back to the default rather than reaching the map; slider movement
+**replaces** history rather than pushing, or dragging the year buries the back button. Its first
+real case already exists: ruling 39 cut the basemap options to `dark` and `light`, so a link
+carrying `base=plain` or `base=topo` must fall back, not break.
 
 - [ ] **Step 3: Implement URL sync and the print stylesheet**
 
