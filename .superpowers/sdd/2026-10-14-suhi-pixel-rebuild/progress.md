@@ -1039,3 +1039,27 @@ on screen and `@media print` never affects it - so neither needs an `ALLOWED_DIF
 guard is untouched. Task 11 proceeds as planned, with deep links treated as untrusted input:
 unknown parameters ignored, out-of-range values falling back to defaults, and slider movement
 replacing history rather than pushing it.
+
+**Ruling 38 - the state boundaries come from a dedicated ADM1 file, not the basemap. Ruling 33
+resolved.**
+The user chose GRID3 over accepting the bleed or clipping by geometry. Sourced and verified:
+`data/boundaries/nga-adm1.topojson`, **37 features** (36 states + FCT), 260 KB, every feature
+`shapeGroup: NGA`, so Nigeria-only by construction. The basemap's own admin lines are dropped for
+this layer; its `boundaries` source still supplies the national outline (ruling 30).
+
+**Provenance, stated precisely because the user asked for GRID3 and this is not GRID3's own file.**
+GRID3's *NGA - Operational State Boundaries* lives on their ArcGIS Hub, is dated 2020, is labelled
+"administrative (non-authoritative)", and its page is JavaScript-rendered - the FeatureServer URL
+did not resolve through the Hub API, so it could not be fetched programmatically. What I fetched is
+**geoBoundaries gbOpen NGA ADM1** (release `9469f09`, ODC-ODbL, updated 2025-08-26), which is open,
+versioned, current and in the right format. A search summary claimed HDX lists GRID3 as its source,
+but the HDX record's organisation is geoBoundaries, and I am not going to assert a provenance I did
+not verify.
+*Told to the user plainly*, with the note that GRID3's own GeoPackage can be dropped in by hand and
+pointed at - the work is identical, only the path changes. `data/boundaries/README.md` carries all
+of this next to the file.
+
+*Implementation:* folded into Task 12 rather than reopening Task 6, since Task 7 is live in the same
+files right now. It needs the `ALLOWED_DIFFS` entry for bug 6 updated again - the citation is
+already `§9.1 bug 6 / §8.3` and gains this - and the rail chip stays `37`, which is now literally
+the feature count.
