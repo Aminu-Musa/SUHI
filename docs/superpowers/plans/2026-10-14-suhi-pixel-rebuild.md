@@ -546,6 +546,25 @@ Extend `derive.mjs` to emit a **separate** `data/cities-by-period.json`, keyed `
 
 This is the only task that touches `scripts/` since plan 1 merged. `cities.json`, `clusters.json` and `spots.topo.json` must come out **byte-identical** — run `npm run derive` and `git diff --exit-code data/cities.json data/clusters.json data/spots.topo.json` to prove it.
 
+**The shape is already there.** `scripts/lib/derive.mjs` exports `deriveCities(fc)` and
+`deriveClusters(fc)`; `scripts/derive.mjs` writes each through one `outputs` array. So this is a new
+exported function plus one array entry:
+
+```js
+// scripts/lib/derive.mjs
+export function deriveCitiesByPeriod(fc) { /* rows keyed city + period */ }
+
+// scripts/derive.mjs
+const outputs = [
+  ['cities.json', deriveCities(fc)],
+  ['clusters.json', deriveClusters(fc)],
+  ['cities-by-period.json', deriveCitiesByPeriod(fc)],   // new
+];
+```
+
+Reuse `serialize()` so the new file gets the same LF-only, BOM-free formatting the others have —
+`.gitattributes` pins `eol=lf` and the byte-for-byte tests depend on it.
+
 Deriving it here rather than in the component is deliberate: `derive.mjs` is the single owner of what the published figures are, and a second aggregation written client-side would drift, leaving Compare and Table quietly disagreeing about the same city.
 
 - [ ] **Step 3: Implement Compare**
