@@ -251,6 +251,88 @@ export function deriveCities(fc) {
   return rows;
 }
 
+/**
+ * RULING 36 -- the same city table, split by `period`.
+ *
+ * `cities.json` aggregates day and night together: every one of its 25 fields pools both
+ * periods, so nothing in it can answer "how does this city's day compare with its night",
+ * which is what spec §7.5's clustered bars ask. The split is derivable -- `period` is on
+ * every feature in spots.geojson (225 day, 216 night) -- so it is derived HERE rather than
+ * in the component, because this file is the single owner of what the published figures
+ * are. A second aggregation written client-side would drift, and Compare and the data table
+ * would quietly disagree about the same city.
+ *
+ * A SEPARATE FILE, not extra fields on `cities.json`: derive.test.mjs asserts that file
+ * reproduces byte for byte, and widening it would break a guard doing exactly its job.
+ *
+ * EVERY RULE IS THE CITY TABLE'S, unchanged, applied to a narrower set of rows:
+ *   - counts, areas and populations are L50-only, because the levels nest;
+ *   - `suhii`, `slope` and `hotdays` are the same MULTIPLICITY-WEIGHTED means over all
+ *     levels (see the long note in `deriveCities`), so a city's two period figures and its
+ *     pooled figure are all computed the same way and stay comparable;
+ *   - `mean_lst` is a mean over genuinely varying per-level readings, `max_lst` a max;
+ *   - `pct_hot` / `pct_cold` divide by the same `city_area_km2`, so the two periods' shares
+ *     are shares of the SAME city and can be read against each other.
+ *
+ * NOT EVERY CITY HAS BOTH PERIODS, and that is real data, not a defect: Abonnema has no
+ * night rows at all, and Ado Ekiti, Port Harcourt and Warri have no day rows. So this
+ * returns 55 x 2 MINUS 4 = 106 rows, and a consumer must handle a missing period rather
+ * than assume a pair. Compare draws one bar and a dash for the missing one.
+ *
+ * Row order is `deriveCities`' order -- SUHI descending on the pooled figure -- with day
+ * before night inside each city. Calling `deriveCities` for it is deliberate: city order
+ * has one owner too, so a reordering of the city table cannot leave this file behind.
+ */
+export function deriveCitiesByPeriod(fc) {
+  const order = deriveCities(fc).map((c) => c.city);
+  const byCity = groupBy(fc.features, (f) => f.properties.city);
+  const rows = [];
+
+  for (const city of order) {
+    const features = byCity.get(city) ?? [];
+    // A FIXED period order, not the source's first-appearance order: the two bars in a
+    // Compare row are day then night on every card, so the table must not depend on which
+    // period a given city's first feature happened to carry.
+    for (const period of ['day', 'night']) {
+      const all = features.map((f) => f.properties).filter((p) => p.period === period);
+      if (all.length === 0) continue; // see the note above: four cities are single-period
+
+      const l50 = all.filter(isL50);
+      const hot = l50.filter((p) => p.spot_type === 'hot');
+      const cold = l50.filter((p) => p.spot_type === 'cold');
+
+      const areaHot = sum(hot, 'area_km2');
+      const areaCold = sum(cold, 'area_km2');
+      const cityArea = all[0].city_area_km2;
+
+      rows.push({
+        city,
+        period,
+        // L50 only: L75 and L90 are nested inside L50.
+        hot: hot.length,
+        cold: cold.length,
+        area_hot: round(areaHot, 2),
+        area_cold: round(areaCold, 2),
+        pop_hot: round(sum(hot, 'population'), 0),
+        pop_cold: round(sum(cold, 'population'), 0),
+        // The multiplicity-weighted means, exactly as the city table takes them. See the
+        // DELIBERATE block in `deriveCities`: this is the same artifact, kept on purpose so
+        // the period figures and the pooled figure are the same kind of number.
+        suhii: round(mean(all, 'suhii'), 2),
+        mean_lst: round(mean(all, 'mean_lst'), 2),
+        max_lst: max(all, 'max_lst'),
+        slope: round(mean(all, 'sen_slope_C_per_decade'), 2),
+        hotdays: round(mean(all, 'n_modis_hot_days'), 0),
+        // The SAME denominator for both periods, so the two shares are comparable.
+        pct_hot: round((areaHot / cityArea) * 100, 2),
+        pct_cold: round((areaCold / cityArea) * 100, 2),
+      });
+    }
+  }
+
+  return rows;
+}
+
 /** Aggregate the feature collection into one row per occupied cluster, ordered by id. */
 export function deriveClusters(fc) {
   const rows = [];

@@ -51,6 +51,35 @@ export interface City {
   cluster: number;
 }
 
+/* RULING 36 - one row per city PER PERIOD, from data/cities-by-period.json.
+ *
+ * `City` above pools day and night in all 25 of its fields, so nothing in it can answer the
+ * question spec §7.5's clustered bars ask. This is the same aggregation under the same rules,
+ * narrowed to one period: see the long note on `deriveCitiesByPeriod` in scripts/lib/derive.mjs,
+ * which is the SINGLE OWNER of these figures. Do not re-aggregate spots.geojson in a component.
+ *
+ * `mean_lst` and `max_lst` are `number | null` and the others are not, because the split
+ * SURFACES a null the pooled table hid: Bida's only night feature carries no LST reading, so
+ * Bida/night is null where cities.json is finite. 106 rows, not 110 - four cities have only one
+ * period in the source - so a lookup can legitimately miss. */
+export interface CityPeriod {
+  city: string;
+  period: 'day' | 'night';
+  hot: number;
+  cold: number;
+  area_hot: number;
+  area_cold: number;
+  pop_hot: number;
+  pop_cold: number;
+  suhii: number;
+  mean_lst: number | null;
+  max_lst: number | null;
+  slope: number;
+  hotdays: number;
+  pct_hot: number;
+  pct_cold: number;
+}
+
 export interface Cluster {
   id: number;
   n: number;
@@ -109,13 +138,25 @@ export interface SuhiData {
   cities: City[];
   clusters: Cluster[];
   spots: Spots;
+  /** Ruling 36, Task 8. Only Compare reads it; it is 15 KB, so it joins the boot Promise.all
+   * rather than being fetched on a tab switch - the original fetched everything up front and
+   * rendered every panel at boot (prototype line 1175), and a tab that loads is a different
+   * page from the one the fidelity guard measures. */
+  citiesByPeriod: CityPeriod[];
 }
 
-/** The prototype's own three URLs, resolved against the page exactly as it resolved them. */
-export const DATA_URLS = ['../data/cities.json', '../data/clusters.json', '../data/spots.geojson'] as const;
+/** The prototype's own three URLs, resolved against the page exactly as it resolved them, plus
+ * ruling 36's fourth - which the prototype has no counterpart for, because the chart that needs
+ * it is spec §7.5's one change to Compare. */
+export const DATA_URLS = [
+  '../data/cities.json',
+  '../data/clusters.json',
+  '../data/spots.geojson',
+  '../data/cities-by-period.json',
+] as const;
 
 export async function loadSuhiData(base: string = document.baseURI): Promise<SuhiData> {
-  const [cities, clusters, spots] = await Promise.all(
+  const [cities, clusters, spots, citiesByPeriod] = await Promise.all(
     DATA_URLS.map(async (u) => {
       const url = new URL(u, base);
       const res = await fetch(url);
@@ -123,7 +164,12 @@ export async function loadSuhiData(base: string = document.baseURI): Promise<Suh
       return res.json();
     }),
   );
-  return { cities: cities as City[], clusters: clusters as Cluster[], spots: spots as Spots };
+  return {
+    cities: cities as City[],
+    clusters: clusters as Cluster[],
+    spots: spots as Spots,
+    citiesByPeriod: citiesByPeriod as CityPeriod[],
+  };
 }
 
 export interface DataState {

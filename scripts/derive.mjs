@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { deriveCities, deriveClusters, serialize } from './lib/derive.mjs';
+import { deriveCities, deriveCitiesByPeriod, deriveClusters, serialize } from './lib/derive.mjs';
 import { buildTopology } from './lib/topo.mjs';
 
 const dataUrl = (name) => new URL(`../data/${name}`, import.meta.url);
@@ -11,6 +11,9 @@ export async function main() {
   const outputs = [
     ['cities.json', deriveCities(fc)],
     ['clusters.json', deriveClusters(fc)],
+    // Ruling 36. Through the SAME `serialize`, so it gets the same LF-only, BOM-free
+    // formatting the other two have and the byte-for-byte guard on it means what theirs do.
+    ['cities-by-period.json', deriveCitiesByPeriod(fc)],
   ];
 
   for (const [name, rows] of outputs) {

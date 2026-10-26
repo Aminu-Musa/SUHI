@@ -16,11 +16,16 @@
 
 import citiesJson from '../../data/cities.json';
 import clustersJson from '../../data/clusters.json';
+import byPeriodJson from '../../data/cities-by-period.json';
 import spotsRaw from '../../data/spots.geojson?raw';
-import type { City, Cluster, Spots, SuhiData } from '../app/data';
+import type { City, CityPeriod, Cluster, Spots, SuhiData } from '../app/data';
 
 export const FIXTURE: SuhiData = {
   cities: citiesJson as unknown as City[],
   clusters: clustersJson as unknown as Cluster[],
   spots: JSON.parse(spotsRaw) as Spots,
+  // Ruling 36's fourth file, and the real one for the same reason as the other three: Compare's
+  // null-period cases (Abonnema has no night, Bida's night has no LST) are facts about the
+  // shipped data, and a hand-written fixture could not be evidence of them.
+  citiesByPeriod: byPeriodJson as unknown as CityPeriod[],
 };

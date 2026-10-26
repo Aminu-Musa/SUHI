@@ -2,14 +2,16 @@ import { readFile, stat } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 import { feature } from 'topojson-client';
 import { describe, it, expect } from 'vitest';
-import { deriveCities, deriveClusters, typologyString, serialize, modal } from './derive.mjs';
+import { deriveCities, deriveCitiesByPeriod, deriveClusters, typologyString, serialize, modal } from './derive.mjs';
 
 const dataPath = (name) => new URL(`../../data/${name}`, import.meta.url);
 const fc = JSON.parse(await readFile(dataPath('spots.geojson'), 'utf8'));
 
 const cities = deriveCities(fc);
 const clusters = deriveClusters(fc);
+const byPeriod = deriveCitiesByPeriod(fc);
 const city = (name) => cities.find((c) => c.city === name);
+const period = (name, p) => byPeriod.find((r) => r.city === name && r.period === p);
 
 it('builds typology strings in clean UTF-8', () => {
   expect(typologyString('Grassland', 'Low (101-500m)', 'Metamorphic formation'))
@@ -391,6 +393,132 @@ describe('null handling', () => {
       expect(Number.isFinite(city(name).mean_lst)).toBe(true);
       expect(Number.isFinite(city(name).max_lst)).toBe(true);
     }
+  });
+});
+
+// RULING 36 -- data/cities-by-period.json. The city table split by `period`, because
+// cities.json pools the two and spec §7.5's clustered bars need them apart.
+describe('cities by period', () => {
+  it('emits 106 rows, not 110, because four cities have only one period in the source', () => {
+    expect(byPeriod).toHaveLength(106);
+    expect(period('Abonnema', 'day')).toBeDefined();
+    expect(period('Abonnema', 'night')).toBeUndefined();
+    for (const name of ['Ado Ekiti', 'Port Harcourt', 'Warri']) {
+      expect(period(name, 'day'), `${name} has no day rows in spots.geojson`).toBeUndefined();
+      expect(period(name, 'night')).toBeDefined();
+    }
+    // Which is the fact a consumer has to handle: 55 x 2 would be 110.
+    expect(new Set(byPeriod.map((r) => r.city)).size).toBe(55);
+  });
+
+  it('orders cities exactly as cities.json does, day before night', () => {
+    expect([...new Set(byPeriod.map((r) => r.city))]).toEqual(cities.map((c) => c.city));
+    expect(byPeriod.slice(0, 4).map((r) => `${r.city}/${r.period}`)).toEqual([
+      'Ibadan/day', 'Ibadan/night', 'Ife/day', 'Ife/night',
+    ]);
+  });
+
+  it('splits the city table without changing a rule: the pooled row is still the two periods put back together', () => {
+    const d = period('Ibadan', 'day');
+    const n = period('Ibadan', 'night');
+    const pooled = city('Ibadan');
+    // L50-only counts, areas and populations partition cleanly across the two periods.
+    expect(d.hot + n.hot).toBe(pooled.hot);
+    expect(d.cold + n.cold).toBe(pooled.cold);
+    expect(d.pop_hot + n.pop_hot).toBe(pooled.pop_hot);
+    expect(Number((d.area_hot + n.area_hot).toFixed(2))).toBe(pooled.area_hot);
+    // And it holds for every city that has both periods.
+    for (const c of cities) {
+      const rows = byPeriod.filter((r) => r.city === c.city);
+      expect(rows.reduce((s, r) => s + r.hot, 0), `${c.city}.hot`).toBe(c.hot);
+      expect(rows.reduce((s, r) => s + r.cold, 0), `${c.city}.cold`).toBe(c.cold);
+    }
+  });
+
+  it('splits suhii/slope/hotdays into the two figures the pooled mean was hiding', () => {
+    expect(period('Ibadan', 'day').suhii).toBe(3.43);
+    expect(period('Ibadan', 'night').suhii).toBe(1.26);
+    expect(period('Ibadan', 'day').slope).toBe(2.86);
+    expect(period('Ibadan', 'night').hotdays).toBe(14);
+    // The pooled figure sits BETWEEN the two, which is the whole reason the split exists:
+    // 2.34 tells you nothing about a 3.43 day against a 1.26 night.
+    expect(city('Ibadan').suhii).toBeGreaterThan(period('Ibadan', 'night').suhii);
+    expect(city('Ibadan').suhii).toBeLessThan(period('Ibadan', 'day').suhii);
+  });
+
+  // NAMED FOR WHAT IT ACTUALLY VERIFIES, the way the city table's `max_lst` test is. The code
+  // takes these three means over ALL levels, and that is deliberate (it is the city table's own
+  // rule, spec §2) -- but NO test can distinguish the two scopes here, because `suhii`, `slope`
+  // and `hotdays` turn out to be constant across every row of a city+period: they are
+  // city-period attributes, not per-spot measurements. So the multiplicity weighting that moves
+  // 30 of 55 cities in the POOLED table is provably a no-op in this one, and narrowing the
+  // scope to L50 would leave all 106 rows' suhii, slope and hotdays byte-identical. The thing
+  // that does move is `mean_lst`, pinned in the next test. This exists so nobody adds a
+  // "weighted, not per-spot" assertion here believing it holds anything down.
+  it('cannot distinguish the mean scope for suhii/slope/hotdays, because all three are constant within a city+period', () => {
+    const p = fc.features.map((f) => f.properties);
+    for (const k of ['suhii', 'sen_slope_C_per_decade', 'n_modis_hot_days']) {
+      for (const r of byPeriod) {
+        const rows = p.filter((x) => x.city === r.city && x.period === r.period);
+        expect(new Set(rows.map((x) => x[k])).size, `${r.city}/${r.period}.${k}`).toBe(1);
+      }
+    }
+    // Level multiplicity really does vary inside 42 of the 106 groups, so the weighting is live
+    // machinery with nothing to weight -- not an accident of uniform groups.
+    let unequal = 0;
+    for (const r of byPeriod) {
+      const counts = new Map();
+      for (const x of p.filter((y) => y.city === r.city && y.period === r.period)) {
+        counts.set(x.spot_id, (counts.get(x.spot_id) ?? 0) + 1);
+      }
+      if (new Set(counts.values()).size > 1) unequal++;
+    }
+    expect(unequal).toBe(42);
+  });
+
+  // `mean_lst` IS scope-sensitive, because it varies per level, so this is the assertion that
+  // actually holds the all-levels rule down: narrowing to L50 moves 96 of the 106 rows.
+  it('takes mean_lst over all contour levels, which moves 96 of the 106 rows', () => {
+    const p = fc.features.map((f) => f.properties);
+    const avg = (rows) => {
+      const vs = rows.map((x) => x.mean_lst).filter((v) => typeof v === 'number' && Number.isFinite(v));
+      return vs.length ? Number((vs.reduce((a, b) => a + b, 0) / vs.length).toFixed(2)) : null;
+    };
+    let moved = 0;
+    for (const r of byPeriod) {
+      const rows = p.filter((x) => x.city === r.city && x.period === r.period);
+      expect(avg(rows), `${r.city}/${r.period}`).toBe(r.mean_lst);
+      if (avg(rows.filter((x) => x.contour_level === 'L50')) !== r.mean_lst) moved++;
+    }
+    expect(moved).toBe(96);
+    expect(period('Aba', 'day').mean_lst).toBe(37.13);
+  });
+
+  it('divides both periods by the same city area, so the two shares are shares of one city', () => {
+    const d = period('Ibadan', 'day');
+    const n = period('Ibadan', 'night');
+    expect(d.pct_hot).toBe(0.97);
+    expect(n.pct_hot).toBe(2.03);
+    const area = city('Ibadan').city_area;
+    expect(Number(((d.area_hot / area) * 100).toFixed(2))).toBe(d.pct_hot);
+    expect(Number(((n.area_hot / area) * 100).toFixed(2))).toBe(n.pct_hot);
+  });
+
+  // The split SURFACES a null the pooled table hid, which is the case Compare has to draw
+  // around. Bida's only night feature carries a null mean_lst and max_lst, so the night
+  // figures are null while cities.json reports finite ones (its day rows are finite).
+  it('reports null where a period has no reading, even though the pooled row is finite', () => {
+    const n = period('Bida', 'night');
+    expect(n.mean_lst).toBeNull();
+    expect(n.max_lst).toBeNull();
+    expect(Number.isFinite(city('Bida').mean_lst)).toBe(true);
+    // It is the only null in the file; everything else is finite.
+    const nulls = byPeriod.filter((r) => Object.values(r).some((v) => v === null));
+    expect(nulls.map((r) => `${r.city}/${r.period}`)).toEqual(['Bida/night']);
+  });
+
+  it('reproduces the committed JSON byte for byte', async () => {
+    expect(serialize(deriveCitiesByPeriod(fc))).toBe(await readFile(dataPath('cities-by-period.json'), 'utf8'));
   });
 });
 
