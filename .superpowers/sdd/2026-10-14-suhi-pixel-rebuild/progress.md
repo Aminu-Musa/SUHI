@@ -1184,3 +1184,61 @@ making those. If they disagree, the cards render and the button does nothing, ex
 
 *Note:* the header's `#exportBtn` does work - it calls `selectTab('report')`. Task 2 reproduced that
 correctly.
+
+### Task 7 — map interactions
+
+Commits `e46728d` and `f28169f`. Controller-verified: 272 tests / 29 files, audit 80/80, build
+clean, **fidelity 6/6** with all six `task: 7` PENDING lines deleted and no new `ALLOWED_DIFFS`
+entry. Screenshots re-taken and the basemap is visible in both.
+
+**It found two defects in the guard that matter more than its feature work.**
+
+*First:* deleting the six PENDING lines **alone would have produced zero coverage**. Five of those
+selectors exist only while the drawer is open - on **both** pages - so each would have fallen
+through `if (!o.present) continue`. Six deletions, nothing compared, and a green 6/6 that looked
+like six wins. The guard now opens the same city on both pages after the main capture and measures
+17 drawer selectors, every one scoped to `.drawer` (Task 5's first-match limitation: `.dl2`,
+`.kpis`, `.kpi`, `.bar`, `.rowlist` and `.rw` all exist in the rail too). **This is the second time
+the "guard the guard" assertions earned their place** - the first was Task 3's `compared.length`
+floor, and this is exactly the hole that floor was too coarse to catch.
+
+*Second:* `vite.config.ts` needed `test.css: true`, because bug 8's `prefers-reduced-motion` block
+is a CSS rule, jsdom does not evaluate media queries, and Vite's `?raw` returns an **empty string**
+by default - 0 characters before the change, 18,087 after. That test would have passed having read
+nothing.
+
+**Ruling 41 - ruling 13's conclusion was right and its mechanism was wrong. SVG, not HTML.**
+I wrote that a dashed ring is "`border: 1px dashed` on a `border-radius: 50%` element and the CSS
+transfers verbatim". It does not: **CSS `border-style: dashed` has no dash length**, so
+`dashArray: '4 3'` is unexpressible as a border, and an HTML div is hit across its whole box while
+the original's `fill: false` marker is hit **only on its stroke** - so divs would swallow hovers
+over the very polygons they annotate. Leaflet drew these as SVG. So the verbatim transfer is
+`<circle fill="none" stroke-dasharray="4 3">`, and HTML would have been the substitute.
+*Accepted as implemented.* Still DOM overlays positioned with `map.project()` (ruling 13's
+conclusion stands); labels stay divs, where `.citylabel`'s doubled `text-shadow` does transfer.
+
+**Ruling 42 - `.rw` in the drawer stays a `div` with `role="button"`.** The implementer asked
+whether Task 5's precedent is the pattern for every clickable row. It is: `.rw` sets a `font-size`
+but no `font-family` and no `background`, so a real `<button>` inherits the UA font and grey ground
+and the fidelity guard fails on both. A `div` with `role="button"`, `tabIndex` and key handling is
+the faithful transfer. **This is now the project's standing rule for clickable rows**, alongside
+Task 2's native `<select>` and Task 5's native `<input type=range>` - three cases of the same
+lesson: the original's CSS was written for a specific element, and swapping the element breaks the
+CSS whatever the semantics gain.
+
+**Measured: the second WebGL context costs ~1.7-1.9x per-frame render.** 4x CPU throttle, median
+frame over a 40-step pan: **257.5 ms with two instances versus 149.6 ms with one (1.72x)**; p95 301
+vs 188; heap +2.1 MB; DOM nodes unchanged. Unthrottled 231 vs 119 (1.94x). The implementer is right
+that the **ratio** is the portable number - headless Chromium had no hardware GPU, which is also why
+throttling barely moved it. Verdict: unnoticeable on a desktop or projector, the difference between
+a smooth pan and a heavy one on a mid-range phone. It did not pre-emptively drop to one instance,
+as instructed. **To the user with Task 12's bundle measurement**, where the whole weight question
+gets decided together rather than piecemeal.
+
+**Accepted judgement calls:** Radix's non-modal dialog hard-codes `trapFocus: false` and
+`forceMount` stops its focus hooks firing, so Escape and the dialog role come from Radix while
+initial focus, Tab cycling and restore are hand-written and held by a test - `modal` was not an
+option, it would `aria-hidden` the document and block the map. `Math.max(2.5, r)` is dead code
+(`popScale`'s range starts at 3, so the floor never fires for any city, metric or mode) -
+transcribed rather than deleted, and stated in a test. `swipeGeometry` rounds to 4 dp where the
+original writes `55.00000000000001` into `style.left`; a deliberate, unmovable departure.
