@@ -1478,3 +1478,43 @@ fixing the columns.
 **Carried to Task 11 or 12:** `signed` now has three identical copies (Drawer, Tooltip, Reports) and
 belongs beside `fmt` in `stats.ts`. Consolidating touches two existing call sites, so the
 implementer left it rather than widening its own diff - correctly.
+
+### Task 11 — deep links and print
+
+Commits `83c7b7d` and `f67f9a9`. Controller-verified: **455 tests / 37 files**, audit 80/80, build
+clean, fidelity 6/6 with `tests/fidelity/` untouched and both PENDING lists still empty.
+
+**Ruling 49 satisfied the harder way: "Full report (PDF)" renders all 55 cities.** `Brief` was already
+a pure function of one city, so the full report is that component over `data.cities` plus a national
+summary. Rendered **on demand** into a hidden container rather than permanently mounted - 55 briefs
+is ~1,100 unseen nodes, and pass 3e counts `#panel-report .brief div` at 23px expecting four, so a
+permanent container would have forced an exclusion in the guard instead of simply not existing.
+`window.print()` fires from an effect rather than the click handler because it is synchronous and
+would otherwise beat React to the DOM; mutating that back turns four tests red.
+
+**Ruling 48 now has a number.** I argued print must force the Modernist tokens because Nocturne's
+lightened ink on white was a pairing the audit never measured. Its mutation set one print token to
+Nocturne's own `--hot-4-ink` and measured **3.12:1 on white** - a real failure where I had only
+reasoned one was possible.
+
+**Accepted:** `src/test-setup.ts` plus one `setupFiles` entry. §8.4 makes `location.search` state the
+app writes, and in jsdom it is per-file and survives `cleanup()` - five existing tests failed
+asserting a default an earlier test in the same file had encoded into the URL. One setup file beats
+three lines copied into eighteen suites. `globals` stays off and every suite still calls `cleanup()`.
+
+**Accepted its trade on history:** a boot from a stale URL calls `replaceState` **twice**, because the
+writer shares a flush with the applier. Both are replacements and the push count is zero, so nothing
+a reader can see. The alternative - skipping the writer's first flush - would stop normalising a URL
+that changes no state (`?utm_source=memo` alone). Normalise-always is the better default.
+
+**Known and accepted:** pressing Ctrl+P on the Map tab now prints the Reports brief rather than
+nothing, which `?tab=` made necessary. Printing the *active* panel would need print layouts for
+Compare and the table.
+
+**A gap it named rather than papered over, carried to Task 12:** mutating `signed` to a bare `+` does
+**not** turn `Drawer.test.tsx` or `Tooltip.test.tsx` red, because neither suite renders a negative
+value. So bug 11's fix is guarded in two of four places. Task 12 adds a negative case to both.
+
+**Also for Task 12: the national summary's prose is the implementer's own** - the original has no such
+page - written in the brief's voice from `cities.json` fields only. It asked for a read, and it
+should get one.
