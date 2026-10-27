@@ -38,8 +38,48 @@ const server = createServer(async (req, res) => {
   try {
     const s = await stat(path);
     const file = s.isDirectory() ? join(path, 'index.html') : path;
+    const size = s.isDirectory() ? (await stat(file)).size : s.size;
     const type = TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
-    res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' });
+
+    /* HTTP RANGE REQUESTS, WHICH THE BASEMAP CANNOT WORK WITHOUT.
+     *
+     * A PMTiles archive is read by byte range: the pmtiles Protocol fetches the 127-byte header,
+     * then a directory, then one tile at a time. A server that answers every request with the
+     * whole file hands the client 565 KB (CI) or 39 MB (dev) per tile and, worse, pmtiles sees a
+     * 200 where it asked for a 206 and cannot trust the offsets - so the archive fails to open
+     * and MapLibre renders a blank ground, silently, which is the README's whole lesson.
+     *
+     * This is also the one deploy-time requirement spec §8.6 names for `.pmtiles`, so the guard
+     * now runs against a server with the same property production needs rather than one that
+     * happens to get away without it. */
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+    if (range) {
+      const [, rawStart, rawEnd] = range;
+      // A suffix range (`bytes=-500`) means the LAST n bytes, not "from 0 to n".
+      const start = rawStart === '' ? Math.max(0, size - Number(rawEnd)) : Number(rawStart);
+      const end = rawStart === '' || rawEnd === '' ? size - 1 : Math.min(Number(rawEnd), size - 1);
+      if (!Number.isFinite(start) || start > end || start >= size) {
+        res.writeHead(416, { 'content-range': `bytes */${size}` }).end();
+        return;
+      }
+      res.writeHead(206, {
+        'content-type': type,
+        'content-range': `bytes ${start}-${end}/${size}`,
+        'content-length': end - start + 1,
+        'accept-ranges': 'bytes',
+        'cache-control': 'no-store',
+      });
+      createReadStream(file, { start, end }).pipe(res);
+      return;
+    }
+
+    res.writeHead(200, {
+      'content-type': type,
+      'content-length': size,
+      // Advertised unconditionally: a client that cannot see this header will not ask.
+      'accept-ranges': 'bytes',
+      'cache-control': 'no-store',
+    });
     createReadStream(file).pipe(res);
   } catch {
     res.writeHead(404).end('not found');
