@@ -22,11 +22,18 @@
 
   suhi-tokens.css is the single entry point for tokens: it @imports ./ink.css itself, and
   scripts/lib/tokens.test.mjs fails if that import is removed. Do not add ink.css here.
+
+  print.css (spec §8.5, Task 11) is FIFTH and must stay last. It is one @media print block and
+  touches no screen pixel, but ruling 48 has it redeclare the Modernist tokens on
+  `html[data-theme]` - the same 0,1,1 specificity as the theme blocks in suhi-tokens.css - so it
+  wins on cascade ORDER alone. Move it above suhi-tokens.css and a printed page comes out in
+  Nocturne, with a lightened ink scale on white that nothing has audited.
 -->
 <link rel="stylesheet" href="/src/styles/vendor/nocturne.css">
 <link rel="stylesheet" href="/src/styles/vendor/modernist.css">
 <link rel="stylesheet" href="/src/styles/suhi-tokens.css">
 <link rel="stylesheet" href="/src/styles/app.css">
+<link rel="stylesheet" href="/src/styles/print.css">
 </head>
 <body>
 <div id="root"></div>

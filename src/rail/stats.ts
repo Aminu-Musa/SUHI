@@ -25,6 +25,15 @@ import type { State } from '../app/state';
 export const fmt = (n: number | null | undefined, d = 0): string =>
   n == null ? '—' : format(',.' + d + 'f')(n);
 
+/** §9.1 bug 11's convention: a sign TEST, never a bare `+`, so a negative value never reads
+ * `+-0.66`. It lives here, beside `fmt`, because it was three identical four-line copies in
+ * `Drawer.tsx`, `Tooltip.tsx` and `Reports.tsx` — and this codebase's organising rule is that
+ * every derivation has exactly one owner (`encode.mjs` owns what colour means, `ink.mjs` the
+ * text scale, `derive.mjs` the published figures). A sign test is a small derivation, but three
+ * copies of it is the same smell at smaller scale. Zero is NOT signed: `0 > 0` is false, which
+ * is the original's behaviour at every one of the three call sites. */
+export const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
+
 /** Prototype line 704. The year slider back-casts from 2024 using each spot's Sen slope. */
 export const spotValue = (p: SpotProperties, year: number): number =>
   (p.suhii || 0) - ((2024 - year) / 10) * (p.sen_slope_C_per_decade || 0);

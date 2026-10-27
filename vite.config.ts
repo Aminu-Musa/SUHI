@@ -29,6 +29,13 @@ export default defineConfig({
     // No `globals: true`, so Testing Library's auto-cleanup never registers. Every component
     // suite calls cleanup() in its own afterEach.
     restoreMocks: true,
+    /* ONE setup file, with ONE job: reset `window.location` between tests. Spec §8.4 made the
+     * URL application state the app writes on every change and reads on every mount, and in
+     * jsdom that state is per FILE and survives cleanup() - so without this, a test that
+     * switches the tab leaves a deep link behind for the next render in its own file. See
+     * src/test-setup.ts for the five tests that measured it. It imports `afterEach` explicitly,
+     * so `globals` stays off and every suite still calls cleanup() itself. */
+    setupFiles: ['./src/test-setup.ts'],
     /* CSS is PROCESSED rather than stubbed, which vitest does not do by default.
      *
      * One test needs it: spec §9.1 bug 8's `@media (prefers-reduced-motion: reduce)` block is a

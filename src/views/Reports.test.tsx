@@ -29,6 +29,7 @@ import { contrastRatio } from '../../scripts/lib/color.mjs';
 import { THEME_TOKENS } from '../../scripts/lib/tokens.mjs';
 import { EXPORT_OPTIONS, csvText, spotRecordRows } from '../lib/export';
 import { Reports, briefCity } from './Reports';
+import { fmt } from '../rail/stats';
 
 afterEach(() => {
   cleanup();
@@ -428,3 +429,143 @@ describe('before the data lands', () => {
     expect(q('.expgrid')).not.toBeNull();
   });
 });
+
+describe('ruling 49 - "Full report (PDF)" prints all 55 cities', () => {
+  /* The card advertises "All 55 cities with national summary" and `window.print()` prints the
+   * DOM, which held exactly one brief. That is the same defect as the original's six dead
+   * Download buttons: a promise the UI makes and does not keep.
+   *
+   * The load-bearing assertion in every test here is made INSIDE the `onPrint` spy. What
+   * matters is not that a container existed at some point, it is that the 55 briefs are in the
+   * document AT THE MOMENT print runs - `window.print()` is synchronous and blocking, so a
+   * container mounted one commit later would never reach the dialog. */
+
+  /** What the DOM held when print() was called. */
+  function printSnapshot() {
+    const seen: { briefs: number; names: string[]; hidden: string | null; aria: string | null } = {
+      briefs: -1,
+      names: [],
+      hidden: null,
+      aria: null,
+    };
+    const onPrint = vi.fn(() => {
+      const all = q('#printAll');
+      seen.briefs = all ? all.querySelectorAll('.brief').length : 0;
+      seen.names = all ? [...all.querySelectorAll('h3')].map((h) => h.textContent ?? '') : [];
+      seen.hidden = all ? all.style.display : null;
+      seen.aria = all ? all.getAttribute('aria-hidden') : null;
+    });
+    return { onPrint, seen };
+  }
+
+  test('the DOM holds all 55 city briefs plus a national summary at the moment print runs', async () => {
+    const user = userEvent.setup();
+    const { onPrint, seen } = printSnapshot();
+    mount({ onPrint });
+    await user.selectOptions(select(), 'full-report-pdf');
+    await user.click(downloadBtn()!);
+
+    expect(onPrint).toHaveBeenCalledTimes(1);
+    // 55 cities plus the summary page that introduces them.
+    expect(seen.briefs).toBe(FIXTURE.cities.length + 1);
+    expect(FIXTURE.cities).toHaveLength(55);
+    expect(seen.names[0]).toBe('Nigeria');
+    expect(seen.names.slice(1)).toEqual(FIXTURE.cities.map((c) => c.city));
+  });
+
+  test('the container is invisible on screen even in the frames it exists for', async () => {
+    /* An inline `display:none` plus `aria-hidden`, lifted only by `#printAll` in print.css. No
+     * rule is added to app.css, so the screen gains no pixel and the fidelity guard sees
+     * nothing - which is also why it is rendered ON DEMAND rather than always. */
+    const user = userEvent.setup();
+    const { onPrint, seen } = printSnapshot();
+    mount({ onPrint });
+    await user.selectOptions(select(), 'full-report-pdf');
+    await user.click(downloadBtn()!);
+    expect(seen.hidden).toBe('none');
+    expect(seen.aria).toBe('true');
+  });
+
+  test('the container is gone again once the dialog has been handed the DOM', async () => {
+    const user = userEvent.setup();
+    const onPrint = vi.fn();
+    mount({ onPrint });
+    await user.selectOptions(select(), 'full-report-pdf');
+    await user.click(downloadBtn()!);
+    expect(q('#printAll')).toBeNull();
+    // And the single brief the reader can see is untouched: still one, still the scoped city.
+    expect(qa('.brief')).toHaveLength(1);
+  });
+
+  test('"City brief (PDF)" mounts nothing, because one city is what that option promises', async () => {
+    const user = userEvent.setup();
+    const { onPrint, seen } = printSnapshot();
+    mount({ onPrint });
+    await user.selectOptions(select(), 'city-brief-pdf');
+    await user.click(downloadBtn()!);
+    expect(onPrint).toHaveBeenCalledTimes(1);
+    expect(seen.briefs).toBe(0);
+  });
+
+  test('the 55 briefs come AFTER the visible one, so the fidelity guard still measures the real brief', async () => {
+    /* Pass 3e selects `#panel-report .brief` and `#panel-report .brief div` at 23px, and both
+     * take the FIRST match in document order. The container being last is what keeps that true
+     * even in the frames it is mounted. */
+    const user = userEvent.setup();
+    const order = vi.fn(() => {
+      const briefs = qa('.brief');
+      expect(briefs[0].id).toBe('brief');
+      expect(q('#printAll')!.compareDocumentPosition(briefs[0]) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    });
+    mount({ onPrint: order });
+    await user.selectOptions(select(), 'full-report-pdf');
+    await user.click(downloadBtn()!);
+    expect(order).toHaveBeenCalledTimes(1);
+  });
+
+  test('the national summary is aggregated from the same 55 rows, so it cannot disagree with them', async () => {
+    const user = userEvent.setup();
+    let summary = '';
+    const onPrint = vi.fn(() => {
+      summary = q('#printAll .brief')!.textContent ?? '';
+    });
+    mount({ onPrint });
+    await user.selectOptions(select(), 'full-report-pdf');
+    await user.click(downloadBtn()!);
+
+    const hot = FIXTURE.cities.reduce((n, c) => n + c.hot, 0);
+    const cold = FIXTURE.cities.reduce((n, c) => n + c.cold, 0);
+    const popHot = FIXTURE.cities.reduce((n, c) => n + c.pop_hot, 0);
+    expect(summary).toContain(`This report covers ${FIXTURE.cities.length} Nigerian cities`);
+    expect(summary).toContain(fmtTotal(hot));
+    expect(summary).toContain(fmtTotal(cold));
+    expect(summary).toContain(fmtTotal(popHot));
+    // No NaN, no undefined, no `+-`: the mean goes through the same `signed` as every other
+    // intensity on the page.
+    expect(summary).not.toMatch(/NaN|undefined|null|\+-/);
+  });
+
+  test('the full report prints the NEGATIVE cities correctly too, which is §9.1 bug 11 at scale', async () => {
+    /* The default brief is Ibadan (+2.34), so bug 11 was invisible on a freshly loaded page.
+     * The full report prints all 18 negative cities on every run, which is where a bare `+`
+     * would now be impossible to miss. */
+    const user = userEvent.setup();
+    let text = '';
+    const onPrint = vi.fn(() => {
+      text = q('#printAll')!.textContent ?? '';
+    });
+    mount({ onPrint });
+    await user.selectOptions(select(), 'full-report-pdf');
+    await user.click(downloadBtn()!);
+
+    const negative = FIXTURE.cities.filter((c) => c.suhii < 0);
+    expect(negative.length).toBeGreaterThan(0);
+    expect(text).not.toContain('+-');
+    for (const c of negative) {
+      expect(text, c.city).toContain(`intensity of ${c.suhii} °C`);
+    }
+  });
+});
+
+/** d3's thousands format, as `fmt` applies it - imported rather than reimplemented. */
+const fmtTotal = (n: number) => fmt(n);

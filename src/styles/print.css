@@ -1,0 +1,233 @@
+/* SPEC §8.5 — the print stylesheet. A NEW FEATURE, approved by the user on 2026-10-26, on the
+ * same basis as §8.4: the original has zero print styles, and `@media print` NEVER affects the
+ * screen, so this costs no pixel, needs no `ALLOWED_DIFFS` entry and leaves the fidelity guard
+ * at 6/6. Nothing outside the `@media print` block belongs in this file.
+ *
+ * WHY IT EXISTS. §7.7's Reports tab produces a one-page brief FOR CIRCULATION. Printed without
+ * this file it comes out as a screenshot of a dashboard: a 54px header of navigation, a 332px
+ * rail of filters, a map stage clipped at the page edge, and the brief itself in a dark ground
+ * with its border drawn by an INSET box-shadow that no printer renders. A brief that prints
+ * badly is a brief that does not circulate.
+ *
+ * ────────────────────────────────────────────────────────────────────────────────────────────
+ * RULING 48 — PRINT FORCES THE MODERNIST TOKEN SET, AND THAT SET IS ALREADY AUDITED.
+ *
+ * Paper is a light ground whatever the screen theme is, so printing Nocturne's tokens means
+ * printing its LIGHTENED ink scale on white — and that is the one pairing nothing has measured.
+ * `scripts/lib/ink.mjs` derives each `-ink` value against three grounds, and all three are the
+ * ACTIVE THEME's: `--color-bg`, `--ui-panel-2` and `--ui-tip`. Nocturne's ink on Nocturne's
+ * three grounds is proven at 4.5:1; Nocturne's ink on white is not, and nothing in the audit
+ * would catch it.
+ *
+ * The fix is to inherit an existing proof rather than to mint a new one. Modernist's `--ui-tip`
+ * is `#ffffff`, and `--ui-tip` is one of the three grounds every `-ink` value is derived
+ * against — so Modernist's whole ink scale is ALREADY measured at 4.5:1 on pure white, by the
+ * audit that runs on every build. Forcing the Modernist tokens wholesale therefore makes the
+ * printed page a pairing the audit has already cleared, with no new measurement and no new
+ * ground.
+ *
+ * SO: DO NOT add white as a fourth `TEXT_GROUND` in `scripts/lib/ink.mjs`. It would re-derive
+ * all 22 ink values across both themes to buy a proof we already have, and churn the one
+ * generated file the whole colour system rests on.
+ *
+ * THE 66 DECLARATIONS BELOW ARE COPIED, NOT AUTHORED. They are the
+ * `html[data-theme="modernist"]` blocks of `suhi-tokens.css` and `ink.css`, verbatim, minus the
+ * derivation comments. `print.test.ts` parses both source blocks and fails if a single property
+ * or value here drifts from them — which is the only thing standing between this file and a
+ * stale copy of a token set that two generators own.
+ * ────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ * A NOTE ON SPECIFICITY. `html[data-theme]` is 0,1,1 — exactly `html[data-theme="nocturne"]`'s —
+ * and this file is linked LAST, so it wins on order. The bare `html` in the same selector list
+ * covers the moment before `ThemeProvider` writes the attribute. Lowering either to `:root`
+ * would silently lose to the theme blocks and print Nocturne.
+ */
+
+@media print {
+  html,
+  html[data-theme] {
+    --color-bg: #f3f2f2;
+    --color-surface: #eae9e9;
+    --color-text: #201e1d;
+    --color-accent: #ec3013;
+    --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+    --color-neutral-100: #f8f4f4;
+    --color-neutral-200: #eae7e7;
+    --color-neutral-300: #d7d3d3;
+    --color-neutral-400: #bab6b6;
+    --color-neutral-500: #9b9797;
+    --color-neutral-600: #7d7979;
+    --color-neutral-700: #605d5d;
+    --color-neutral-800: #444141;
+    --color-neutral-900: #2d2b2b;
+    --color-accent-200: #ffe0d9;
+    --color-accent-300: #ffc4b8;
+    --color-accent-400: #ff9783;
+    --color-accent-500: #ff563c;
+    --color-accent-600: #dd2b0f;
+    --font-heading: "Archivo", system-ui, sans-serif;
+    --font-heading-weight: 800;
+    --font-body: "Archivo", system-ui, sans-serif;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+    --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+    --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+    --ui-panel: #eae9e9;
+    --ui-panel-2: #e2e0e0;
+    --ui-line: #201e1d;
+    --ui-line-strong: #201e1d;
+    --ui-muted: #605d5d;
+    --ui-rule: 2px;
+    --ui-tip: #ffffff;
+    --ui-scrim: rgba(243, 242, 242, .9);
+    --hot-1: #e9b420;
+    --hot-2: #e0902a;
+    --hot-3: #d6691f;
+    --hot-4: #c03c1a;
+    --hot-5: #8e1408;
+    --cold-1: #a8cfe8;
+    --cold-2: #6ba6d8;
+    --cold-3: #3d79bd;
+    --cold-4: #23539b;
+    --cold-5: #12306b;
+    --spot-stroke: #201e1d;
+    --accent-fill: #e52706;
+    --neutral-mid: #bab6b6;
+    --hot-1-ink: #8b5900;
+    --hot-2-ink: #9b5000;
+    --hot-3-ink: #ac4200;
+    --hot-4-ink: #b83410;
+    --hot-5-ink: #8e1408;
+    --cold-1-ink: #45687f;
+    --cold-2-ink: #2d6896;
+    --cold-3-ink: #2965a8;
+    --cold-4-ink: #23539b;
+    --cold-5-ink: #12306b;
+    --accent-ink: #cb0000;
+  }
+
+  /* One A4 page per brief, with a margin wide enough for a staple. */
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  /* `body` is `overflow:hidden` and `.app` is `height:100vh` on screen — a viewport-height flex
+   * column clipped to one screen, which on paper prints the first page and silently drops
+   * everything after it. Released to document flow so the content decides the page count. */
+  html,
+  body {
+    height: auto;
+    overflow: visible;
+    background: #fff;
+  }
+
+  .app,
+  .body {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* NAVIGATION AND CHROME. The header carries the tab bar, the two pickers and the Framed and
+   * Export buttons; the rail carries the filters; the stage carries the map, its overlay
+   * buttons and the swipe handle. All of it is a way to CHANGE the view, and none of it says
+   * anything about the view on paper. `#tip` and `.drawer` are hover and click surfaces, which
+   * do not exist on a page. `!important` because `.rail` and `.stage` take an inline
+   * `display:none` off the Map tab (ruling 5), and relying on cascade order against an inline
+   * style is a bet this file does not need to take. */
+  .top,
+  .rail,
+  .stage,
+  #tip,
+  .drawer {
+    display: none !important;
+  }
+
+  /* THE REPORT PANEL PRINTS WHATEVER TAB IS ACTIVE. A reader can only reach the print dialog
+   * from the Reports tab today, but §8.4's deep links make `?tab=table` an entry point, and
+   * `window.print()` from there would otherwise print a blank page: `.panel` is `display:none`
+   * and only `[data-on=true]` lifts it. `#panel-report` is an id, so it outranks both. */
+  .panel {
+    display: none !important;
+  }
+
+  #panel-report {
+    display: block !important;
+    overflow: visible;
+    padding: 0;
+  }
+
+  /* The Reports tab's root is an inline `display:flex` row holding the brief and the export
+   * column (prototype lines 390-395). With the export column hidden there is nothing left to
+   * sit beside, and a flex ROW would lay the 55 briefs of ruling 49 out side by side. Released
+   * to block, and `!important` because the `display:flex` is an inline style. */
+  #panel-report > div {
+    display: block !important;
+  }
+
+  /* THE BRIEF. Three changes, each for a different reason:
+   *   - `width:640px` is a SCREEN column width. On A4 at 14mm margins the text column is about
+   *     182mm, so a fixed 640px either overflows the page or leaves a third of it blank.
+   *   - `break-inside: avoid` keeps the brief whole. §8.5 asks for one page, and a brief split
+   *     between the figure grid and its prose is the failure the whole file exists to prevent.
+   *   - A REAL BORDER, because the screen border is `box-shadow: inset 0 0 0 var(--ui-rule)`
+   *     and INSET BOX-SHADOWS DO NOT PRINT — print engines drop shadows, so the brief would
+   *     come out as unbounded text on white. `var(--ui-rule)` is 2px in Modernist, redeclared
+   *     as a border so the same rule width survives the trip to paper. */
+  .brief {
+    width: auto;
+    max-width: none;
+    box-shadow: none;
+    border: var(--ui-rule) solid var(--ui-line);
+    break-inside: avoid;
+  }
+
+  /* THE EXPORT COLUMN. A format picker, a Download button and a note about which filters apply
+   * to a file — three controls and no content. Its heading and note go with it: a "Data export"
+   * heading above nothing is worse on paper than no heading at all. */
+  .expgrid,
+  #panel-report .sec-h[data-i18n="data_export"],
+  #panel-report .note[data-i18n="export_note"] {
+    display: none !important;
+  }
+
+  /* RULING 49 — "Full report (PDF)" PRINTS ALL 55 CITIES. `window.print()` prints the DOM, and
+   * the DOM held exactly one brief, so the option advertised "All 55 cities with national
+   * summary" and printed one city. That is the same defect as the original's six dead Download
+   * buttons — a promise the UI makes and does not keep — and fixing that class of thing is why
+   * export was ruled in scope at all.
+   *
+   * `Reports.tsx` renders the 55 briefs into `#printAll` ON DEMAND, only while that option is
+   * printing, carrying an inline `display:none` that this rule lifts. On demand rather than
+   * always: 55 briefs are ~1,100 nodes no reader ever sees, and the fidelity guard counts
+   * `#panel-report .brief div` at 23px to pin ruling 20, so a permanently mounted set would
+   * have to be excluded from a measurement rather than simply not being there.
+   *
+   * `:has()` suppresses the single-city brief while the full report is printing, so the scoped
+   * city is not printed twice — once alone and once in its place in the run. Where `:has()` is
+   * unsupported the brief simply prints twice, which is the benign direction to fail in. */
+  #printAll {
+    display: block !important;
+  }
+
+  #printAll .brief {
+    break-after: page;
+  }
+
+  #printAll .brief:last-child {
+    break-after: auto;
+  }
+
+  #panel-report:has(#printAll) #brief {
+    display: none !important;
+  }
+}

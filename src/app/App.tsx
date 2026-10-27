@@ -9,11 +9,12 @@
  * Task 2 scope: the rail is an empty <aside class="rail">, and each panel carries its heading
  * and lede only. Rail groups are Task 4, the map is Tasks 6-7, panel contents are Tasks 8-10. */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { I18nProvider, useLang, useT, type Lang } from './I18nProvider';
 import { ThemeProvider, useTheme, type Theme } from './ThemeProvider';
 import { AppStateProvider, useAppState, type State, type Tab } from './state';
+import { useDeepLink } from './deeplink';
 import { useSuhiData, type SuhiData } from './data';
 import { Rail } from '../rail/Rail';
 import type { BaseKey } from '../rail/BasemapSeg';
@@ -148,6 +149,17 @@ function Shell({
     },
     [patch, onBasePicked],
   );
+
+  /* SPEC §8.4, Task 11. Placed AFTER the theme effect and `pickBase` on purpose: effects run in
+   * declaration order, so the theme effect has already applied its basemap by the time the link
+   * applies the reader's, and `onPickBase: pickBase` then latches ruling 7 so the theme effect
+   * cannot drag it back. Reversing the two would make `?theme=modernist&base=dark` lose its
+   * basemap on the first commit. Nothing here renders, so the fidelity guard is unaffected. */
+  /* Memoised because the hook lists both arrays as effect dependencies, and a fresh `.map()`
+   * every render would re-register its popstate listener on every keystroke. */
+  const linkCities = useMemo(() => data?.cities.map((c) => c.city), [data]);
+  const linkClusters = useMemo(() => data?.clusters.map((k) => k.id), [data]);
+  useDeepLink({ tab, setTab, base: baseKey, onPickBase: pickBase, cities: linkCities, clusters: linkClusters });
 
   const onTabChange = useCallback((value: string) => setTab(value as Tab), []);
 

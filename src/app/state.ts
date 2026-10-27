@@ -17,6 +17,16 @@ import { createContext, createElement, useCallback, useContext, useMemo, useStat
 export type Tab = 'map' | 'compare' | 'table' | 'report';
 
 export type Contour = 'all' | 'L50' | 'L75' | 'L90';
+
+/** The same four values as a runtime list, for anything that has to VALIDATE a `Contour`
+ * rather than hold one — spec §8.4's deep link decoder is the first such caller, and an
+ * unknown level arriving from a URL has to be recognised as unknown. It lives beside the type
+ * because the type is the thing it has to stay in step with; `ContourSeg`'s own option list
+ * pairs these values with labels and is a different concern (the labels are hard-coded English
+ * in the original). `TABS` is here for the same reason. */
+export const CONTOURS: readonly Contour[] = ['all', 'L50', 'L75', 'L90'];
+
+export const TABS: readonly Tab[] = ['map', 'compare', 'table', 'report'];
 export type PopMode = 'both' | 'hot' | 'cold';
 export type CircleMetric = 'pop' | 'area';
 export type LayerKey = 'spots' | 'exag' | 'cities' | 'states' | 'nation' | 'labels';

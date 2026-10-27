@@ -52,11 +52,12 @@ import { useT } from '../app/I18nProvider';
 import { useTheme } from '../app/ThemeProvider';
 import { useAppState } from '../app/state';
 import type { City, Cluster, SpotProperties, SuhiData } from '../app/data';
-import { fmt } from '../rail/stats';
+import { fmt, signed } from '../rail/stats';
 import { spotFillColor, spotInkFill } from './ink';
 import { useInteractions } from './interactions';
 
-const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
+/** `signed` now comes from src/rail/stats.ts - one owner for the sign test. `signedF` stays
+ * here because it is the only call site that formats as well as signs. */
 const signedF = (n: number, d: number): string => (n > 0 ? `+${fmt(n, d)}` : fmt(n, d));
 
 /** §9.1 bug 4's replacement for the magic 230: the largest `pop_hot` in the data. `|| 1` for

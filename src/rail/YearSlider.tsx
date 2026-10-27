@@ -34,6 +34,13 @@
 import { useT } from '../app/I18nProvider';
 import { useAppState } from '../app/state';
 
+/** The slider's own bounds, exported so the ONE other thing that has to know them - spec §8.4's
+ * deep link decoder, which rejects `?year=99999` - reads them from the control that defines
+ * them rather than repeating the literals. The JSX below uses these, so the two can never
+ * drift. 2015-2024 is the MODIS record the Sen slope was fitted over. */
+export const YEAR_MIN = 2015;
+export const YEAR_MAX = 2024;
+
 export function YearSlider() {
   const t = useT();
   const [state, patch] = useAppState();
@@ -47,8 +54,8 @@ export function YearSlider() {
       <input
         type="range"
         id="year"
-        min={2015}
-        max={2024}
+        min={YEAR_MIN}
+        max={YEAR_MAX}
         step={1}
         value={state.year}
         onChange={(e) => patch({ year: Number(e.target.value) })}

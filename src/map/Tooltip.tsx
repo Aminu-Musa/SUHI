@@ -20,11 +20,10 @@ import { useT } from '../app/I18nProvider';
 import { useTheme } from '../app/ThemeProvider';
 import { useAppState } from '../app/state';
 import type { City, Cluster, SpotProperties, SuhiData } from '../app/data';
-import { fmt } from '../rail/stats';
+import { fmt, signed } from '../rail/stats';
 import { spotInkFill } from './ink';
 import { useInteractions } from './interactions';
 
-const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
 
 /** Prototype lines 856-863. */
 export function SpotTip({ spot }: { readonly spot: SpotProperties }) {

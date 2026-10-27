@@ -34,11 +34,12 @@
  * about it is transcription: the original's six Download buttons have no handler at all.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useT } from '../app/I18nProvider';
 import { useAppState } from '../app/state';
 import type { City, SuhiData } from '../app/data';
-import { fmt } from '../rail/stats';
+import { fmt, signed } from '../rail/stats';
+import { mean, sum } from 'd3';
 import {
   EXPORT_BY_VALUE,
   EXPORT_OPTIONS,
@@ -47,11 +48,6 @@ import {
   saveBlob,
   type ExportFormat,
 } from '../lib/export';
-
-/** §9.1 bug 11's convention: a sign TEST, never a bare `+`. Local copies live in Drawer.tsx and
- * Tooltip.tsx; three identical four-line helpers is one too many and consolidating them is a
- * cleanup for a later task, not a change to make from inside this one. */
-const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
 
 /** Prototype line 1133: the brief is for the scoped city, or Ibadan, or the first row. */
 export function briefCity(cities: readonly City[], city: string | null): City | undefined {
@@ -72,16 +68,34 @@ export function Reports({ data, onPrint, onSave, initialFormat = '' }: ReportsPr
   const t = useT();
   const [state] = useAppState();
   const [format, setFormat] = useState<ExportFormat | ''>(initialFormat);
+  /* RULING 49's state. `null` off, `'city'` for the scoped brief, `'all'` for the full report —
+   * and `'all'` is what mounts `#printAll`. See the ruling note above `FullReport`. */
+  const [printing, setPrinting] = useState<null | 'city' | 'all'>(null);
   const c = data ? briefCity(data.cities, state.city) : undefined;
+
+  /* The print call happens in an EFFECT, not in the click handler, because `window.print()` is
+   * synchronous and blocking: called from the handler it would run before React had committed
+   * the 55 briefs, and the dialog would show the one-city page we are trying to replace.
+   * Setting state and printing from the effect that follows the commit is the whole mechanism.
+   *
+   * It is safe under StrictMode: `printing` is `null` on mount, so the deliberate double
+   * invocation of effects runs the early return twice and prints nothing. Only a real
+   * transition to a non-null value reaches `print()`, and clearing it immediately means the
+   * briefs are unmounted again the moment the dialog closes. */
+  useEffect(() => {
+    if (!printing) return;
+    (onPrint ?? (() => window.print()))();
+    setPrinting(null);
+  }, [printing, onPrint]);
 
   const download = () => {
     const opt = format ? EXPORT_BY_VALUE.get(format) : undefined;
     if (!opt || !data) return;
     /* The two PDF options go to the print dialog, whose "Save as PDF" is the deliverable. See
-     * src/lib/export.ts for why no PDF library was added, and Task 11 for the stylesheet that
-     * makes the printed page a brief rather than a screenshot of a dashboard. */
+     * src/lib/export.ts for why no PDF library was added, and src/styles/print.css for the
+     * stylesheet that makes the printed page a brief rather than a screenshot of a dashboard. */
     if (opt.kind === 'print') {
-      (onPrint ?? (() => window.print()))();
+      setPrinting(opt.value === 'full-report-pdf' ? 'all' : 'city');
       return;
     }
     const blob = buildExport(format as ExportFormat, data, filtersFrom(state));
@@ -130,7 +144,129 @@ export function Reports({ data, onPrint, onSave, initialFormat = '' }: ReportsPr
           {t('export_note')}
         </p>
       </div>
+      {/* RULING 49. Last in the panel, and only while the full report is printing. */}
+      {printing === 'all' && data ? <FullReport data={data} /> : null}
     </div>
+  );
+}
+
+/* RULING 49 — "Full report (PDF)" MUST PRINT ALL 55 CITIES, OR THE OPTION GOES.
+ *
+ * `window.print()` prints the DOM and the DOM held one brief, so the card advertised "All 55
+ * cities with national summary" and printed the scoped city. That is the same defect as the
+ * original's six dead Download buttons — a promise the UI makes and does not keep — and fixing
+ * that class of thing is why export was ruled in scope at all. It proved perfectly practical:
+ * `Brief` was already a pure function of one `City`, so the full report is that component over
+ * `data.cities`, plus the national summary the card also promises.
+ *
+ * THREE DECISIONS WORTH THE INK:
+ *
+ * 1. ON DEMAND, NOT ALWAYS MOUNTED. 55 briefs are roughly 1,100 DOM nodes that no reader ever
+ *    sees on screen. Mounting them permanently would also put 55 more `.brief` elements and 220
+ *    more 23px figures inside `#panel-report`, and the fidelity guard's pass 3e counts exactly
+ *    those (`#panel-report .brief div` at `font-size: 23px`, expected 4) to pin ruling 20. A
+ *    permanent container would have to be excluded from a measurement; an on-demand one is
+ *    simply not there when the guard looks.
+ * 2. THE INLINE `display:none` IS THE SCREEN RULE. `print.css` lifts it with
+ *    `#printAll{display:block!important}`. Doing it this way means app.css gains NO rule and the
+ *    screen gains no pixel — the container is invisible even in the one frame it exists for.
+ * 3. `aria-hidden`, because for the two or three frames it is mounted it is a duplicate of
+ *    content already on the page, and 55 city names read out twice is worse than useless.
+ *
+ * THE NATIONAL SUMMARY IS AGGREGATED FROM `cities.json` ITSELF, not from a second source: the
+ * same 55 rows the briefs below it are built from, so the total can never disagree with the
+ * pages it introduces. `mean` is d3's, which returns `undefined` for an empty array and reaches
+ * `fmt`'s em dash rather than `NaN` — the same guard `kpiStats` relies on.
+ */
+export function FullReport({ data }: { readonly data: SuhiData }) {
+  const cities = data.cities;
+  return (
+    <div className="printall" id="printAll" style={{ display: 'none' }} aria-hidden="true">
+      <div className="brief">
+        <NationalSummary data={data} />
+      </div>
+      {cities.map((city) => (
+        <div className="brief" key={city.city}>
+          <Brief city={city} typology={typologyOf(data, city)} peers={peersOf(data, city)} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function NationalSummary({ data }: { readonly data: SuhiData }) {
+  const t = useT();
+  const cities = data.cities;
+  const totals = {
+    hot: sum(cities, (c) => c.hot),
+    cold: sum(cities, (c) => c.cold),
+    popHot: sum(cities, (c) => c.pop_hot),
+    areaHot: sum(cities, (c) => c.area_hot),
+    cityArea: sum(cities, (c) => c.city_area),
+    meanSuhii: mean(cities, (c) => c.suhii),
+  };
+  /* Signed through the same helper as every other intensity on the page (`src/rail/stats.ts`),
+   * so the national mean can never print `+-0.12` the way §9.1 bug 11 had the city brief do. */
+  const meanLabel = totals.meanSuhii === undefined ? '—' : `${signed(Number(totals.meanSuhii.toFixed(2)))} °C`;
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div>
+          <h3>Nigeria</h3>
+          <div className="note">{`SUHI · 2024 ${t('composite').split(' ').slice(1).join(' ')}`}</div>
+        </div>
+        <div className="note" style={{ textAlign: 'right' }}>
+          SUHI Nigeria
+        </div>
+      </div>
+      <div className="rule"></div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px' }}>
+        {[
+          { label: t('cities'), value: fmt(cities.length) },
+          { label: t('hotspots'), value: fmt(totals.hot) },
+          { label: t('coldspots'), value: fmt(totals.cold) },
+          { label: t('pop_in_hot'), value: fmt(totals.popHot) },
+        ].map((f) => (
+          <div key={f.label}>
+            <div
+              style={{
+                fontSize: '9px',
+                letterSpacing: '.08em',
+                textTransform: 'uppercase',
+                color: 'var(--ui-muted)',
+              }}
+            >
+              {f.label}
+            </div>
+            {/* The brief's own figure type, so the summary page and the 55 that follow it read
+              * as one document. Ruling 20 applies here too: no ramp FILL is used as text. */}
+            <div
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 'var(--font-heading-weight)',
+                fontSize: '23px',
+                letterSpacing: '-.02em',
+              }}
+            >
+              {f.value}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="rule"></div>
+      <p style={{ fontSize: '12.5px', lineHeight: 1.6 }}>
+        {`This report covers ${cities.length} Nigerian cities. Across them, Getis-Ord Gi* identifies ` +
+          `${fmt(totals.hot)} hot spots and ${fmt(totals.cold)} cold spots, covering ${fmt(totals.areaHot, 0)} km² ` +
+          `of a ${fmt(totals.cityArea, 0)} km² combined study extent and containing ${fmt(totals.popHot)} people. ` +
+          `The mean surface urban heat island intensity across the ${cities.length} cities is ${meanLabel} against ` +
+          `their rural backgrounds. One page per city follows, in the order the data table lists them.`}
+      </p>
+      <div className="rule"></div>
+      <div className="note">
+        {`${t('method')}: Getis-Ord Gi* on MODIS LST, Benjamini–Hochberg corrected. Contours at L50/L75/L90. ` +
+          `City aggregates are L50-only, as every figure in this study is.`}
+      </div>
+    </>
   );
 }
 
