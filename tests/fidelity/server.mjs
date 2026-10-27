@@ -26,7 +26,7 @@ const TYPES = {
   '.pmtiles': 'application/octet-stream',
 };
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   // normalize() collapses the `..` the prototype's own fetches contain, then the prefix check
   // rejects anything that still points outside the repo.
   const url = decodeURIComponent((req.url ?? '/').split('?')[0]);
@@ -44,4 +44,34 @@ createServer(async (req, res) => {
   } catch {
     res.writeHead(404).end('not found');
   }
-}).listen(PORT, () => console.log(`fidelity server on http://127.0.0.1:${PORT} (root ${ROOT})`));
+});
+
+/* An already-listening port is NOT a failure here.
+ *
+ * Playwright's `reuseExistingServer` expects to find one already up, and the run config in
+ * .claude/launch.json starts this same server by hand - so a stale instance from an earlier run
+ * made `npm run fidelity` and the launch config both die on EADDRINUSE with an unhandled 'error'
+ * event. A static file server is idempotent: if one is already serving this root, the correct
+ * behaviour is to say so and step aside.
+ *
+ * It does check WHAT is listening before stepping aside, because exiting 0 on a port held by
+ * something else would hand Playwright a server serving the wrong files, and the whole fidelity
+ * guard would then measure whatever that was. */
+server.on('error', async (err) => {
+  if (err.code !== 'EADDRINUSE') throw err;
+  try {
+    const res = await fetch(`http://127.0.0.1:${PORT}/project/nigeria-suhi-dashboard.html`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      console.log(`fidelity server already listening on http://127.0.0.1:${PORT} - reusing it`);
+      process.exit(0);
+    }
+    console.error(`port ${PORT} is in use by something that is not this server (HTTP ${res.status})`);
+  } catch (probe) {
+    console.error(`port ${PORT} is in use and did not answer a probe: ${probe.message}`);
+  }
+  process.exit(1);
+});
+
+server.listen(PORT, () => console.log(`fidelity server on http://127.0.0.1:${PORT} (root ${ROOT})`));
