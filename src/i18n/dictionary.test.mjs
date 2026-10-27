@@ -63,6 +63,22 @@ describe('dictionary', () => {
     expect(T('tab_map', 'xx')).toBe(D.tab_map[0]);
   });
 
+  /* TASK 12, ruling 29. The one key whose text is deliberately NOT the original's, kept as its
+   * own test so the divergence is asserted rather than merely excluded from the verbatim check.
+   * Exempting a key without pinning what replaced it is how a verbatim guard stops meaning
+   * anything: the next edit to this string would pass both tests. */
+  it('tells the truth about the basemap, which is no longer Esri or Carto', () => {
+    for (const s of D.basemap_note) {
+      expect(s).toContain('Protomaps');
+      expect(s).not.toMatch(/Esri|Carto/);
+    }
+    expect(D.basemap_note[0]).toBe('Self-hosted Protomaps vector tiles — no key required.');
+    /* `.note`'s first match in the document is this paragraph and the fidelity guard measures
+     * its box. The original's sentence is 53 characters at 11px in a 332px rail; a longer one
+     * wraps and the guard reports an uncited height difference. */
+    expect(D.basemap_note[0]).toHaveLength(53);
+  });
+
   it('matches the source dictionary verbatim (apart from headline keys)', () => {
     const html = readFileSync(new URL('../../project/nigeria-suhi-dashboard.html', import.meta.url), 'utf8');
     const start = html.indexOf('const D={');
@@ -71,6 +87,11 @@ describe('dictionary', () => {
     const mine = { ...D };
     delete mine.headline;
     delete mine.headline_scoped;
+    /* Ruling 29's one honest divergence, pinned by the test above instead. The original names
+     * two tile services this app does not contact; the key order is still compared, so the
+     * exemption cannot hide a key being added, removed or moved. */
+    delete mine.basemap_note;
+    delete src.basemap_note;
     expect(mine).toEqual(src);
     expect(Object.keys(mine)).toEqual(Object.keys(src));
   });

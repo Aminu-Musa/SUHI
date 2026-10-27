@@ -27,10 +27,32 @@ export const D = {
  reset:['reset','sake saita','tọghata','tún ṣe'],
  confidence:['Confidence','Amincewa','Ntụkwasị obi','Ìgbẹ́kẹ̀lé'],
  basemap:['Basemap','Taswirar tushe','Maapụ ntọala','Àwòrán ìpìlẹ̀'],
- basemap_note:['Esri and Carto tile services — free, no key required.',
-   'Sabis na Esri da Carto — kyauta, ba sai maɓalli.',
-   'Ọrụ Esri na Carto — n\'efu, achọghị igodo.',
-   'Ìṣẹ́ Esri àti Carto — ọ̀fẹ́, kò nílò kọ́kọ́rọ́.'],
+ /* THE ONE KEY THAT IS NOT THE ORIGINAL'S, AND THE ONLY ONE (Task 12, ruling 29).
+  *
+  * The original read 'Esri and Carto tile services — free, no key required.' in all four
+  * languages. Esri and Carto are GONE: spec §8.3 replaced the five Esri raster basemaps with one
+  * self-hosted Protomaps vector archive styled from THEME_TOKENS, and §10.2 retired the
+  * world-atlas CDN with them. A note on screen naming two services the app does not contact is
+  * not a fidelity obligation, it is a false statement about where the reader's tiles come from -
+  * and this is the one task permitted to touch src/i18n/.
+  *
+  * 'no key required' survives because it is still true and is the useful half of the sentence:
+  * nothing here asks a reader for an API key. 'free' goes with the vendors - the archive is ours,
+  * so the word has nothing left to contrast with.
+  *
+  * The English is 53 characters, exactly the original's, which is not decoration: `.note`'s
+  * FIRST match in the document is this paragraph (prototype line 291) and it is a selector the
+  * fidelity guard measures for box and type. A longer sentence wraps to a second line and the
+  * guard reports a height difference with no citation behind it.
+  *
+  * 'vector tiles' and 'Protomaps' stay in English in all four, the way SUHI, LST and Sen slope
+  * do: they are the product's own names rather than describable things. The Hausa, Igbo and
+  * Yorùbá lines here are a FIRST PASS like the rest of this file and NEED A NATIVE SPEAKER -
+  * §10.2's standing item, and these three sentences are now part of it. */
+ basemap_note:['Self-hosted Protomaps vector tiles — no key required.',
+   'Protomaps vector tiles namu ne — ba sai maɓalli.',
+   'Protomaps vector tiles bụ nke anyị — achọghị igodo.',
+   'Protomaps vector tiles tiwa ni — kò nílò kọ́kọ́rọ́.'],
  contour:['Contour level','Matakin kwane','Ọkwa contour','Ìpele contour'],
  contour_note:['All 441 draws every level nested — L50 outer, L90 the dense core. Counts and areas below always use L50 only, since the levels overlap.',
    'Duka 441 na zana kowane matakin cikin juna — L50 waje, L90 cibiya. Ƙididdiga da fadi a ƙasa suna amfani da L50 kawai, saboda matakan suna haɗuwa.',
