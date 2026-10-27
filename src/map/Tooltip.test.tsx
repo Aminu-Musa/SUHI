@@ -210,3 +210,21 @@ test('an unknown city renders nothing rather than throwing', () => {
   show({ kind: 'city', city: 'Nowhere' });
   expect(tip().textContent).toBe('');
 });
+
+/* TASK 12 - the other half of §9.1 bug 11's guard. See the note in Drawer.test.tsx: Task 11
+ * measured `signed` reduced to a bare `+` and found this suite stayed green, because the only
+ * sign test above uses a POSITIVE spot ('the SUHI value carries an explicit + when positive').
+ * That test proves the `+`; this one proves there is no `+-`, which is the bug. */
+test('spec §9.1 bug 11 - a negative SUHII reads `-0.17 °C`, never `+-`, for a spot and a city', () => {
+  const negSpot = FIXTURE.spots.features.find((f) => f.properties.suhii < 0)!.properties;
+  expect(negSpot, 'the shipped data has no negative spot to test with').toBeTruthy();
+  show({ kind: 'spot', spot: negSpot });
+  expect(tip().textContent).toContain(`${negSpot.suhii} °C`);
+  expect(tip().textContent).not.toContain('+-');
+  cleanup();
+
+  const negCity = FIXTURE.cities.find((c) => c.suhii < 0)!;
+  show({ kind: 'city', city: negCity.city });
+  expect(tip().textContent).toContain(`${negCity.suhii} °C`);
+  expect(tip().textContent).not.toContain('+-');
+});

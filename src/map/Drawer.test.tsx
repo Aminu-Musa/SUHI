@@ -311,3 +311,41 @@ test('the spot rows are keyboard-operable (§9.1 bug 3`s finding, same mouse-onl
   });
   expect(drawer().querySelector('.rowlist')).toBeNull();
 });
+
+/* TASK 12 - §9.1 BUG 11's GUARD, WHICH THIS SUITE DID NOT HAVE.
+ *
+ * Measured in Task 11: mutating `signed` in src/rail/stats.ts to a bare `+` turned five tests red
+ * across three suites and did NOT turn this one red, because no test above happens to render a
+ * negative value. The fix was guarded in two of its four call sites. The values below come from
+ * the shipped data - 46 L50 spots and 18 cities carry a negative SUHII - so this is the bug the
+ * original actually prints, not a constructed one.
+ */
+test('spec §9.1 bug 11 - a negative SUHII never reads `+-` in the SPOT panel', () => {
+  const negative = FIXTURE.spots.features.find(
+    (f) => f.properties.contour_level === 'L50' && f.properties.suhii < 0,
+  )!.properties;
+  expect(negative, 'the shipped data has no negative L50 spot to test with').toBeTruthy();
+  show({ kind: 'spot', spot: negative });
+  const val = drawer().querySelector('.kpi .val') as HTMLElement;
+  expect(val.textContent).toBe(String(negative.suhii));
+  expect(val.textContent!.startsWith('-')).toBe(true);
+  expect(drawer().textContent).not.toContain('+-');
+});
+
+test('spec §9.1 bug 11 - a negative SUHII never reads `+-` in the CITY panel, and + survives', () => {
+  const negative = FIXTURE.cities.find((c) => c.suhii < 0)!;
+  const positive = FIXTURE.cities.find((c) => c.suhii > 0)!;
+  expect([negative, positive].every(Boolean)).toBe(true);
+
+  show({ kind: 'city', city: negative.city });
+  const dds = () => [...drawer().querySelectorAll('.dl2 dd')].map((d) => d.textContent);
+  expect(dds()).toContain(`${negative.suhii} °C`);
+  expect(drawer().textContent).not.toContain('+-');
+  cleanup();
+
+  /* The sign was FIXED, not deleted. A `signed` that always returned `String(n)` would pass
+   * every assertion above, so the positive case is asserted in the same test rather than in a
+   * neighbouring one a future edit could delete on its own. */
+  show({ kind: 'city', city: positive.city });
+  expect(dds()).toContain(`+${positive.suhii} °C`);
+});
