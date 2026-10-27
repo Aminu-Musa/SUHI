@@ -108,7 +108,35 @@ const TABLE_SELECTORS: readonly string[] = [
  *
  * The wait is on the panel's own `data-on`, which both pages set - `selectTab` writes it
  * directly (prototype line 1023) and the rebuild binds it to the Radix tab value. */
-async function openPanelTab(page: Page, name: 'compare' | 'table'): Promise<void> {
+/* TASK 10's REPORT SELECTORS, measured in a FIFTH pass with the Reports tab active on both
+ * pages — the same trap passes 3c and 3d exist for. `#panel-report` is `display:none` on the
+ * Map tab, which is the tab both pages load on, so `.brief` and `.brief h3` resolve every
+ * computed property for the main pass but measure 0x0 there and compare 0 against 0.
+ *
+ * `.brief` is the load-bearing one. Its WIDTH is a fixed 640px, so a width match proves little
+ * on its own — but its HEIGHT is the sum of the whole brief: a header flex row, three `.rule`
+ * dividers, a four-column 23px figure grid and a 12.5px/1.6 prose paragraph that wraps inside
+ * 640px minus 38px of padding each side. Nothing about that height can match unless the type,
+ * the figure grid and the prose text all match, which is why ruling 20's 23px is checked here
+ * as well as in the component suite.
+ *
+ * `#panel-report .expgrid` is captured and REPORTED, not asserted — see the note above PENDING
+ * in allowed-diffs.ts. Spec §7.7 replaces its six `.card2` cards with one select plus a button,
+ * so its height cannot match, and the measurement belongs in the task report for a ruling
+ * rather than in ALLOWED_DIFFS. It IS asserted to be present and non-zero on both pages, so it
+ * can never quietly become an unmeasured selector.
+ *
+ * SCOPED TO `#panel-report` for the usual reason: the guard reads `document.querySelector`, the
+ * FIRST match, and `.sec-h`, `.note` and `.rule` all exist in the rail and the drawer. */
+const REPORT_SELECTORS: readonly string[] = [
+  '#panel-report .brief', '#panel-report .brief h3',
+  '#panel-report .lede', '#panel-report h2',
+];
+
+/** Present on both pages and measured, but exempt from the height comparison by §7.7. */
+const REPORT_REPORTED: readonly string[] = ['#panel-report .expgrid'];
+
+async function openPanelTab(page: Page, name: 'compare' | 'table' | 'report'): Promise<void> {
   await page.waitForSelector(`.tab[data-tab=${name}]`, { timeout: 30_000 });
   await page.locator(`.tab[data-tab=${name}]`).click();
   await page.waitForFunction(
@@ -297,6 +325,55 @@ for (const theme of ['nocturne', 'modernist'] as Theme[]) {
     expect.soft(rowCounts[1], `row count: original ${rowCounts[0]} vs rebuild ${rowCounts[1]}`).toBe(rowCounts[0]);
     expect.soft(rowCounts[0], 'the original must have rendered its 55 rows').toBe(55);
     expect.soft(boxDiffs, `${boxDiffs.length} box/type difference(s) including the table`).toEqual([]);
+
+    /* 3e. TASK 10's REPORT PANEL, with its tab active on both pages. See REPORT_SELECTORS. */
+    await Promise.all([openPanelTab(a, 'report'), openPanelTab(b, 'report')]);
+    const [origRep, builtRep] = await Promise.all([
+      capture(a, [], [...REPORT_SELECTORS, ...REPORT_REPORTED]),
+      capture(b, [], [...REPORT_SELECTORS, ...REPORT_REPORTED]),
+    ]);
+    const repCompared: string[] = [];
+    compare(REPORT_SELECTORS, origRep, builtRep, repCompared, boxDiffs);
+    expect
+      .soft(repCompared.length, `only ${repCompared.length} report selector(s) were compared`)
+      .toBe(REPORT_SELECTORS.length);
+    /* Guard the guard, the way the picker's height does for Compare and the row count for the
+     * table. An empty `.brief` is 34px of padding twice over and nothing else, and it would
+     * compare equal against an equally empty original. The real brief is a header, three rules,
+     * a 23px figure grid and a wrapped paragraph: over 300px on both pages, at the fixed 640px
+     * the stylesheet gives it. */
+    for (const [who, cap] of [['original', origRep], ['rebuilt', builtRep]] as const) {
+      expect.soft(cap.boxes['#panel-report .brief'].height, `the ${who} brief must have real height`).toBeGreaterThan(300);
+      expect.soft(cap.boxes['#panel-report .brief'].width, `the ${who} brief must be 640px wide`).toBe(640);
+      expect.soft(cap.boxes['#panel-report .brief h3'].width, `the ${who} city name must have real width`).toBeGreaterThan(20);
+    }
+    // The four 23px figures are ruling 20's subject; a brief rendered without them would still
+    // clear the height floor above, so count them on both pages.
+    const figureCounts = await Promise.all(
+      [a, b].map((p) =>
+        p.evaluate(() => {
+          const els = [...document.querySelectorAll<HTMLElement>('#panel-report .brief div')];
+          return els.filter((el) => getComputedStyle(el).fontSize === '23px').length;
+        }),
+      ),
+    );
+    expect.soft(figureCounts, 'both pages must render the four 23px brief figures').toEqual([4, 4]);
+    expect.soft(boxDiffs, `${boxDiffs.length} box/type difference(s) including the report`).toEqual([]);
+
+    /* §7.7's measurement, reported rather than asserted. Printed so it lands in the CI log and
+     * in the task report; the only assertions are that it EXISTS and is non-zero on both pages,
+     * so it cannot become a selector nobody looks at. */
+    for (const sel of REPORT_REPORTED) {
+      const o = origRep.boxes[sel];
+      const r = builtRep.boxes[sel];
+      expect.soft(o.present && r.present, `${sel} must be present on both pages`).toBe(true);
+      expect.soft(o.height, `${sel} must have real height in the original`).toBeGreaterThan(0);
+      expect.soft(r.height, `${sel} must have real height in the rebuild`).toBeGreaterThan(0);
+      console.log(
+        `[${theme}] §7.7 reported-only: ${sel} ` +
+          `width ${o.width} vs ${r.width}, height ${o.height} vs ${r.height}`,
+      );
+    }
     await ctx.close();
 
     // 4. The anti-rot clause (ruling 2): a PENDING selector that now exists has become a silent

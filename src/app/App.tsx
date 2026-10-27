@@ -25,6 +25,7 @@ import { Tooltip } from '../map/Tooltip';
 import { Drawer } from '../map/Drawer';
 import { Compare } from '../views/Compare';
 import { Table } from '../views/Table';
+import { Reports } from '../views/Reports';
 
 /** Which basemap a theme change reaches for, prototype line 561. */
 export type ThemeBaseKey = 'dark' | 'light';
@@ -357,6 +358,11 @@ function Shell({
               <p className="lede" data-i18n="rep_lede">
                 {t('rep_lede')}
               </p>
+              {/* Task 10, mounted on every tab for Task 8's reason: the panel is hidden with
+                * display:none rather than unmounted (ruling 5), the original built every panel
+                * at boot, and a tab that renders on first visit is a different page from the
+                * one the fidelity guard measures. */}
+              <Reports data={data} />
             </section>
           </div>
         </div>

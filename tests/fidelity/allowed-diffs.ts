@@ -123,15 +123,23 @@ export const IGNORED_PROPERTIES: readonly { readonly name: string; readonly why:
  * pages, so its width and height comparisons are 0 vs 0 and hold nothing down. Hence COMPARE_
  * SELECTORS below: a third pass that switches both pages to the Compare tab and measures the
  * geometry where it actually exists. */
+/* TASK 10 DELETED ITS THREE ENTRIES - `.brief`, `.brief h3` and `.expgrid` - and all three are
+ * now compared. The main pass takes their type and box properties; REPORT_SELECTORS in
+ * fidelity.spec measures `.brief` and `.brief h3` on the Reports tab, where they have real
+ * geometry rather than the 0x0 a display:none panel reports.
+ *
+ * `#panel-report .expgrid` is measured in that pass too but is REPORTED rather than asserted,
+ * and that is deliberate: spec §7.7 replaces the six `.card2` cards inside it with one select
+ * plus a Download button, so the grid's height cannot match and the difference is the change
+ * working. It is NOT registered here - the measurement goes in the task 10 report for a ruling,
+ * the way Task 8 brought `.cmp`'s and `#panel-compare .card2`'s heights rather than exempting
+ * them itself. Its own CSS - the auto-fit minmax(210px,1fr) grid, its gap and its margin - is
+ * compared in the main pass and matches. */
 export const PENDING: readonly { readonly selector: string; readonly task: number }[] = [
   /* Task 9's three - `table.dt`, `table.dt th`, `table.dt td` - are GONE from this list. The
    * main pass now compares their type and box properties, and TABLE_SELECTORS in fidelity.spec
    * measures their real geometry on the Data table tab, for the same display:none reason the
    * note above gives for Compare. */
-  // Task 10 - reports
-  { selector: '.brief', task: 10 },
-  { selector: '.brief h3', task: 10 },
-  { selector: '.expgrid', task: 10 },
 ];
 
 export const pendingSelectors = new Set(PENDING.map((p) => p.selector));
