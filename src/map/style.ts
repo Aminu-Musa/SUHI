@@ -31,6 +31,7 @@
  */
 
 import { BASEMAP_ATTRIBUTION, BASEMAP_SOURCE, basemapSourceUrl } from './basemap';
+import { EMPTY_STATES, STATES_ATTRIBUTION, STATES_SOURCE } from './boundaries';
 import { EXTRACT_BBOX } from './nigeria';
 import { token } from './expressions';
 import type { Theme } from '../app/ThemeProvider';
@@ -203,52 +204,47 @@ export function buildBasemapStyle(theme: Theme, base: BaseKey = 'dark', baseUrl?
     );
   }
 
-  /* THE TWO BOUNDARY LAYERS. Both come from the basemap's own `boundaries` source-layer, and
-   * they are the two the rail's layer toggles already name: "State boundaries" and "National
-   * boundary".
+  /* THE TWO BOUNDARY LAYERS - the two the rail's toggles already name, "State boundaries" and
+   * "National boundary". They now come from DIFFERENT SOURCES, and that is the point.
    *
-   * STATE BOUNDARIES - REAL ADMIN LINES, approved by the user on 2026-10-24, reversing ruling
-   * 31. The original drew a `d3.geoGraticule` at 1.6 degree steps here and said so: the layer's
-   * chip read `T('placeholder')`. Ruling 31 had kept the graticule on the grounds that real
-   * boundaries change what the layer means; the user decided it should mean that, so the
-   * graticule is deleted rather than clipped and §9.1 bug 6 - "the extent is unclipped, so it
-   * runs over Niger, Cameroon and the sea" - is fixed by there being nothing left to run over.
-   * The rail's chip moves from `placeholder` to `37` (36 states plus the FCT) in Layers.tsx.
+   * ══ STATE BOUNDARIES: data/boundaries/nga-adm1.topojson, NOT the basemap (TASK 12) ══
    *
-   * The TREATMENT is still the original's, exactly: `--ui-muted`, 1 px, opacity .5, dashed
-   * `3 4` (prototype line 625). That is what keeps it subordinate to the 2 px
-   * `--ui-line-strong` national outline below, which is the reading the original had and the
-   * one the data now deserves - a state line is a real boundary, but it is not the border.
+   * The history in three steps. The original drew a `d3.geoGraticule` at 1.6 degree steps and
+   * admitted it - the layer's chip read `T('placeholder')` - with Nigeria's bounding RECTANGLE
+   * as its extent, which is §9.1 bug 6: lines over Niger, Cameroon, Benin and the sea. The
+   * user's 2026-10-24 reversal of ruling 31 swapped it for the basemap's own `boundaries`
+   * source-layer at `kind: 'region'`, real admin-level-1 lines - which deleted the graticule but
+   * NOT the extent problem, because those features carry no country code, name or ISO field at
+   * any zoom in this extract. There was nothing to filter on, so the neighbours' first-level
+   * divisions rendered too. Task 6 reported that rather than clipping it.
    *
-   * THE FILTER, AND WHAT THE DATA ACTUALLY CARRIES - measured from the archive at the zoom we
-   * ship, not read off the schema docs. A `boundaries` feature at z5 has exactly three
-   * properties: `kind`, `kind_detail` and `sort_rank`. `kind: 'country'` comes with
-   * `kind_detail: 2` and `kind: 'region'` with `kind_detail: 4` - OSM admin levels - so
-   * admin-level-1 is present and is what this layer draws. Both are asserted, because
-   * "admin level 1" is the requirement and `kind === 'region'` alone only implies it.
+   * It now draws `STATES_SOURCE`, which is Nigeria-only BY CONSTRUCTION: 37 features, every one
+   * `shapeGroup: NGA`, validated against the shipped bytes in src/map/boundaries.ts. There is no
+   * filter here at all - not a loosened one, none - because the file contains nothing to exclude,
+   * and a filter over a field every feature shares is a decoration that reads as a safeguard.
    *
-   * `disputed` is in the schema and is NOT in these tiles, so the clause filters nothing today.
-   * It is kept deliberately: a disputed line drawn in the same hairline as a settled one would
-   * be an assertion this dashboard has no business making, and the day a re-cut carries the
-   * field is not the day to remember that.
+   * The source is declared with EMPTY data and filled by `setData` once the fetch lands (see
+   * MapStage's `applyBoundaries`). The style is built before any data exists and is rebuilt on
+   * every theme and basemap change, so inlining the geometry here would mean re-serialising a
+   * megabyte of polygons on every theme flip.
    *
-   * WHAT CANNOT BE DONE: restrict the layer to NIGERIA's states. The features carry no country
-   * code, no name and no ISO field at any zoom in this extract - there is nothing to filter on -
-   * so Niger's, Benin's, Cameroon's and Chad's first-level divisions render inside the bbox too.
-   * Reported rather than worked around: a clip would be the invented substitute the reversal of
-   * ruling 31 moved away from.
+   * The TREATMENT is unchanged and still the original's exactly: `--ui-muted`, 1 px, opacity .5,
+   * dashed `3 4` (prototype line 625). That is what keeps it subordinate to the 2 px
+   * `--ui-line-strong` border below - the reading the original had, and the one the data now
+   * deserves. A state line is a real boundary, but it is not the border.
    *
-   * NATIONAL BOUNDARY - RULING 30, from the same source-layer rather than from a world-atlas
-   * fetch. `--ui-line-strong` at 2 px, opacity .9, is exactly what the original styled the atlas
-   * outline with (prototype line 621). It is pushed LAST so it paints over the state lines where
-   * the two coincide, which they do along the whole border. */
+   * ══ NATIONAL BOUNDARY: still the basemap's own, RULING 30 ══
+   *
+   * `--ui-line-strong` at 2 px, opacity .9, is exactly what the original styled its world-atlas
+   * outline with (prototype line 621), and the basemap's `kind: 'country'` line already is that
+   * outline. Drawing it from the ADM1 file instead would mean dissolving 37 polygons into one at
+   * runtime for a line that is correct already. It is pushed LAST so it paints over the state
+   * lines where the two coincide, which they do along the whole frontier. */
   layers.push(
     {
       id: STATES_LAYER,
       type: 'line',
-      source: BASEMAP_SOURCE,
-      'source-layer': 'boundaries',
-      filter: ['all', ['==', ['get', 'kind'], 'region'], ['==', ['get', 'kind_detail'], 4], ['!=', ['get', 'disputed'], true]],
+      source: STATES_SOURCE,
       paint: {
         'line-color': c('--ui-muted'),
         'line-width': 1,
@@ -277,6 +273,15 @@ export function buildBasemapStyle(theme: Theme, base: BaseKey = 'dark', baseUrl?
         attribution: BASEMAP_ATTRIBUTION,
         maxzoom: SOURCE_MAX_ZOOM,
         bounds: [...EXTRACT_BBOX],
+      },
+      /* Declared empty; `MapStage.applyBoundaries` sets the real collection. geoBoundaries is
+       * ODC-ODbL, so the attribution is a licence condition rather than a courtesy - and it
+       * belongs on the source that carries the data, which is how MapLibre's attribution control
+       * collects it. */
+      [STATES_SOURCE]: {
+        type: 'geojson',
+        data: EMPTY_STATES,
+        attribution: STATES_ATTRIBUTION,
       },
     },
     layers,

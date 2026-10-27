@@ -10,6 +10,7 @@ import { expect, test } from 'vitest';
 import { THEME_TOKENS } from '../../scripts/lib/tokens.mjs';
 import type { Theme } from '../app/ThemeProvider';
 import { BASEMAP_ATTRIBUTION, BASEMAP_FILE, PMTILES_SCHEME, basemapSourceUrl, basemapUrl } from './basemap';
+import { EMPTY_STATES, STATES_ATTRIBUTION, STATES_SOURCE } from './boundaries';
 import { BASEMAP_VARIANTS, BASE_KEYS, MAX_ZOOM, MIN_ZOOM, NATION_LAYER, SOURCE_LAYERS, STATES_LAYER, buildBasemapStyle, variantTheme } from './style';
 
 const THEMES: Theme[] = ['nocturne', 'modernist'];
@@ -103,30 +104,29 @@ test('ruling 30: the national outline is the basemap`s own boundaries at --ui-li
   }
 });
 
-test('the State boundaries layer draws REAL admin-level-1 lines, not a graticule (§9.1 bug 6)', () => {
-  /* The user approved this on 2026-10-24, reversing ruling 31. The original drew a
-   * `d3.geoGraticule` at 1.6 degree steps whose extent was Nigeria's bounding RECTANGLE, so its
-   * lines ran over Niger, Cameroon, Benin and the Bight of Benin - bug 6. It is fixed by
-   * deletion: there is no graticule left to run anywhere, and `src/map/graticule.ts` is gone.
+test('the State boundaries layer draws NIGERIA`s own ADM1 file, not the basemap (§9.1 bug 6)', () => {
+  /* THREE STEPS, and this test is the third. The original drew a `d3.geoGraticule` at 1.6 degree
+   * steps whose extent was Nigeria's bounding RECTANGLE, so its lines ran over Niger, Cameroon,
+   * Benin and the Bight of Benin - bug 6. The user's 2026-10-24 reversal of ruling 31 replaced
+   * it with the basemap's own `boundaries` source-layer at `kind: 'region'` - real admin-level-1
+   * lines, but still the wrong EXTENT, because those features carry no country code at any zoom
+   * and so the neighbours' first-level divisions rendered too. Task 12 points the layer at
+   * `data/boundaries/nga-adm1.topojson`: 37 features, every one `shapeGroup: NGA`.
+   *
+   * SO THERE IS NO FILTER, and the assertion is that there is none. A filter over a field every
+   * feature in the file shares would read as a safeguard while guarding nothing; the guarantee
+   * lives in `boundaries.ts`, which refuses the file unless it is 37 Nigerian features.
    *
    * The TREATMENT is still prototype line 625 exactly - `--ui-muted`, 1px, opacity .5, dashed
-   * `3 4` - which is what keeps a state line subordinate to the 2px `--ui-line-strong` border.
-   * `disputed` is excluded because a disputed line in the same hairline as a settled one would
-   * be an assertion this dashboard has no business making. */
+   * `3 4` - which is what keeps a state line subordinate to the 2px `--ui-line-strong` border. */
   for (const theme of THEMES) {
     for (const base of BASE_KEYS) {
     const paletteTheme = variantTheme(base, theme);
     const layers = style(theme, base).layers as Record<string, unknown>[];
     const states = layers.find((l) => l.id === STATES_LAYER)!;
-    expect(states['source-layer']).toBe('boundaries');
-    /* MEASURED from the archive at z5: a boundaries feature carries exactly `kind`,
-     * `kind_detail` and `sort_rank`. `country` comes with kind_detail 2 and `region` with
-     * kind_detail 4 - OSM admin levels - so admin-level-1 is present and both are asserted,
-     * because "admin level 1" is the requirement and `kind === 'region'` only implies it.
-     * `disputed` is in the schema but absent from these tiles, so that clause filters nothing
-     * today and is kept for the re-cut that carries it. There is NO country code on these
-     * features at any zoom, which is why the layer cannot be restricted to Nigeria's own states. */
-    expect(states.filter).toEqual(['all', ['==', ['get', 'kind'], 'region'], ['==', ['get', 'kind_detail'], 4], ['!=', ['get', 'disputed'], true]]);
+    expect(states.source).toBe(STATES_SOURCE);
+    expect(states['source-layer']).toBeUndefined();
+    expect(states.filter).toBeUndefined();
     const paint = states.paint as Record<string, unknown>;
     expect(paint['line-color']).toBe(THEME_TOKENS[paletteTheme]['--ui-muted']);
     expect(paint['line-width']).toBe(1);
@@ -159,10 +159,20 @@ test('no symbol layer and no glyphs endpoint, so no third-party font CDN comes b
     expect(s.glyphs).toBeUndefined();
     expect((s.layers as { type: string }[]).some((l) => l.type === 'symbol')).toBe(false);
     /* The only absolute URLs in a built style are the basemap archive (configured in ONE place)
-     * and the two attribution links. A glyphs endpoint, a sprite sheet or a font .pbf would all
-     * show up as a fourth. */
+     * and the THREE attribution links. A glyphs endpoint, a sprite sheet or a font .pbf would
+     * show up as a fourth HOST.
+     *
+     * geoboundaries.org is the third and it is new in Task 12. It is a LICENCE CONDITION rather
+     * than a dependency: ODC-ODbL requires attribution for data/boundaries/nga-adm1.topojson,
+     * which is served from this origin like every other data file. Nothing is fetched from that
+     * host at runtime - it is an href in the attribution control. */
     const hosts = [...JSON.stringify(s).matchAll(/https?:\/\/([^/\\"]+)/g)].map((m) => m[1]);
-    expect([...new Set(hosts)].sort()).toEqual(['127.0.0.1:5179', 'openstreetmap.org', 'protomaps.com']);
+    expect([...new Set(hosts)].sort()).toEqual([
+      '127.0.0.1:5179',
+      'openstreetmap.org',
+      'protomaps.com',
+      'www.geoboundaries.org',
+    ]);
     expect(JSON.stringify(s)).not.toMatch(/\.pbf|fonts\.|sprite/);
   }
 });
@@ -172,6 +182,13 @@ test('every layer reads a source-layer this style declares it reads', () => {
   for (const base of BASE_KEYS) {
     for (const l of style('nocturne', base).layers as Record<string, string>[]) {
       if (l.type === 'background') continue;
+      /* A GeoJSON source has no source-layers to name, so the state layer is exempt by KIND
+       * rather than by id - `l.source === STATES_SOURCE`. A VECTOR layer that forgot its
+       * source-layer still fails here, which is the regression this test exists for. */
+      if (l.source === STATES_SOURCE) {
+        expect(l['source-layer']).toBeUndefined();
+        continue;
+      }
       expect(SOURCE_LAYERS as readonly string[]).toContain(l['source-layer']);
     }
   }
@@ -185,6 +202,22 @@ test('the zoom range is the original`s 5..16, and the source stops at 10 and ups
   expect(src.maxzoom).toBe(10);
   expect(src.bounds).toEqual([2.5, 3.9, 15.0, 14.1]);
   expect(src.attribution).toBe(BASEMAP_ATTRIBUTION);
+});
+
+test('the state source is declared EMPTY and credited, because its data arrives by fetch', () => {
+  /* 260 KB of topology expanding to roughly a megabyte of GeoJSON, so it is fetched beside the
+   * four data files rather than imported into the entry chunk - Task 12 spent its first commit
+   * removing exactly that kind of weight. `MapStage.applyBoundaries` fills it, and re-fills it
+   * after every setStyle, because a style rebuild hands back this empty collection. */
+  for (const theme of THEMES) {
+    for (const base of BASE_KEYS) {
+      const src = (style(theme, base).sources as Record<string, Record<string, unknown>>)[STATES_SOURCE];
+      expect(src.type).toBe('geojson');
+      expect(src.data).toEqual(EMPTY_STATES);
+      expect((src.data as { features: unknown[] }).features).toEqual([]);
+      expect(src.attribution).toBe(STATES_ATTRIBUTION);
+    }
+  }
 });
 
 test('ruling 29: the basemap URL has exactly ONE home, and production overrides it by config', () => {

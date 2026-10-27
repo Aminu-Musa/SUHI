@@ -66,6 +66,7 @@ import { useTheme } from '../app/ThemeProvider';
 import { useAppState } from '../app/state';
 import type { SpotProperties, SuhiData } from '../app/data';
 import { BASEMAP_ATTRIBUTION } from './basemap';
+import { STATES_SOURCE, loadStateBoundaries, type StateCollection } from './boundaries';
 import { FIT_BOUNDS } from './nigeria';
 import { exagFactor } from './exaggerate';
 import { spotSource } from './source';
@@ -229,6 +230,28 @@ export function MapStage({ data, baseKey, onFactorChange }: MapStageProps) {
     }
   }, []);
 
+  /** TASK 12 - the state boundaries, pushed into the style's empty `STATES_SOURCE`.
+   *
+   * The geometry is fetched once (the effect below) and kept in a ref, because it has to be
+   * re-set after every `setStyle`: a style rebuild on a theme or basemap change replaces the
+   * source object with the empty collection the style declares, and the state lines would
+   * silently vanish on the first theme flip. That is the same shape as `addOverlays` and it is
+   * called from the same two places - the `styledata` handler and the fetch's own resolution.
+   *
+   * `setData` rather than inlining into `buildBasemapStyle`: the style is rebuilt on every theme
+   * and basemap change, and re-serialising ~1 MB of expanded polygons each time is work the
+   * reader can feel. */
+  const states = useRef<StateCollection | null>(null);
+  const applyBoundaries = useCallback((only?: MaplibreMap) => {
+    const fc = states.current;
+    if (!fc) return;
+    for (const { map: m } of instances.current) {
+      if (only && m !== only) continue;
+      const src = m.getSource(STATES_SOURCE) as GeoJSONSource | undefined;
+      if (src) src.setData(fc as never);
+    }
+  }, []);
+
   /** Everything that is not part of the basemap style: added on boot and again after every
    * setStyle, because setStyle replaces the style object and with it every layer we added. */
   const addOverlays = useCallback((only?: MaplibreMap) => {
@@ -237,11 +260,13 @@ export function MapStage({ data, baseKey, onFactorChange }: MapStageProps) {
 
     for (const { map: m, period } of instances.current) {
       if (only && m !== only) continue;
-      /* The `states` and `nation` layers are NOT added here. Both draw the basemap's own
-       * `boundaries` source-layer (state boundaries by the user's 2026-10-24 reversal of ruling
-       * 31, the national outline by ruling 30), so they belong to the style, not to the
-       * overlays - see the bottom of `buildBasemapStyle`. `applyVisibility` still switches them
-       * by id. */
+      /* The `states` and `nation` LAYERS are NOT added here - both are declared in the style
+       * (see the bottom of `buildBasemapStyle`), so their order relative to the basemap's own
+       * water, landuse and roads is fixed by the style rather than by the order overlays happen
+       * to be added in. `nation` draws the basemap's own `boundaries` source-layer (ruling 30);
+       * `states` draws `STATES_SOURCE`, whose DATA is pushed by `applyBoundaries` rather than
+       * here, because it arrives from its own fetch on its own schedule. `applyVisibility`
+       * switches both by id. */
       if (!m.getSource(SPOT_SOURCE)) {
         m.addSource(SPOT_SOURCE, { type: 'geojson', data: spotSource(d.spots, factor.current) as never });
       }
@@ -423,6 +448,10 @@ export function MapStage({ data, baseKey, onFactorChange }: MapStageProps) {
       m.on('styledata', () => {
         styleReady.current = true;
         addOverlays(m);
+        /* AFTER the style is (re)parsed and BEFORE visibility: a setStyle hands back the empty
+         * collection the style declares, so without this the state lines disappear on the first
+         * theme flip - which would look like a rendering artefact rather than a dropped source. */
+        applyBoundaries(m);
         applyVisibility();
       });
     }
@@ -448,7 +477,35 @@ export function MapStage({ data, baseKey, onFactorChange }: MapStageProps) {
       instances.current = [];
       setDayMap(null);
     };
-  }, [addOverlays, applyVisibility, pushFactor, showTip, hideTip, openSpot, closeDrawer]);
+  }, [addOverlays, applyBoundaries, applyVisibility, pushFactor, showTip, hideTip, openSpot, closeDrawer]);
+
+  /* ── task 12: the ADM1 boundaries, fetched once and kept ───────────────────────────────── */
+  useEffect(() => {
+    /* No WebGL means no map to put them in, and it is also what keeps the twelve jsdom suites
+     * that render <App/> out of a fetch for a file jsdom could not serve them anyway. */
+    if (!hasWebGl()) return;
+    let live = true;
+    loadStateBoundaries().then(
+      (fc) => {
+        if (!live) return;
+        states.current = fc;
+        applyBoundaries();
+      },
+      (err: Error) => {
+        /* A WARNING, NOT A THROW, and the layer stays empty. The contours are the deliverable
+         * and the boundaries are context - the same dependency direction the boot effect's
+         * `styledata` note argues for the basemap. An absent state layer is a visible absence;
+         * what this must never do is fall back to the basemap's own admin lines, which is where
+         * the neighbours' divisions came from. */
+        console.warn(`state boundaries unavailable, the layer stays empty: ${err.message}`);
+      },
+    );
+    /* StrictMode mounts effects twice; the flag makes the discarded first fetch a no-op rather
+     * than a second setData race. The fetch itself is a cached GET. */
+    return () => {
+      live = false;
+    };
+  }, [applyBoundaries]);
 
   /* ── the imperative surface App's zoom buttons use ─────────────────────────────────────── */
   useEffect(() => {
