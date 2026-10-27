@@ -8,7 +8,7 @@
 
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App, { type ThemeBaseKey } from './App';
 
@@ -207,5 +207,61 @@ describe('theme drags the basemap (ruling 7)', () => {
     expect(moves).toEqual([]);
     await user.selectOptions(sel('theme'), 'nocturne');
     expect(moves).toEqual([]);
+  });
+});
+
+/* ══ TASK 12: MAPLIBRE IS LOADED ON DEMAND ══
+ *
+ * Measured before the change: MapLibre and its tile worker were 426 kB + 145 kB gzipped out of a
+ * 426 kB main bundle, statically imported here, and paid for by every reader including one who
+ * opened the Data table from a deep link and never looked at the map. These four tests are what
+ * stop a future `import { MapStage }` putting it back silently - the bundle would grow and
+ * nothing else in the suite would notice.
+ */
+describe('MapLibre is loaded on demand (task 12)', () => {
+  test('App.tsx reaches MapStage through a dynamic import, never a static one', async () => {
+    const src = (await import('./App.tsx?raw')).default;
+    expect(src.length, '?raw returned nothing, so this test read no source at all').toBeGreaterThan(2000);
+    /* The static form is the regression. A bare `from '../map/MapStage'` - with or without a
+     * `type` modifier on the same line - puts maplibre-gl back in the entry chunk. */
+    expect(src).not.toMatch(/^\s*import\s+\{[^}]*MapStage[^}]*\}\s+from/m);
+    expect(src).toMatch(/lazy\(\s*\(\)\s*=>\s*import\('\.\.\/map\/MapStage'\)/);
+  });
+
+  test('the map container renders on the default tab, so the common path is unchanged', async () => {
+    /* NOT asserted as "absent in the first commit": once React.lazy's payload has resolved - and
+     * every earlier test in this file renders <App/> on the Map tab, so it has - React renders
+     * the component in the SAME pass, and the assertion would be testing module-load order
+     * rather than behaviour. The dynamic import is proved by the source test above and by the
+     * two deep-link tests below; what matters here is that the default tab still gets its map. */
+    renderApp(<App />);
+    await waitFor(() => expect(document.getElementById('map')).toBeTruthy());
+  });
+
+  test('a ?tab=table deep link never asks for the map chunk at all', async () => {
+    /* The latch is seeded from the URL rather than from `tab`, because `useDeepLink` applies
+     * `?tab=` in an effect and the first render of this link still has tab === 'map'. A latch
+     * reading `tab` would have been true before the link ever landed, which is the difference
+     * between saving the download and only appearing to. */
+    window.history.replaceState(null, '', '/?tab=table');
+    renderApp(<App />);
+    await waitFor(() => expect(byId('panel-table').dataset.on).toBe('true'));
+    expect(document.getElementById('map')).toBeNull();
+  });
+
+  test('ruling 5 survives: the map mounts on a visit to the Map tab and stays mounted after', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', '/?tab=table');
+    renderApp(<App />);
+    await waitFor(() => expect(byId('panel-table').dataset.on).toBe('true'));
+    expect(document.getElementById('map')).toBeNull();
+
+    await user.click(tabButtons()[0]);
+    await waitFor(() => expect(document.getElementById('map')).toBeTruthy());
+
+    // Back to the table: ruling 5 hides the stage with display:none and keeps the map alive.
+    await user.click(tabButtons()[2]);
+    expect(document.getElementById('map')).toBeTruthy();
+    expect(display(byId('stage'))).toBe('none');
   });
 });

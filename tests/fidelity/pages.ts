@@ -107,6 +107,18 @@ export async function openPage(page: Page, path: string, theme: Theme): Promise<
    * times out - and the failure then surfaces on the OTHER page's goto, which is a genuinely
    * misleading place to go looking. */
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  /* `#map` IS A COMPARED SELECTOR, AND IN THE REBUILD IT NOW ARRIVES IN A CHUNK.
+   *
+   * Task 12 put `MapStage` behind a dynamic import (see the note in src/app/App.tsx), so on the
+   * rebuild the container appears one module fetch after `load` rather than in the first commit.
+   * Without this wait the main pass would occasionally capture `#map` as absent and report it as
+   * "in the original, missing from the rebuild" - a flake that says nothing about fidelity.
+   *
+   * The ORIGINAL has `#map` in its static markup, so the wait is instant there and the two pages
+   * stay symmetric: this is a wait for a selector BOTH pages are required to have, not a
+   * concession to the rebuild. If the chunk ever fails to load, this fails loudly - which is the
+   * correct outcome and is exactly what the README's MapLibre-worker near-miss was about. */
+  await page.waitForSelector('#map', { timeout: 30_000 });
   /* The original REMOVES #loading from the DOM once Promise.all settles (prototype line 600),
    * so `!el` is what fires for it. The rebuild still renders a static `.loading` div that
    * nothing hides until task 6 wires the map, so for that page this predicate is never true and

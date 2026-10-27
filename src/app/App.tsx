@@ -9,16 +9,15 @@
  * Task 2 scope: the rail is an empty <aside class="rail">, and each panel carries its heading
  * and lede only. Rail groups are Task 4, the map is Tasks 6-7, panel contents are Tasks 8-10. */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { I18nProvider, useLang, useT, type Lang } from './I18nProvider';
 import { ThemeProvider, useTheme, type Theme } from './ThemeProvider';
 import { AppStateProvider, useAppState, type State, type Tab } from './state';
-import { useDeepLink } from './deeplink';
+import { decodeState, useDeepLink } from './deeplink';
 import { useSuhiData, type SuhiData } from './data';
 import { Rail } from '../rail/Rail';
 import type { BaseKey } from '../rail/BasemapSeg';
-import { MapStage } from '../map/MapStage';
 import { ZoomHint } from '../map/ZoomHint';
 import { InteractionsProvider, useInteractions } from '../map/interactions';
 import { Swipe } from '../map/Swipe';
@@ -27,6 +26,39 @@ import { Drawer } from '../map/Drawer';
 import { Compare } from '../views/Compare';
 import { Table } from '../views/Table';
 import { Reports } from '../views/Reports';
+
+/* ══ TASK 12 - MAPLIBRE IS LOADED ON DEMAND, AND IT IS THE WHOLE BUNDLE ══
+ *
+ * MEASURED before this change: `index.js` was 1,466 kB raw / 426 kB gzipped plus a separate
+ * 506 kB / 145 kB gzipped worker, and MapLibre is essentially all of it - 338 references in the
+ * bundle against React's 77. It was STATICALLY imported here, so a ministry officer opening the
+ * Data table from a §8.4 deep link downloaded the entire map engine and the tile worker to
+ * never put a pixel on screen.
+ *
+ * `MapStage` therefore sits behind a dynamic `import()`. Two properties make this cost nothing:
+ *
+ *  - THE MAP TAB IS THE DEFAULT, so the common path is unchanged: the chunk is requested in the
+ *    same tick the shell mounts, in parallel with the three data fetches, and the fidelity guard
+ *    still compares the Map tab with the map rendered. `#map` is a compared selector and the
+ *    guard waits for it (tests/fidelity/pages.ts).
+ *  - RULING 5 IS PRESERVED. The stage stays MOUNTED across tabs, so once the map exists it
+ *    survives a trip to the table and back, with its instance, its viewport and its camera. The
+ *    latch below is one-way: `mapWanted` goes true the first time the Map tab is shown and never
+ *    goes back.
+ *
+ * THE LATCH IS SEEDED FROM THE URL, not from `tab`'s initial value, and that is the difference
+ * between saving the download and only appearing to. `useDeepLink` applies `?tab=` in an effect
+ * (Task 11, deliberately, so a type-validated link cannot flash the wrong tab), so the FIRST
+ * render of a `?tab=table` link still has `tab === 'map'` - and a latch reading `tab` would
+ * already be true by the time the link landed. `decodeState` is pure and is the single owner of
+ * what a link means, so it is asked directly here rather than re-parsed.
+ */
+const MapStage = lazy(() => import('../map/MapStage').then((m) => ({ default: m.MapStage })));
+
+/** Does this URL open on the Map tab? Read once, synchronously, before the first render. */
+export function linkWantsMap(search: string): boolean {
+  return (decodeState(new URLSearchParams(search)).tab ?? 'map') === 'map';
+}
 
 /** Which basemap a theme change reaches for, prototype line 561. */
 export type ThemeBaseKey = 'dark' | 'light';
@@ -95,6 +127,27 @@ function Shell({
   const { theme, setTheme } = useTheme();
   const [state, patch] = useAppState();
   const [tab, setTab] = useState<Tab>('map');
+  /* The one-way latch above. Seeded from the URL so a `?tab=table` link never requests the map
+   * chunk, flipped the first time the reader NAVIGATES to the Map tab.
+   *
+   * `prevTab` is what makes "navigates" different from "happens to be mounted on", and it is
+   * load-bearing rather than defensive. `tab`'s initial value is `'map'` whatever the link says,
+   * because `useDeepLink` applies `?tab=` in an effect - so an effect that simply read
+   * `tab === 'map'` would latch on the first commit of every page, including the table link this
+   * exists to spare, and the saving would be imaginary. Measured: it did, and two tests below
+   * caught it. The first commit is therefore ignored outright; the seed has already decided it.
+   * StrictMode's double mount runs this twice, which is why the guard is a stored tab rather
+   * than a "first run" boolean - the second run sees `prevTab === tab` and does nothing. */
+  const [mapWanted, setMapWanted] = useState(() => linkWantsMap(window.location.search));
+  const prevTab = useRef<Tab | null>(null);
+  useEffect(() => {
+    if (prevTab.current === null || prevTab.current === tab) {
+      prevTab.current = tab;
+      return;
+    }
+    prevTab.current = tab;
+    if (tab === 'map') setMapWanted(true);
+  }, [tab]);
   const [framed, setFramed] = useState(false);
   const fetched = useSuhiData(injectedData === undefined);
   const data = injectedData === undefined ? fetched.data : injectedData;
@@ -287,7 +340,16 @@ function Shell({
               style={offMap}
             >
               <div className="mapwrap" id="mapwrap">
-                <MapStage data={data} baseKey={baseKey} onFactorChange={onFactorChange} />
+                {/* `fallback={null}` rather than a placeholder: `.mapwrap` already holds the
+                  * `.loading` div below until the data lands, and a second spinner inside the
+                  * same box would be a visible addition the original has no counterpart for.
+                  * The chunk resolves in parallel with the three data fetches, so on the
+                  * default tab there is nothing extra to wait for. */}
+                {mapWanted ? (
+                  <Suspense fallback={null}>
+                    <MapStage data={data} baseKey={baseKey} onFactorChange={onFactorChange} />
+                  </Suspense>
+                ) : null}
                 {/* The original REMOVED this element once Promise.all settled (prototype line
                   * 600) and wrote the failure into it from the `.catch` (line 607) - which
                   * could never work, because by then it had been removed and the handler threw
