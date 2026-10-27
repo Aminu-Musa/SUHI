@@ -1434,3 +1434,47 @@ eye:**
   that decision made concrete.
 
 *Both are raised with the user, not fixed.*
+
+### Task 10 — Reports and export
+
+Commits `7abaaf1` and `ea3207f`. Controller-verified: **390 tests / 33 files**, audit 80/80, build
+clean, fidelity 6/6. **`PENDING` and `CONTENT_PENDING` are both now EMPTY** - every selector the
+guard knows about is actively compared, which was ruling 2's whole point.
+
+**Ruling 47 - `.expgrid` gets a box exemption citing §7.7.** Brought to me with the measurement
+rather than registered: width is **identical** on both pages (572.83 Nocturne, 544.00 Modernist) and
+only height differs - 316.42 to 28, and 360.92 to 30 - because six stacked cards collapse to one
+control row. The container and its column position are unchanged, which is exactly what §7.7 asked
+for. Registered.
+
+**Ruling 48 - print forces the MODERNIST token set, and the audit already covers it.**
+The implementer raised a real gap: print needs a light ground regardless of theme, and the ink scale
+is derived against the three **screen** grounds only - so Nocturne's *lightened* ink on white is a
+pairing nothing has measured. It offered two fixes and took neither.
+*Checked, and the answer is cleaner than either:* Modernist's `--ui-tip` **is `#ffffff`**, and
+`--ui-tip` is one of the three audited grounds. **So Modernist's ink scale is already proven at
+4.5:1 on pure white.** Print therefore forces the Modernist tokens wholesale and inherits that proof.
+No fourth `TEXT_GROUND`, and no re-derivation that would churn all 22 ink values.
+*Cost if wrong:* a printed brief in Modernist colours while the screen is Nocturne - which is what
+printing a dark UI should do anyway.
+
+**Ruling 49 - "Full report (PDF)" must print all 55 cities, or the option goes.**
+`window.print()` prints the DOM and the DOM holds one brief, so the option currently advertises
+"All 55 cities with national summary" and prints one. That is the same defect as the dead Download
+buttons (ruling 40) - a promise the UI makes and does not keep - and fixing it was the reason that
+ruling put export in scope. Task 11 renders 55 briefs into a print-only container. **If that proves
+impractical, remove the option rather than ship it lying.**
+
+**Accepted without change:** "441 rows · 30 fields" is now 441 rows and 34 columns, and the copy is
+left verbatim because it is the original's. `topojson-server` moved devDependencies to dependencies
+at the same 3.0.1 pin - correct, the export genuinely needs it at runtime now - with a three-line
+`.d.ts` because it ships no types. CSV blobs carry a UTF-8 BOM so Excel on Windows does not read
+them as cp1252, while `csvText` itself emits none; the diacritics tests assert **bytes**
+(`e2 80 93`, `c2 b7`, `c3 b9`) through a fatal `TextDecoder`, and the en dash reaches a real export
+because the cluster typology is joined onto the city aggregates - an addition, kept, because a
+typology column makes that file considerably more useful and the card promises "55 rows" without
+fixing the columns.
+
+**Carried to Task 11 or 12:** `signed` now has three identical copies (Drawer, Tooltip, Reports) and
+belongs beside `fmt` in `stats.ts`. Consolidating touches two existing call sites, so the
+implementer left it rather than widening its own diff - correctly.

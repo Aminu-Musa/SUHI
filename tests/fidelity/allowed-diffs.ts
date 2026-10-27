@@ -64,6 +64,11 @@ const FROM_SPEC_8: readonly AllowedDiff[] = [
 ];
 
 /* Task 8's Compare changes, measured and brought to me rather than registered by the implementer. */
+const FROM_TASK_10: readonly AllowedDiff[] = [
+  { target: '#panel-report .expgrid', property: 'box', cite: 'spec §7.7',
+    why: "six export cards become one select plus a Download button that appears after a format is chosen - the user's own adjustment to the original, kept. Measured: width is IDENTICAL on both pages (572.83 Nocturne, 544.00 Modernist) and only the height differs, 316.42 to 28 and 360.92 to 30, because six stacked cards collapse to one control row. The container and its column position are unchanged, which is what §7.7 asked for" },
+];
+
 const FROM_TASK_8: readonly AllowedDiff[] = [
   { target: '#panel-compare .card2', property: 'box', cite: 'spec §7.5',
     why: "the clustered chart's own geometry: nine measures each gain a second bar row, so the card is +151.69px taller in Nocturne and +151.68px in Modernist. Everything else about the card - surface, padding, radius, the 11.5px row type - matches" },
