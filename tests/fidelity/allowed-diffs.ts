@@ -105,6 +105,27 @@ const FROM_TASK_8: readonly AllowedDiff[] = [
  * A PER-MATCH TARGET is written `selector «n»`, the key `matchKey` builds, and exempts that one
  * match. The grain matters: §9.1 bug 7 is about the LAST KPI tile, so `.kpi «6»` is the honest
  * target and a blanket `.kpi` entry would stop comparing all six boxes to excuse one. */
+/* THE REGISTER, not the comparison. This file opens by calling itself "the ONLY sanctioned
+ * departures", and the guard compares no colour at all - `.kpi.hot .val` and `.kpi.cold .val`
+ * above are registered for exactly that reason: they are the human-readable answer to "what
+ * differs from the approved page". Task 12 changed the rendered colour of four more elements
+ * and has to say so here, or the list stops being that answer.
+ *
+ * All four are the SAME change: accent used as TEXT takes the ink token (§3's second table,
+ * "a parallel *-ink scale for every text usage", worked out in §5.2-§5.5). §5.2's inventory was
+ * built from the prototype's render functions and so never reached the stylesheet's own accent
+ * text; `src/styles/accent-text.test.ts` is the guard, and these are the register. */
+const FROM_TASK_12_COLOURS: readonly AllowedDiff[] = [
+  { target: '.pk[aria-pressed=true]', property: 'color', cite: 'spec §3 / §5.4',
+    why: "the selected Compare pickers, `--color-accent` on a 12% accent wash: 3.17:1 in Modernist, found by axe on the default view of the Compare tab while the contrast audit reported 80 of 80 green. Now `--accent-ink` at 4.53. The border and the wash keep the FILL token, because only text moved" },
+  { target: '.ghost[aria-pressed=true]', property: 'color', cite: 'spec §3 / §5.4',
+    why: 'the Framed toggle while it is on: accent text on `--color-bg`, 3.76:1 in Modernist. Now `--accent-ink` at 5.31. Its border is unchanged' },
+  { target: '.zbtn:hover', property: 'color', cite: 'spec §3 / §5.4',
+    why: 'the three map buttons under the pointer, accent text on `--color-bg`. Same pair, same ratios as the Framed toggle; axe cannot test a hover state, so this one was found by reading the stylesheet rather than by measuring the page' },
+  { target: '.swipe .grab', property: 'color', cite: 'spec §3 / §5.4',
+    why: "the swipe handle's ⇄ glyph, 11px accent on `--color-bg`. The smallest of the four and the same substitution" },
+];
+
 const FROM_TASK_12_COUNTS: readonly AllowedDiff[] = [
   { target: '.ghost', property: 'count', counts: [8, 2], cite: 'spec §7.7',
     why: "the original's export panel held SIX `.ghost` Download buttons, one per export card, and ruling 40 found that none of them downloaded anything - they were a promise the UI made and did not keep. §7.7's export is one `#exportFormat` select plus a single Download button that is ABSENT until a format is chosen (not disabled: a disabled control is something a reader can see and cannot use), so at first paint the rebuild has only the header's `#frameToggle` and `#exportBtn`. `.expgrid`'s own box exemption below is the same change measured from the container's side" },
@@ -141,6 +162,7 @@ export const ALLOWED_DIFFS: readonly AllowedDiff[] = [
   ...FROM_SPEC_3,
   ...FROM_SPEC_8,
   ...FROM_SPEC_9,
+  ...FROM_TASK_12_COLOURS,
   ...FROM_TASK_12_COUNTS,
   ...FROM_TASK_12_MATCHES,
 ];

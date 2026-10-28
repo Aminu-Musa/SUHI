@@ -118,7 +118,13 @@ export async function openPage(page: Page, path: string, theme: Theme): Promise<
    * stay symmetric: this is a wait for a selector BOTH pages are required to have, not a
    * concession to the rebuild. If the chunk ever fails to load, this fails loudly - which is the
    * correct outcome and is exactly what the README's MapLibre-worker near-miss was about. */
-  await page.waitForSelector('#map', { timeout: 30_000 });
+  /* 60s, raised from 30s in task 12's fix pass. The review of that task hit this wait once in
+   * three runs of the a11y suite - `TimeoutError ... waiting for locator('#map')`, in page load,
+   * before any assertion. That suite loads ELEVEN pages where the guard loads four, so it meets
+   * a cold start far more often, and a bare 30s is the one budget in this harness that is not
+   * covered by the 180s test timeout around it. A load that genuinely never completes still
+   * fails, 60s later, which is the outcome the README's MapLibre-worker near-miss wants. */
+  await page.waitForSelector('#map', { timeout: 60_000 });
   /* The original REMOVES #loading from the DOM once Promise.all settles (prototype line 600),
    * so `!el` is what fires for it. The rebuild still renders a static `.loading` div that
    * nothing hides until task 6 wires the map, so for that page this predicate is never true and

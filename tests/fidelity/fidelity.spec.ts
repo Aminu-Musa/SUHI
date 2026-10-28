@@ -260,9 +260,21 @@ for (const theme of ['nocturne', 'modernist'] as Theme[]) {
     const compared: string[] = [];
     const boxDiffs: string[] = [];
     compare(SELECTORS, orig, built, compared, boxDiffs);
-    // Guard the guard: if the selector list or the capture broke, `compared` collapses and
-    // every comparison above passes having checked nothing.
-    expect.soft(compared.length, `only ${compared.length} selector(s) were actually compared`).toBeGreaterThan(8);
+    /* Guard the guard: if the selector list or the capture broke, `compared` collapses and
+     * every comparison above passes having checked nothing.
+     *
+     * DISTINCT SELECTORS, not comparisons. Since task 12 a selector contributes one entry per
+     * measured match (up to MATCH_CAP), so a raw length is inflated: a floor of 9 entries is
+     * satisfied by TWO selectors with five matches each - `.ly` alone has six - and the
+     * assertion that exists to catch "every comparison above passed having checked nothing"
+     * would pass while almost nothing was compared. */
+    const mainSelectors = new Set(compared.map(selectorOf)).size;
+    /* 63 of the 65 in SELECTORS, measured. The two that drop out are absent on BOTH pages at
+     * first paint - the drawer's inner selectors are its own pass (3b) - so this is a floor
+     * rather than an equality, set just under the real number instead of at the old 8. */
+    expect
+      .soft(mainSelectors, `only ${mainSelectors} of ${SELECTORS.length} distinct selectors were compared`)
+      .toBeGreaterThan(60);
     expect.soft(boxDiffs, `${boxDiffs.length} box/type difference(s)`).toEqual([]);
 
     /* 3b. THE DRAWER, open on the same city on both pages. A second capture rather than a
@@ -275,9 +287,14 @@ for (const theme of ['nocturne', 'modernist'] as Theme[]) {
     ]);
     const drawerCompared: string[] = [];
     compare(DRAWER_SELECTORS, origDrawer, builtDrawer, drawerCompared, boxDiffs);
+    /* Set equality, as the Compare and table passes below do: all sixteen drawer selectors are
+     * present once a city is open, so there is no reason to accept fewer. */
     expect
-      .soft(drawerCompared.length, `only ${drawerCompared.length} drawer selector(s) were compared`)
-      .toBeGreaterThan(10);
+      .soft(
+        [...new Set(drawerCompared.map(selectorOf))].sort(),
+        `only ${new Set(drawerCompared.map(selectorOf)).size} of ${DRAWER_SELECTORS.length} drawer selectors were compared`,
+      )
+      .toEqual([...DRAWER_SELECTORS].sort());
     expect.soft(boxDiffs, `${boxDiffs.length} box/type difference(s) including the drawer`).toEqual([]);
 
     /* 3c. TASK 8's COMPARE PANEL, with its tab active on both pages. AFTER 3b, not before: the

@@ -11,11 +11,15 @@
  *
  * ONE KNOWN GAP, REPORTED RATHER THAN PAPERED OVER. `.ghost:active` washes its ground at 22%
  * instead of 12% (app.css 39), so accent text on a PRESSED-AND-HELD `.ghost` - the Framed
- * toggle, while the mouse button is down - sits at about 4.3:1 rather than 4.5. Closing it
- * means either deriving every accent ink against the 22% wash, which darkens accent text
- * everywhere to satisfy a state that lasts as long as a click (Modernist #ca0000 -> #b80000),
- * or lightening the original's active wash, which is a design change §3 does not sanction.
- * Neither is this task's to take, so the 12% wash is audited and the 22% one is named here.
+ * toggle, while the mouse button is down - sits at **3.90:1 in Modernist and 4.03:1 in
+ * Nocturne** against the 4.5 floor. (An earlier draft of this note said "about 4.3", which was
+ * an estimate nobody had run; these two are measured, `--accent-ink` on
+ * `mixSrgb(accent, --color-bg, 0.22)`.) Closing it means either deriving every accent ink
+ * against the 22% wash, which darkens accent text everywhere to satisfy a state that lasts as
+ * long as a click (Modernist #ca0000 -> #b80000, Nocturne #9386dc -> #9c8fe5, both landing at
+ * 4.50), or lightening the original's active wash, which is a design change §3 does not
+ * sanction. Neither is this task's to take, so the 12% wash is audited and the 22% one is
+ * named here, with its real number.
  *
  * Every row has the same 4.5 floor. The 3.0 large-text allowance applies to exactly one
  * pair (`.kpi .val`, 24px) and is not needed: the ink scale clears 4.5 everywhere, so no

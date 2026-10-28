@@ -414,10 +414,18 @@ Resulting ratios — every ink token on every text ground, both themes:
 | `--cold-3-ink` | 5.66 / 4.55 / 5.33 | 5.34 / 4.54 / 5.96 |
 | `--cold-4-ink` | 5.60 / 4.50 / 5.27 | 6.76 / 5.74 / 7.55 |
 | `--cold-5-ink` | 5.64 / 4.53 / 5.31 | 11.32 / 9.62 / 12.64 |
-| `--accent-ink` | 5.60 / 4.50 / 5.27 | 5.31 / 4.51 / 5.93 |
+| `--accent-ink` | 5.60 / 4.50 / 5.27 | 5.35 / 4.55 / 5.98 |
 
 Eleven ink token names per theme - ten ramp steps plus `--accent-ink` - and so
 22 values in all, every one passing on all three grounds, in both themes.
+
+**`--accent-ink` clears a fourth ground that no token declares**, and that is why Modernist's
+row is a step darker than the three columns above would require. `.pk[aria-pressed=true]` paints
+accent text on the page washed with `color-mix(in srgb, var(--color-accent) 12%, transparent)`,
+which composites to `#f2dbd7` in Modernist and `#25253b` in Nocturne; the token reads 4.53 and
+4.75 there. Task 12 added it as a per-token ground (`INK_EXTRA_GROUNDS` in
+`scripts/lib/ink.mjs`) rather than as a fourth `TEXT_GROUND`, which would have re-derived all 22
+values to buy a proof one token needed.
 
 ### 5.5 What the ink scale costs
 

@@ -170,11 +170,21 @@ describe('INK_EXTRA_GROUNDS (task 12)', () => {
   });
 
   test('the wash is the accent at 12% over --color-bg, which is where .pk sits', () => {
+    /* LITERAL HEXES, not `mixSrgb(...)` on both sides. The first version of this test computed
+     * the expectation with the same call the implementation makes, so changing 0.12 to 0.22 -
+     * or `--color-bg` to `--ui-panel-2` - in both places left it green: two spellings of one
+     * expression, asserting that a function equals itself. These two values are the browser's
+     * own, read off the rendered page, and they are the same pair `color.test.mjs` pins for
+     * `mixSrgb` and `ink.css` records in its generated comment. */
+    expect(INK_EXTRA_GROUNDS['--accent-ink'](THEME_TOKENS.modernist)).toEqual(['#f2dbd7']);
+    expect(INK_EXTRA_GROUNDS['--accent-ink'](THEME_TOKENS.nocturne)).toEqual(['#25253b']);
+    // And the composite really is the accent over the PAGE, not over a panel: `.pk` sets
+    // `background:none` and `.panel` declares none either, so the ground is `--color-bg`.
     for (const theme of ['nocturne', 'modernist']) {
       const tokens = THEME_TOKENS[theme];
-      expect(INK_EXTRA_GROUNDS['--accent-ink'](tokens)).toEqual([
-        mixSrgb(tokens['--color-accent'], tokens['--color-bg'], 0.12),
-      ]);
+      expect(INK_EXTRA_GROUNDS['--accent-ink'](tokens)[0]).not.toBe(
+        mixSrgb(tokens['--color-accent'], tokens['--ui-panel-2'], 0.12),
+      );
     }
   });
 

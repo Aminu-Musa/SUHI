@@ -58,8 +58,13 @@ export const INK_SOURCES = Object.freeze({
  * wash, so the wash is declared for that token alone. Measured cost: Modernist's `--accent-ink`
  * moves one 0.002 step in L, #cb0000 → #ca0000; Nocturne's is unchanged, already at 4.75 there.
  *
- * The 12% wash is the worst case in the stylesheet and therefore covers the 10% one under
- * `.ghost:hover` as well: a lighter wash sits closer to its ground, which can only help.
+ * 12% IS NOT THE WORST WASH IN THE STYLESHEET, and saying so here would be the sentence a
+ * reader trusts while deciding the derivation is complete. It covers the 10% one under
+ * `.ghost:hover` - a lighter wash sits closer to its ground, which can only help - but
+ * `.ghost:active` washes at 22% (app.css 39), where this token reads 3.90 (Modernist) and 4.03
+ * (Nocturne). That gap is open and reported, not closed: see the module comment in
+ * `scripts/audit-contrast.mjs` for the two ways to close it and why neither was this task's to
+ * take. 12% is the worst wash that is a RESTING state, which is the line actually drawn here.
  *
  * Each entry takes the theme's token map and returns a list of ground hexes.
  */

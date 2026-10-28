@@ -24,6 +24,16 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { REBUILD, openPage, type Theme } from './fidelity/pages';
 
+/* ONE RETRY, AND ONLY IN THIS FILE. `playwright.config.ts` sets `retries: 0` globally on the
+ * principle that a flaky fidelity guard is worse than none - every failure there must mean
+ * something, because that suite's whole job is to compare two pages in one engine and a retry
+ * could hide a real difference. This suite does not do that: it asserts computed styles, focus
+ * order and axe results on ONE page, all deterministic, and the flake observed in review was a
+ * page-load timeout before any assertion ran. A retry cannot mask an a11y finding, and a second
+ * consecutive failure is still a red build. The timeout that flaked is also raised at its
+ * source (tests/fidelity/pages.ts); this is the belt to that braces. */
+test.describe.configure({ retries: 1 });
+
 const THEMES: readonly Theme[] = ['nocturne', 'modernist'];
 const TABS = ['map', 'compare', 'table', 'report'] as const;
 
@@ -102,6 +112,30 @@ test.describe('spec §9.1 bug 8 — prefers-reduced-motion', () => {
     for (const row of await read()) {
       expect(row.duration, `${row.sel} must not animate under reduce`).toMatch(still);
     }
+  });
+});
+
+test.describe('spec §9.1 bug 8 — the night map is hidden from BOTH trees', () => {
+  test('the night canvas is not a tab stop, because its container is aria-hidden', async ({ page }) => {
+    await openPage(page, REBUILD, 'nocturne');
+
+    /* MapLibre gives an interactive map's canvas `tabindex="0"`, so `#mapNight` - which is
+     * `aria-hidden="true"`, being the same picture as the day map under a clip path - offered a
+     * keyboard reader a stop inside a subtree their screen reader had been told does not exist.
+     * `MapStage` sets `-1` on it after construction.
+     *
+     * Asserted DIRECTLY as well as through axe: the axe test above is the one that found this,
+     * but it reaches the node only while the exclusion stays narrowed to `#map canvas`, and a
+     * reader widening that exclusion would not be warned. This is the line that names the
+     * attribute. Mutation-checked by deleting the `setAttribute` call in MapStage.tsx. */
+    const night = page.locator('#mapNight canvas');
+    await expect(night).toHaveCount(1);
+    await expect(night).toHaveAttribute('tabindex', '-1');
+
+    /* And the day canvas is left alone - it IS the keyboard-reachable map, and MapLibre's own
+     * arrow-key panning moves both instances through the camera sync. A fix that made both
+     * canvases unfocusable would take keyboard panning away entirely. */
+    await expect(page.locator('#map canvas').first()).toHaveAttribute('tabindex', '0');
   });
 });
 
@@ -280,12 +314,19 @@ test.describe('axe', () => {
 
         const { violations } = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-          /* The canvas the map draws into. MapLibre renders a `<canvas>` with no text
+          /* `#map canvas`, NOT every canvas - and the difference is the whole of the
+           * aria-hidden-focus finding below.
+           *
+           * The DAY canvas is excluded because MapLibre renders a `<canvas>` with no text
            * alternative and axe cannot know the overlay beside it is the alternative; §7.4's
-           * `.ovl` blocks carry the title, the subtitle and the zoom disclosure in text. The
-           * EXCLUSION IS THE CANVAS ONLY - every control MapLibre puts in the DOM stays in
-           * scope. */
-          .exclude('canvas')
+           * `.ovl` blocks carry the title, the subtitle and the zoom disclosure in text.
+           *
+           * THE NIGHT CANVAS STAYS IN SCOPE. A bare `.exclude('canvas')` was what this file
+           * shipped first, and it excluded the very node the `aria-hidden-focus` violation
+           * attaches to - so the fix for that violation (MapStage gives the night canvas
+           * `tabindex="-1"`) could have been reverted with the whole suite still green. Every
+           * control MapLibre puts in the DOM stays in scope either way. */
+          .exclude('#map canvas')
           .analyze();
 
         const summary = violations.map(

@@ -1663,3 +1663,77 @@ layer order holds, is tested in `CityCircles.test.tsx`, and its `ALLOWED_DIFFS` 
 (item 10); bug 9's single `data/` directory now has a test that WALKS the tree, so an untracked
 copy is caught too (item 7); `signed()` was already consolidated into `stats.ts` by `60a6a77` -
 all three call sites import it, and Drawer's `signedF` is a different function with one caller.
+
+### Task 12 — final review and fix pass
+
+Whole-branch review of `60a6a77..2fb5d07` by a fresh reviewer on the most capable model, against
+the plan's Review Focus and this ledger's rulings. It re-ran every gate, recomputed the colour
+maths independently rather than trusting ruling 52, and checked Review Focus 1-5 against current
+code: none is regressed by this task. **No Critical findings.** Five Important, ten Minor.
+
+**Re-graded two of its Minors UP, by effect rather than by label**, and fixed them in the same
+pass:
+- *Minor 7 -> Important.* `ink.test.mjs`'s "the wash is the accent at 12% over `--color-bg`" had
+  the SAME EXPRESSION on both sides of the `toEqual`, one of them read out of the implementation
+  it tests. Changing 0.12 to 0.22 in both places left it green. In this repository a test that
+  passes while asserting nothing is the defect the README is organised around, whatever else
+  covers the value - and ruling 52 had reported mutation-checking the two regression guards in
+  `a11y.spec.ts` while leaving this one unchecked. Now pins the literal `#f2dbd7` / `#25253b`
+  and asserts the ground is NOT the panel; mutation-checked, three tests go red.
+- *Minor 11 -> Important.* The four accent-text colour moves were not in `ALLOWED_DIFFS`. The
+  guard compares no colour, so the two existing `property: 'color'` entries exist purely as the
+  register a reader consults for "what differs from the approved page" - and this task changed
+  the rendered colour of four elements without adding to it. `FROM_TASK_12_COLOURS` now carries
+  all four with their measured before-and-after ratios.
+
+**Fixed, Important:**
+1. **A fifth copy of the changed token value, in the BINDING spec.** §5.4's ratio table still read
+   `5.31 / 4.51 / 5.93` for Modernist `--accent-ink` - `#cb0000`'s figures. Verified: `#ca0000` is
+   **5.35 / 4.55 / 5.98**, as `ink.css` and the audit both say. Ruling 52 said "four copies
+   followed"; there were five, and the one left stale was in the document the plan calls binding,
+   contradicting its own declaration block four lines above. Corrected, with a paragraph added
+   under the table explaining why that row sits a step darker than its three columns require.
+2. **The night-canvas fix was guarded by nothing.** `aria-hidden-focus` attaches to the CANVAS,
+   and `.exclude('canvas')` removed exactly that node - so deleting the `setAttribute` line in
+   `MapStage.tsx` left `npm test`, the guard and the a11y suite all green while a keyboard reader
+   was again tabbed into an `aria-hidden` subtree. Of the four defects this suite is advertised
+   as having found, it was the only one revertible in silence. Fixed twice over: the exclusion is
+   narrowed to `#map canvas` so axe's own rule reaches the night one again, and a test asserts the
+   attribute by name. Mutation-checked: both go red.
+5. **Two "guard the guard" floors still counted per-match keys.** The three later passes were
+   folded through `selectorOf`; the main and drawer passes were not, so the main floor of 9 was
+   satisfiable by two selectors with five matches each (`.ly` alone has six) and the drawer's 11
+   by two. Measured the real numbers - 63 of 65 and 16 of 16 - and set the main floor at 60 with
+   the drawer on set equality, the shape the other passes use.
+
+**Ruling 60 - the `.ghost:active` figure I reported was an estimate, and it was wrong by 0.6.**
+I wrote "about 4.3:1" without running it. Measured: **3.896 Modernist, 4.025 Nocturne**. That
+matters because the whole point of raising it rather than fixing it is that the user rules on it,
+and 4.3 reads as a rounding problem where 3.90 is a plain AA failure. Corrected in
+`audit-contrast.mjs`, and the false sentence in `ink.mjs` claiming "the 12% wash is the worst case
+in the stylesheet" is corrected too - 12% is the worst RESTING wash, which is the line actually
+drawn. The remedies named were right (verified: `#b80000` -> 4.503, `#9c8fe5` -> 4.501).
+*Cost if wrong:* none; it is a number, now measured.
+
+**Ruling 61 - one retry for the a11y suite only, plus the timeout that flaked raised at source.**
+The reviewer hit `waitForSelector('#map')` timing out at 30s once in three runs, in page load,
+before any assertion - and CI now hard-gates on `npm run a11y` with `retries: 0`. The wait is
+raised to 60s in `pages.ts` (the cause: that suite loads eleven pages where the guard loads four,
+so it meets a cold start far more often, and 30s was the one budget not covered by the 180s test
+timeout around it), and this file alone takes `retries: 1`. The global zero stands for the guard,
+whose job is comparing two pages in one engine where a retry could hide a real difference; this
+suite asserts computed styles, focus order and axe results on ONE page, all deterministic, so a
+retry cannot mask an a11y finding and a second consecutive failure is still red.
+*Cost if wrong:* a genuinely intermittent a11y regression takes two runs to show instead of one.
+
+**Deferred as Minor** (in the final message, not fixed): no stub-bucket test for the Worker's
+`fetch` handler, which leaves the 200-vs-206 choice uncovered though the reviewer read it and
+found no error; the handler 500s rather than 404s on a malformed percent-escape; `ACCENT_WASH` is
+one hardcoded row id for every `INK_EXTRA_GROUNDS` entry, so a second entry would collide;
+`.cbar .v`'s exemption prose describes the fill rather than the value; the keyboard sweep's
+identity string is not injective, so two class-only controls with no id would collide;
+`public/_headers` advertises `Accept-Ranges` without a note that the support is Pages' own;
+`data-layout.test.mjs` imports an unused `statSync`.
+
+**Final verification after the fix pass:** 501 tests / 41 files, audit 82/82, ink unchanged, tsc
+clean, build clean, fidelity 11/11, a11y 12/12.
