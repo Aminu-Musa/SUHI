@@ -1606,3 +1606,60 @@ are there so a handle that later gains an ease cannot ease behind a dragging poi
 reasonable - but a test asserting "0s under reduce" for them would be the README's
 six-deleted-selectors trap written fresh. They are asserted 0s in BOTH states, which is what is
 true, and the suppression claim is made only for `.drawer` and `.tip`, which do animate.
+
+**Steps 3-5, commits `4e27348` and `2fb5d07`.** Verified: 501 tests / 41 files, audit 82/82,
+ink unchanged, fidelity 11/11, a11y 11/11, build clean, screenshots in both themes.
+
+**Ruling 54 - when match counts disagree, only match 0 is compared.** The first run of the
+every-match guard compared match n against match n regardless, and reported `.seg button «3»
+font-size: 10.5px vs 11.5px` three times: the basemap segment's buttons on one page against the
+contour segment's on the other, because the original has five basemap buttons and the rebuild
+two. Index alignment assumes the nth match is the same element on both pages, which stops being
+true the moment a node is added before it. The COUNT difference is the finding in that case.
+*Cost if wrong:* matches 2..n of eight selectors go uncompared; all eight have a cited count
+exemption, so the uncompared set is known rather than silent.
+
+**Ruling 55 - a count exemption names the EXACT pair it sanctions.** `.note` is the case that
+forced it: 25 vs 20 is two sanctioned changes netting five (§7.7 drops six export-card notes,
+§7.5 adds `#cmpLegend`), and a bare "this selector may differ" would go on passing at 25 vs 19
+after someone deleted `#cmpLegend` too. Mutation-checked: a pair edited to [25, 19] fails with
+both numbers named. *Cost if wrong:* a legitimate future change to one of those eight selectors
+fails the guard until its pair is updated, which is the intended friction.
+
+**Ruling 56 - `ALLOWED_DIFFS` box targets may name ONE match, written `selector «n»`.** §9.1
+bug 7 is about the LAST KPI tile; a blanket `.kpi` entry would stop comparing all six boxes in
+order to excuse one. Three entries use the new grain: `.kpi «6»`, `.kpi .sub «5»`, `.ly .chip
+«4»`. *Cost if wrong:* the targets are positional, so reordering the KPI tiles would move the
+exemption to the wrong tile - and the count check plus the five compared siblings are what would
+catch that.
+
+**Ruling 57 - vitest 5.0.5, taken.** Ruling 19 deferred the breaking upgrade until the
+dependency surface was final. 501 tests across 41 files pass with no code or config change, and
+`npm audit` is 0 outright rather than 0 under `--omit=dev`. *Cost if wrong:* a vitest 5 behaviour
+change the suite does not exercise; the suite is 41 files over every module, so the exposure is
+small and the alternative was shipping a critical advisory in the toolchain indefinitely.
+
+**Ruling 58 - the bundle item ships a SIZE budget, never a timing one.** Item 8 asked to measure
+and report, which is done (README's Weight section, numbers below). A timing assertion in CI
+would be flaky, and `playwright.config.ts`'s own rule - "a flaky fidelity guard is worse than
+none" - applies to every guard here. The budget's load-bearing assertion is not the kilobytes but
+the split: it fails if `maplibregl` appears in the entry chunk. Mutation-checked with a static
+import; two of three tests go red. *Cost if wrong:* a slow-but-small regression passes.
+
+**MEASURED, for the record** (1.6 Mbps / 150 ms RTT / 4x CPU, uncompressed as the test server
+serves it): Map tab **2,042.9 kB over 6 responses, ~15 s to interactive**; `?tab=table` deep link
+**434.5 kB over 3, ~8.5 s**. Gzipped as Pages serves it: entry **~142 kB**, map chunk **~303 kB**.
+The 1.6 MB gap is the dynamic import of `MapStage`, measured rather than asserted.
+
+**Ruling 59 - the R2 Worker is committed but NOT wired into any script.** `deploy/basemap-worker/`
+holds the handler, its range parser (ten tests) and `wrangler.toml`; the README has the four
+commands in order. The bucket, the account and the domain are the user's, and `wrangler deploy`
+running from a build would be a side effect nobody asked for. *Cost if wrong:* deployment stays a
+manual step, which is what it already was.
+
+**Items verified rather than re-fixed:** both `.claude/launch.json` configs start and answer 200
+(item 9), including the prototype's `../data/cities.json` fetch that ruling 22 was about; bug 10's
+layer order holds, is tested in `CityCircles.test.tsx`, and its `ALLOWED_DIFFS` entry cites it
+(item 10); bug 9's single `data/` directory now has a test that WALKS the tree, so an untracked
+copy is caught too (item 7); `signed()` was already consolidated into `stats.ts` by `60a6a77` -
+all three call sites import it, and Drawer's `signedF` is a different function with one caller.
