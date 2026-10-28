@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, test, expect } from 'vitest';
 import { renderInkCss, INK_CSS_PATH } from '../ink.mjs';
-import { hexToOklch, oklchToHex, contrastRatio } from './color.mjs';
+import { hexToOklch, oklchToHex, contrastRatio, mixSrgb } from './color.mjs';
 import { THEME_TOKENS } from './tokens.mjs';
-import { deriveInk, INK_TOKENS, INK_STEP, TEXT_GROUNDS, TEXT_FLOOR, INK_SOURCES } from './ink.mjs';
+import { deriveInk, INK_TOKENS, INK_STEP, TEXT_GROUNDS, TEXT_FLOOR, INK_SOURCES, INK_EXTRA_GROUNDS } from './ink.mjs';
 
 const groundsOf = (theme) => TEXT_GROUNDS.map((g) => THEME_TOKENS[theme][g]);
 
@@ -34,7 +34,9 @@ const SPEC_5_4 = {
     '--cold-3-ink': '#2965a8',
     '--cold-4-ink': '#23539b',
     '--cold-5-ink': '#12306b',
-    '--accent-ink': '#cb0000',
+    // TASK 12: #cb0000 until the 12% accent wash became a ground for this token - one 0.002
+    // step. See INK_EXTRA_GROUNDS below and spec §5.4.
+    '--accent-ink': '#ca0000',
   },
 };
 
@@ -145,5 +147,57 @@ describe('INK_TOKENS', () => {
 
   test('derives --accent-ink from --color-accent, not from --accent-fill', () => {
     expect(INK_SOURCES['--accent-ink']).toBe('--color-accent');
+  });
+});
+
+/* TASK 12. The ink scale was derived against the three DECLARED grounds, and `.pk[aria-pressed
+ * =true]` (app.css 251) puts accent text on a ground that is not one of them: the page washed
+ * with `color-mix(in srgb, var(--color-accent) 12%, transparent)`. That composite was never
+ * measured, and it was the pair that failed - axe read 3.17:1 on four Compare pickers in
+ * Modernist, which is the first real contrast failure the audit's 80 green rows did not see.
+ *
+ * TEXT_GROUNDS IS STILL THREE. Adding a fourth global ground would re-derive all 22 values
+ * across both themes, which is the cost ruling 48 declined for print and declines again here;
+ * `src/styles/print.test.ts` pins the count at 3 and still passes. The wash is a ground for
+ * ONE token, because `--accent-ink` is the only ink that ever sits on it, so it is declared per
+ * token instead. Cost: Modernist's `--accent-ink` moves one 0.002 step, #cb0000 -> #ca0000. */
+describe('INK_EXTRA_GROUNDS (task 12)', () => {
+  test('names the 12% accent wash as an extra ground for --accent-ink alone', () => {
+    expect(Object.keys(INK_EXTRA_GROUNDS)).toEqual(['--accent-ink']);
+    // Still three GLOBAL grounds: the whole point of a per-token extra is not re-deriving 22
+    // values. print.test.ts asserts the same count from the other side.
+    expect(TEXT_GROUNDS).toHaveLength(3);
+  });
+
+  test('the wash is the accent at 12% over --color-bg, which is where .pk sits', () => {
+    for (const theme of ['nocturne', 'modernist']) {
+      const tokens = THEME_TOKENS[theme];
+      expect(INK_EXTRA_GROUNDS['--accent-ink'](tokens)).toEqual([
+        mixSrgb(tokens['--color-accent'], tokens['--color-bg'], 0.12),
+      ]);
+    }
+  });
+
+  test('--accent-ink clears 4.5:1 on the wash as well as on all three grounds', () => {
+    for (const theme of ['nocturne', 'modernist']) {
+      const tokens = THEME_TOKENS[theme];
+      const ink = INK_TOKENS(theme)['--accent-ink'];
+      const grounds = [...TEXT_GROUNDS.map((g) => tokens[g]), ...INK_EXTRA_GROUNDS['--accent-ink'](tokens)];
+      for (const ground of grounds) {
+        const ratio = contrastRatio(ink, ground);
+        expect(ratio, `${theme} --accent-ink (${ink}) on ${ground} is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+          TEXT_FLOOR,
+        );
+      }
+    }
+  });
+
+  test('--color-accent itself FAILS on the wash, so the move to the ink token is what fixes it', () => {
+    /* Without this the test above would pass against a page that never moved: it would be
+     * measuring the ink token while the stylesheet painted the fill. 3.17:1 is what axe read
+     * off the rendered page before the change. */
+    const tokens = THEME_TOKENS.modernist;
+    const wash = INK_EXTRA_GROUNDS['--accent-ink'](tokens)[0];
+    expect(contrastRatio(tokens['--color-accent'], wash)).toBeLessThan(TEXT_FLOOR);
   });
 });

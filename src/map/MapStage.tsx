@@ -364,6 +364,21 @@ export function MapStage({ data, baseKey, onFactorChange }: MapStageProps) {
     const day = build(dayHost.current, 'day');
     const night = build(nightHost.current, 'night');
     instances.current = [day, night];
+
+    /* TASK 12, axe `aria-hidden-focus`. MapLibre gives an interactive map's canvas
+     * `tabindex="0"`, so the NIGHT canvas was a tab stop inside an `aria-hidden="true"`
+     * container: a keyboard reader tabbed into an element their screen reader had been told
+     * does not exist, and tests/a11y.spec.ts measured the stop in the real sweep.
+     *
+     * The fix is the tabindex, NOT `interactive: false`. The night instance has to keep its
+     * handlers and its pointer events: `clip-path` clips hit-testing as well as painting, so
+     * everything inside the swipe band - hover, click, drag, wheel - is handled by THIS
+     * instance and nothing underneath can receive it (see the hit-test note below). Dropping
+     * interactivity would leave the right-hand band unpannable.
+     *
+     * Nothing is lost by the keyboard either, because the two cameras are synced: panning the
+     * day map with the arrow keys moves the night one in the same frame. */
+    night.map.getCanvas().setAttribute('tabindex', '-1');
     setDayMap(day.map);
 
     /* DEV-ONLY HANDLE. `import.meta.env.DEV` is statically false in a production build, so Rollup

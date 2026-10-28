@@ -4,6 +4,9 @@
  * moved in steps of 0.002 until the colour clears 4.5:1 on all of
  * --color-bg, --ui-panel-2, --ui-tip. Nocturne lifts, Modernist drops.
  *
+ * A token with a FOURTH ratio also had to clear an undeclared ground that only it sits on
+ * (INK_EXTRA_GROUNDS in scripts/lib/ink.mjs) - the extra ground is named in its comment.
+ *
  * The fill tokens in suhi-tokens.css are unchanged and remain the map/legend/bar
  * colours. Text uses these. Edit scripts/lib/ink.mjs, never this file. */
 
@@ -18,7 +21,7 @@ html[data-theme="nocturne"] {
   --cold-3-ink: #5a96d4; /* from #5793d1; 5.66 / 4.55 / 5.33 */
   --cold-4-ink: #5e93dc; /* from #3467ad; 5.60 / 4.50 / 5.27 */
   --cold-5-ink: #6d92d5; /* from #20407c; 5.64 / 4.53 / 5.31 */
-  --accent-ink: #9386dc; /* from #9184d9; 5.60 / 4.50 / 5.27 */
+  --accent-ink: #9386dc; /* from #9184d9; 5.60 / 4.50 / 5.27 / 4.75 (+ #25253b) */
 }
 
 html[data-theme="modernist"] {
@@ -32,5 +35,5 @@ html[data-theme="modernist"] {
   --cold-3-ink: #2965a8; /* from #3d79bd; 5.34 / 4.54 / 5.96 */
   --cold-4-ink: #23539b; /* unchanged; 6.76 / 5.74 / 7.55 */
   --cold-5-ink: #12306b; /* unchanged; 11.32 / 9.62 / 12.64 */
-  --accent-ink: #cb0000; /* from #ec3013; 5.31 / 4.51 / 5.93 */
+  --accent-ink: #ca0000; /* from #ec3013; 5.35 / 4.55 / 5.98 / 4.53 (+ #f2dbd7) */
 }

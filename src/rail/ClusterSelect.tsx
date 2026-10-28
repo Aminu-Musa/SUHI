@@ -55,11 +55,13 @@ export function ClusterSelect({ clusters }: { readonly clusters: readonly Cluste
   return (
     <div>
       <div className="sec-h">
-        <span data-i18n="cluster_typology">{t('cluster_typology')}</span>
+        <span id="clusterLabel" data-i18n="cluster_typology">{t('cluster_typology')}</span>
         <span id="clusterCount">{clusters.length > 0 ? `k=25 · ${clusters.length} occupied` : ''}</span>
       </div>
       <select
         id="cluster"
+        /* TASK 12, axe `select-name` (critical) - see the note on `#opacity` in Layers.tsx. */
+        aria-labelledby="clusterLabel"
         className="search"
         value={state.cluster}
         onChange={(e) => patch({ cluster: e.target.value })}

@@ -12,8 +12,23 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = Number(process.env.FIDELITY_PORT ?? 5179);
 
+/* An escape hatch for a machine that cannot run `npx playwright install`.
+ *
+ * CI does run it (.github/workflows/ci.yml) and leaves this unset, so the pinned browser is
+ * what the guard measures there - which matters, because a Chromium a few builds apart lays
+ * text out a fraction differently and the fidelity guard compares boxes to 0.01px. On a sandbox
+ * with its own prebuilt Chromium and no download, point this at it and the suites run; the
+ * guard is then comparing two pages in THAT engine, which is still the question it asks (both
+ * pages, one engine), while the a11y suite below does not depend on the build at all. */
+const CHROMIUM = process.env.PLAYWRIGHT_CHROMIUM_PATH;
+
 export default defineConfig({
-  testDir: './tests/fidelity',
+  /* `./tests`, not `./tests/fidelity`, since Task 12: `tests/a11y.spec.ts` is the second suite
+   * that needs a real browser, and for the same reason the guard does. jsdom evaluates no media
+   * query, computes no transition and moves no focus, so `prefers-reduced-motion` and a Tab
+   * sweep cannot be asserted beside the component tests - see the header of that file. The two
+   * npm scripts stay separate (`fidelity` and `a11y`) so a failure names which contract broke. */
+  testDir: './tests',
   /* Always rebuilds /dist first - see the file for the stale-output near-miss that put it here. */
   globalSetup: './tests/fidelity/global-setup.ts',
   /* Serial, and measured rather than assumed. The ORIGINAL page costs ~25 s to load: Leaflet,
@@ -40,7 +55,15 @@ export default defineConfig({
    * `data-theme` attribute the page sets from localStorage - not a Playwright capability - so a
    * per-theme project would run every test twice against the same two themes: a 2x2 cross
    * product where only the diagonal means anything. */
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        ...(CHROMIUM ? { launchOptions: { executablePath: CHROMIUM, args: ['--no-sandbox'] } } : {}),
+      },
+    },
+  ],
   webServer: {
     // Serving only. The build is in globalSetup, because a reused server skips this command
     // entirely and the guard would then measure stale dist output.

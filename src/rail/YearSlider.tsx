@@ -48,12 +48,15 @@ export function YearSlider() {
   return (
     <div>
       <div className="sec-h">
-        <span data-i18n="year">{t('year')}</span>
+        <span id="yearLabel" data-i18n="year">{t('year')}</span>
         <span id="yearVal">{state.year}</span>
       </div>
       <input
         type="range"
         id="year"
+        /* TASK 12, axe `label` (critical) - see the note on `#opacity` in Layers.tsx for why
+         * the name is borrowed from the visible heading instead of written here. */
+        aria-labelledby="yearLabel"
         min={YEAR_MIN}
         max={YEAR_MAX}
         step={1}

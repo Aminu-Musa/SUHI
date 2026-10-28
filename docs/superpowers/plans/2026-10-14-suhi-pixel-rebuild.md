@@ -114,7 +114,7 @@ The last test is the one that matters; it carries the full expected table:
 | `--cold-3-ink` | `#5a96d4` | `--cold-3-ink` | `#2965a8` |
 | `--cold-4-ink` | `#5e93dc` | `--cold-4-ink` | `#23539b` |
 | `--cold-5-ink` | `#6d92d5` | `--cold-5-ink` | `#12306b` |
-| `--accent-ink` | `#9386dc` | `--accent-ink` | `#cb0000` |
+| `--accent-ink` | `#9386dc` | `--accent-ink` | `#ca0000` (`#cb0000` until task 12) |
 
 Search step is `0.002` in OKLCH L, starting at `0` (so an already-passing colour returns `moved: 0`). A different step size yields different hex values and fails this test — the step is part of the contract.
 

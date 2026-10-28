@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { contrastRatio } from './lib/color.mjs';
 import { THEME_TOKENS, THEMES } from './lib/tokens.mjs';
-import { INK_TOKENS, INK_SOURCES, TEXT_GROUNDS, TEXT_FLOOR, INK_STEP } from './lib/ink.mjs';
+import { INK_TOKENS, INK_SOURCES, TEXT_GROUNDS, TEXT_FLOOR, INK_STEP, INK_EXTRA_GROUNDS } from './lib/ink.mjs';
 
 export const INK_CSS_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'styles', 'ink.css');
 
@@ -23,6 +23,9 @@ export function renderInkCss() {
     ` * moved in steps of ${INK_STEP} until the colour clears ${TEXT_FLOOR.toFixed(1)}:1 on all of`,
     ` * ${TEXT_GROUNDS.join(', ')}. Nocturne lifts, Modernist drops.`,
     ' *',
+    ' * A token with a FOURTH ratio also had to clear an undeclared ground that only it sits on',
+    ' * (INK_EXTRA_GROUNDS in scripts/lib/ink.mjs) - the extra ground is named in its comment.',
+    ' *',
     ' * The fill tokens in suhi-tokens.css are unchanged and remain the map/legend/bar',
     ' * colours. Text uses these. Edit scripts/lib/ink.mjs, never this file. */',
     '',
@@ -34,9 +37,14 @@ export function renderInkCss() {
     lines.push(`html[data-theme="${theme}"] {`);
     for (const [name, hex] of Object.entries(ink)) {
       const from = THEME_TOKENS[theme][INK_SOURCES[name]];
-      const ratios = grounds.map((ground) => contrastRatio(hex, ground).toFixed(2)).join(' / ');
+      /* The extra grounds are printed too, and that is the point: Modernist's --accent-ink
+       * moved a step further than the three declared grounds asked for, and a reader comparing
+       * the hex against the three ratios would find the last step unexplained. */
+      const extra = INK_EXTRA_GROUNDS[name]?.(THEME_TOKENS[theme]) ?? [];
+      const ratios = [...grounds, ...extra].map((ground) => contrastRatio(hex, ground).toFixed(2)).join(' / ');
       const note = hex === from.toLowerCase() ? 'unchanged' : `from ${from}`;
-      lines.push(`  ${name}: ${hex}; /* ${note}; ${ratios} */`);
+      const also = extra.length ? ` (+ ${extra.join(', ')})` : '';
+      lines.push(`  ${name}: ${hex}; /* ${note}; ${ratios}${also} */`);
     }
     lines.push('}', '');
   }

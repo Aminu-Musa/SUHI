@@ -396,7 +396,7 @@ html[data-theme="modernist"]{
   --cold-3-ink:#2965a8;  /* dL 0.066 */
   --cold-4-ink:#23539b;  /* unchanged */
   --cold-5-ink:#12306b;  /* unchanged */
-  --accent-ink:#cb0000;  /* dL 0.090 */
+  --accent-ink:#ca0000;  /* dL 0.092 — task 12: one step beyond the three declared grounds, to clear the 12% accent wash under .pk[aria-pressed=true] */
 }
 ```
 

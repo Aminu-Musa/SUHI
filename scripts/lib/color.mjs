@@ -60,3 +60,21 @@ export function contrastRatio(a, b) {
   const lb = relativeLuminance(b);
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
+
+/**
+ * `foreground` composited over `ground` at `pct`, in sRGB — the maths CSS does for
+ * `color-mix(in srgb, <foreground> <pct>%, <ground>)`.
+ *
+ * Gamma-encoded channels, rounded to 8 bits, because that is what `in srgb` means and what
+ * the browser computes: it is NOT the linear-light average, and the two differ by enough to
+ * change a contrast verdict. Verified against a rendered page in color.test.mjs.
+ *
+ * Exists for the one text ground that is not a declared token: the 12% accent wash under
+ * `.pk[aria-pressed=true]`. See INK_EXTRA_GROUNDS in ink.mjs.
+ */
+export function mixSrgb(foreground, ground, pct) {
+  if (!(pct >= 0 && pct <= 1)) throw new Error(`mixSrgb: pct must be 0..1, got ${pct}`);
+  const [a, b] = [parseHex(foreground), parseHex(ground)];
+  const out = a.map((v, i) => Math.round(v * pct + b[i] * (1 - pct)));
+  return `#${out.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}

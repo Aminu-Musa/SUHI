@@ -10,12 +10,14 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "fidelity": "playwright test",
+    "fidelity": "playwright test tests/fidelity",
+    "a11y": "playwright test tests/a11y.spec.ts",
     "ink": "node scripts/ink.mjs",
     "derive": "node scripts/derive.mjs",
     "audit": "node scripts/audit-contrast.mjs"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@maplibre/maplibre-gl-style-spec": "26.4.4",
     "@playwright/test": "1.64.1",
     "@testing-library/react": "16.3.3",

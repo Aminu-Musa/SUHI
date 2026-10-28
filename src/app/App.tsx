@@ -216,6 +216,44 @@ function Shell({
 
   const onTabChange = useCallback((value: string) => setTab(value as Tab), []);
 
+  /* SPEC §9.1 BUG 8 - the aria-live half, for the tabs.
+   *
+   * Task 7 gave the drawer `#drawerLive`, so opening a spot is announced. A TAB CHANGE was
+   * still silent, and it is the largest thing that happens on this page: the whole stage is
+   * replaced. It is silent for a structural reason rather than an oversight - ruling 5 swaps
+   * panels with `display`, so nothing navigates, no heading receives focus and no document
+   * change occurs for a screen reader to notice. A sighted reader sees the page turn over; a
+   * reader on a screen reader hears nothing at all.
+   *
+   * THE ANNOUNCEMENT IS THE TAB'S OWN LABEL AND NOTHING ELSE. "Data table" rather than
+   * "Switched to the Data table tab": the surrounding prose would be a fifth string needing
+   * Hausa, Igbo and Yorùbá, and §10.2 leaves those three under native review - so an invented
+   * sentence here would be the one piece of copy on the page that no reviewer ever sees. The
+   * tab labels are already in the dictionary, already reviewed as far as the rest is, and the
+   * element's `role="tab"` tells the reader what kind of thing was just named.
+   *
+   * EMPTY AT BOOT. `tab`'s initial value is `'map'`, and an announcer seeded with it would talk
+   * over the document title on load - the one thing a screen reader reads unasked. `?tab=table`
+   * arriving in an effect (Task 11) IS a change and IS announced, which is correct: the reader
+   * followed a link and should be told where it landed.
+   *
+   * THE REF STORES THE PREVIOUS TAB, NOT A "first run" BOOLEAN, for the reason the `mapWanted`
+   * latch above spells out: #root is in StrictMode, the effect is invoked twice on mount, and a
+   * boolean flipped by the first invocation lets the second one announce "Map" at boot. A
+   * stored tab makes the second invocation a no-op because the tab has not changed. It also
+   * means a LANGUAGE change alone announces nothing - `t` is in the dependency list because the
+   * effect reads it, not because a new language is news about the tab. */
+  const announced = useRef<Tab | null>(null);
+  const [tabLive, setTabLive] = useState('');
+  useEffect(() => {
+    if (announced.current === null || announced.current === tab) {
+      announced.current = tab;
+      return;
+    }
+    announced.current = tab;
+    setTabLive(t(`tab_${tab}`));
+  }, [tab, t]);
+
   /* Prototype line 1130: a click on a table row does `selectTab('map')` AND `focusCity(…)`.
    * Assembled here because it is the only place that holds both the tab value and the camera -
    * `setTab` is this component's `useState`, `focusCity` comes from the interactions context.
@@ -444,6 +482,15 @@ function Shell({
       {/* The shared tooltip, prototype line 404: one node outside `.app`, moved and filled by
        * whichever layer is hovered. */}
       <Tooltip data={data} />
+      {/* §9.1 bug 8. OUTSIDE `.app`, beside the tooltip, for the same reason the tooltip is
+        * there: `.app` and `.body` are flex containers whose children the fidelity guard
+        * measures, and a new child of either would be a layout participant. `.sr-only` is
+        * `position:absolute` and 1x1 (app.css), so this costs no pixel wherever it sits - but
+        * "costs no pixel" is a property of the class, and being a sibling of `.app` rather than
+        * a child of it is what makes that true without depending on the class. */}
+      <div className="sr-only" id="tabLive" aria-live="polite" aria-atomic="true">
+        {tabLive}
+      </div>
     </>
   );
 }

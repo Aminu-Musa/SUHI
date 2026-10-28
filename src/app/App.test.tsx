@@ -102,6 +102,42 @@ describe('tab switching', () => {
     expect(display(byId('stage'))).not.toBe('none');
   });
 
+  /* SPEC §9.1 BUG 8, the half Task 7 did not reach. The drawer announces what it opened
+   * (`#drawerLive`); a tab change announced nothing, and a tab change is the single biggest
+   * thing that happens on this page - the whole stage is replaced. A sighted reader sees it; a
+   * screen-reader reader got silence, because the panels are swapped by `display` rather than
+   * by navigation, so there is no document change for the reader to notice.
+   *
+   * The companion Playwright test (tests/a11y.spec.ts) is what proves the region is 1x1 and
+   * actually announced in a browser. This one pins the CONTENT rule, which is where the
+   * decisions are: silent at boot, and translated rather than written in English here. */
+  test('a tab change is announced in the dictionary language, and the default tab is not announced', async () => {
+    const user = userEvent.setup();
+    renderApp(<App />);
+    const live = () => byId('tabLive');
+
+    expect(live().getAttribute('aria-live')).toBe('polite');
+    expect(live().getAttribute('aria-atomic')).toBe('true');
+    expect(live().className).toBe('sr-only');
+    /* Silent at boot. An announcer that names the default tab on load talks over the document
+     * title, which is the one thing a screen reader reads without being asked. */
+    expect(live().textContent).toBe('');
+
+    await user.click(tabButtons()[1]);
+    expect(live().textContent).toBe('Compare cities');
+    await user.click(tabButtons()[2]);
+    expect(live().textContent).toBe('Data table');
+    await user.click(tabButtons()[0]);
+    expect(live().textContent).toBe('Map');
+
+    /* The text comes from the dictionary, not from a literal in App.tsx: §10.2 leaves Hausa,
+     * Igbo and Yorùbá under native review, and a string invented at the call site would be the
+     * one piece of copy on the page that no reviewer ever sees. */
+    await user.selectOptions(sel('lang'), 'ha');
+    await user.click(tabButtons()[2]);
+    expect(live().textContent).toBe('Teburin bayanai');
+  });
+
   test('Export jumps to the report tab, as the original exportBtn did', async () => {
     const user = userEvent.setup();
     renderApp(<App />);

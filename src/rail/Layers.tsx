@@ -99,7 +99,7 @@ export function Layers({ spots }: { readonly spots: Spots | null }) {
   return (
     <div>
       <div className="sec-h">
-        <span data-i18n="layers">{t('layers')}</span>
+        <span id="layersLabel" data-i18n="layers">{t('layers')}</span>
         <span id="opacityVal">{pct}%</span>
       </div>
       <div className="layers" id="layers">
@@ -133,6 +133,14 @@ export function Layers({ spots }: { readonly spots: Spots | null }) {
       <input
         type="range"
         id="opacity"
+        /* TASK 12, axe `label` (critical). A native range with no label is announced as
+         * "slider, 85" - a number with no subject. The name is taken from the `.sec-h`
+         * heading this control sits under rather than written here, because that heading is
+         * already in the dictionary and already under the same review as the rest of the copy
+         * (§10.2); a literal at this call site would be the one string on the page nobody
+         * reviews. "Layers" is also what the DESIGN calls this control: the original gives it
+         * no label of its own, and the percentage beside the heading is its value readout. */
+        aria-labelledby="layersLabel"
         min={20}
         max={100}
         value={pct}
