@@ -30,7 +30,7 @@
     "topojson-simplify": "3.0.3",
     "typescript": "7.0.2",
     "vite": "7.3.7",
-    "vitest": "3.2.7"
+    "vitest": "5.0.5"
   },
   "dependencies": {
     "@observablehq/plot": "0.6.17",

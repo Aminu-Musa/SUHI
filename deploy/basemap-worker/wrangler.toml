@@ -1,0 +1,28 @@
+# The basemap Worker (spec §8.3). Deployed by hand, from this directory, by whoever owns the
+# Cloudflare account — it is deliberately not wired into any npm script: the bucket and the
+# domain are the user's, and `wrangler deploy` running from a build would be a side effect
+# nobody asked for. README's Deployment section has the commands in order.
+#
+# The 39.23 MB z10 extract is why this exists: Cloudflare Pages caps one file at 25 MiB, and
+# the z9 extract that would fit is seven zoom levels below the map's ceiling.
+
+name = "suhi-basemap"
+main = "index.mjs"
+compatibility_date = "2026-01-01"
+
+# The binding the handler reads as `env.BASEMAP`. `bucket_name` must match the bucket created
+# with `wrangler r2 bucket create`; rename one and the Worker 500s on every tile with a
+# "Cannot read properties of undefined" that says nothing about buckets.
+[[r2_buckets]]
+binding = "BASEMAP"
+bucket_name = "suhi-basemap"
+
+# No routes here. A Worker deploys to <name>.<subdomain>.workers.dev on its own, which is enough
+# to point VITE_BASEMAP_URL at and enough for the free tier; a custom domain is added in the
+# dashboard when there is one, and putting a `routes` block here before that exists makes
+# `wrangler deploy` fail on a zone it cannot find.
+
+# Observability off by default: this Worker serves one public, immutable binary and its logs
+# would be a request-by-request record of which parts of the country people look at.
+[observability]
+enabled = false

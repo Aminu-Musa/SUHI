@@ -1,0 +1,34 @@
+# Cloudflare Pages reads this file from the root of the published directory (spec §8.6). Vite
+# copies `public/` verbatim into `dist/`, so this is how the app's headers are configured in the
+# repository rather than in a dashboard nobody can diff.
+#
+# Pages serves it; every other static server ignores it, including `tests/fidelity/server.mjs`,
+# so nothing here can affect what the fidelity guard measures.
+
+# Hashed assets. Vite puts a content hash in every filename under /assets, so a changed file is
+# a changed URL and a cached one can never be stale.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The published figures. NOT immutable: these filenames carry no hash, and `scripts/derive.mjs`
+# regenerating them has to reach readers. An hour is short enough that a correction lands the
+# same morning and long enough that a reader clicking between four tabs fetches them once.
+# Pages compresses JSON on the way out, which is what §8.6 asks for - `spots.topo.json` is
+# 567 kB on disk and 82 kB over the wire.
+/data/*
+  Cache-Control: public, max-age=3600
+  Access-Control-Allow-Origin: *
+
+# A basemap served from Pages rather than from R2 - which only works for an extract under the
+# 25 MiB cap (§8.3), so this is the z9 fallback, not the shipped z10 one. Both headers are
+# required: PMTiles reads the file in slices, and a server that does not advertise
+# `Accept-Ranges` makes the client give up on it.
+/*.pmtiles
+  Content-Type: application/octet-stream
+  Accept-Ranges: bytes
+  Cache-Control: public, max-age=31536000, immutable
+
+# index.html is the one file that must never be cached hard: it is what points at the hashed
+# assets, so a stale copy pins a reader to a previous deploy.
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate

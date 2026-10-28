@@ -24,6 +24,12 @@ jobs:
       - run: npm run audit
       # The fidelity guard (spec §3). Without it, "pixel-for-pixel" is an intention; with it,
       # a transcription error fails the build. Chromium only - it compares the rebuild against
-      # the ORIGINAL in the same engine, so cross-browser differences would be noise.
+      # the ORIGINAL in the same engine, so cross-browser differences would be noise. It also
+      # carries task 12's bundle budget, which reads the dist/ that globalSetup just built.
       - run: npx playwright install --with-deps chromium
       - run: npm run fidelity
+      # Accessibility (spec §9.1 bugs 3 and 8), in the same browser and for the same reason the
+      # guard is here: jsdom evaluates no media query, computes no transition and moves no
+      # focus, so `prefers-reduced-motion`, a Tab sweep and axe cannot be asserted under
+      # `npm test`.
+      - run: npm run a11y
