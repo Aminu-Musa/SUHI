@@ -1518,3 +1518,91 @@ value. So bug 11's fix is guarded in two of four places. Task 12 adds a negative
 **Also for Task 12: the national summary's prose is the implementer's own** - the original has no such
 page - written in the brief's voice from `cities.json` fields only. It asked for a read, and it
 should get one.
+
+### Task 12 — remaining correctness fixes, accessibility, deployment
+
+Resumed inline (superpowers:executing-plans) with tasks 1-11 complete and the tree clean at
+`60a6a77`. Items 1, 2, 4 and 7 of the carried table were already closed by tasks 6-11; this task
+starts from the a11y suite the plan's step 1 asks for and works the rest of the table.
+
+**Step 1-3, commit `ca53db3`.** Verified: 487 tests / 39 files, audit 82/82, a11y 11/11,
+fidelity 6/6, both PENDING lists still empty.
+
+**Ruling 50 - `tests/a11y.spec.ts` goes under PLAYWRIGHT, and `testDir` widens to `./tests`.**
+The plan put the file at `tests/a11y.spec.ts` without saying which runner owns it, and the
+runner is the decision: jsdom evaluates no media query, computes no transition and moves no
+focus, so three of the four contracts the plan names cannot be asserted there at all.
+`playwright.config.ts` therefore takes `testDir: './tests'`, and the npm scripts split into
+`fidelity` (tests/fidelity) and `a11y` (the new file) so a failure names which contract broke.
+`vite.config.ts` excludes `tests/**` rather than `tests/fidelity/**`, so the next browser suite
+needs no edit. *Cost if wrong:* one more npm script than before, and CI gains a step.
+
+**Ruling 51 - `PLAYWRIGHT_CHROMIUM_PATH`, unset in CI.** This sandbox cannot run `npx playwright
+install` (the download is blocked) and its prebuilt Chromium is build 1243 against playwright
+1.64.1's 1248. CI runs the install and leaves the variable unset, so the guard still measures
+the pinned browser there - which matters, because a Chromium a few builds apart lays text out a
+fraction differently and the guard compares boxes to 0.01px. *Cost if wrong:* a reader could set
+it and compare two pages in a different engine; both pages still move together, so the question
+the guard asks survives.
+
+**Ruling 52 - the stylesheet's accent text moves to `--accent-ink`, and the 12% wash becomes a
+ground for that one token.** The axe test found `.pk[aria-pressed=true]` at **3.17:1** in
+Modernist - four selected pickers on the default Compare view, while the audit reported 80 of 80
+green. The cause is a scope line in the spec, not an oversight: §5.2 says its inventory was
+"verified against the prototype's render functions, not inferred from the stylesheet", so the
+components were moved to the ink scale and app.css's own accent text - `.pk`, `.ghost[aria-
+pressed=true]`, `.zbtn:hover`, `.swipe .grab` - kept the fill token, while
+`scripts/audit-contrast.mjs` asserted in its own module comment that "`--color-accent` is
+deliberately NOT a text token any more". §3's second table says the ink scale is for "every text
+usage", so the move is sanctioned rather than new design.
+Moving `.pk` alone was not enough: its ground is the page washed with 12% accent, a composite no
+token declares, and `--accent-ink` measured **4.49** there - short by a hundredth. `INK_EXTRA_
+GROUNDS` declares that wash for `--accent-ink` ONLY, instead of adding a fourth global
+`TEXT_GROUND` which would re-derive all 22 values across both themes to buy a proof one token
+needs. That is the cost ruling 48 declined for print, and `print.test.ts`'s "white is NOT a
+fourth TEXT_GROUND" still passes because `TEXT_GROUNDS` is still three. Measured cost: Modernist
+`--accent-ink` #cb0000 -> #ca0000, one 0.002 step in L; Nocturne unchanged at 4.75 on its wash.
+Four copies of that value followed - ink.css (generated), print.css (ruling 48's copy, held by
+its own test), the §5.4 spec block and the plan's token table. The audit now carries the wash as
+rows of its own: **82 pairs**, all passing.
+*Cost if wrong:* accent text in Modernist is one step darker than the approved page's, in four
+stylesheet states; colour is not a compared property in the fidelity guard, so the guard stays
+6/6 either way and the change is only visible to a reader comparing the two pages by eye.
+
+**Ruling 53 - `--ui-muted` is NOT audited on the wash.** It is `.pk`'s UNSELECTED colour, where
+`background:none` leaves the ground the plain page; the wash arrives with `aria-pressed=true`,
+and so does the accent. Audited there it would read 4.93/5.16 and pass, but it is an AUTHORED
+token (§4) - a row that failed could not be fixed by re-deriving anything. *Cost if wrong:* a
+pairing the stylesheet never paints goes unmeasured.
+
+**TWO FINDINGS RAISED RATHER THAN FIXED, both the user's call:**
+- **`.ghost:active` washes at 22%** (app.css 39), where accent text sits at about **4.3:1** for
+  as long as a mouse button is held on the Framed toggle. Closing it means deriving every accent
+  ink against the 22% wash - Modernist #ca0000 -> #b80000, Nocturne #9386dc -> #9c8fe5, i.e.
+  darkening accent text everywhere to satisfy a state that lasts as long as a click - or
+  lightening the original's active wash, which §3 does not sanction. Named in
+  `audit-contrast.mjs`'s module comment so it cannot be lost.
+- **`a{color:var(--color-accent)}` and `a:hover{color:var(--color-accent-600)}`** are 3.76 and
+  4.25 on `--color-bg` in Modernist, and are left alone: no rendered link uses them, because the
+  only anchors on the page are MapLibre's attribution credits and `.maplibregl-ctrl-attrib a`
+  outranks a bare `a`. Moving the base state without its hover partner would give the page one
+  audited link colour and one unaudited one; `--color-accent-600` has no `-ink` sibling, and
+  deriving one is a §5 extension. `src/styles/accent-text.test.ts` sanctions both selectors by
+  name with the reason, so a new rule gets caught while these two do not.
+
+**A test of my own that proved vacuous, and how.** The first keyboard sweep built its expected
+set from `tabIndex >= 0`. Mutating a layer switch to `tabIndex={-1}` - the exact regression bug
+3 was - left the switch OUT of the expected set, and the test passed. It was asserting "every
+tab stop is reachable", a near-tautology, rather than "every control is reachable". The
+inventory is now built from control ROLE, independent of tabbability, and split into standalone
+controls (each must be reached by Tab) and roving-group items (reached by arrow keys, with the
+group membership itself asserted so a new group cannot hide controls). The same mutation now
+fails with all six switches named. Both regression guards in that file were mutation-checked;
+the reduced-motion one bit on the first try.
+
+**Also recorded: `.swipe` and `.swipetag` have no transition at any time**, so the
+`prefers-reduced-motion` rule listing them suppresses nothing today. app.css's comment says they
+are there so a handle that later gains an ease cannot ease behind a dragging pointer, which is
+reasonable - but a test asserting "0s under reduce" for them would be the README's
+six-deleted-selectors trap written fresh. They are asserted 0s in BOTH states, which is what is
+true, and the suppression claim is made only for `.drawer` and `.tip`, which do animate.

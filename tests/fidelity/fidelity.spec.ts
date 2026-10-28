@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { ALLOWED_DIFFS, CONTENT_PENDING, PENDING, contentPendingSelectors, pendingSelectors } from './allowed-diffs';
 import { ORIGINAL, REBUILD, openPage, type Theme } from './pages';
-import { BOX_PROPS, TYPE_PROPS, capture, type Capture } from './measure';
+import { BOX_PROPS, MATCH_CAP, TYPE_PROPS, capture, matchKey, selectorOf, type Capture } from './measure';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const TOLERANCE = 0.5;
@@ -217,6 +217,13 @@ const addedTokens = new Set(
   ALLOWED_DIFFS.filter((d) => d.property === 'token-added').flatMap((d) => d.target.split(',')),
 );
 const boxExempt = new Set(ALLOWED_DIFFS.filter((d) => d.property === 'box').map((d) => d.target));
+/* TASK 12. A selector whose MATCH COUNT legitimately differs, because one of §3's sanctioned
+ * changes added or removed an element. Keyed by selector, valued by the EXACT sanctioned pair:
+ * an entry permits one difference, not any difference. The test at the bottom of this file
+ * requires every count entry to carry a pair and to cite a spec section. */
+const countExempt = new Map(
+  ALLOWED_DIFFS.filter((d) => d.property === 'count').map((d) => [d.target, d.counts] as const),
+);
 
 for (const theme of ['nocturne', 'modernist'] as Theme[]) {
   test(`[${theme}] the rebuild matches the original`, async ({ browser }) => {
@@ -283,9 +290,15 @@ for (const theme of ['nocturne', 'modernist'] as Theme[]) {
     ]);
     const cmpCompared: string[] = [];
     compare(COMPARE_SELECTORS, origCmp, builtCmp, cmpCompared, boxDiffs);
+    /* DISTINCT SELECTORS, not comparisons. Since task 12 a selector contributes one entry per
+     * measured match, so `cmpCompared.length` is 11 for these four - the question this guards
+     * is still "was every selector reached", so the keys are folded back to their selectors. */
     expect
-      .soft(cmpCompared.length, `only ${cmpCompared.length} compare selector(s) were compared`)
-      .toBe(COMPARE_SELECTORS.length);
+      .soft(
+        [...new Set(cmpCompared.map(selectorOf))].sort(),
+        `only ${new Set(cmpCompared.map(selectorOf)).size} of ${COMPARE_SELECTORS.length} compare selectors were compared`,
+      )
+      .toEqual([...COMPARE_SELECTORS].sort());
     // The picker is the load-bearing one: 55 wrapping buttons, so a width or height difference
     // here means the flex wrap landed differently, which no 0x0 comparison could have seen.
     expect
@@ -301,9 +314,13 @@ for (const theme of ['nocturne', 'modernist'] as Theme[]) {
     ]);
     const tblCompared: string[] = [];
     compare(TABLE_SELECTORS, origTbl, builtTbl, tblCompared, boxDiffs);
+    // Distinct selectors, for the reason given at the Compare assertion above.
     expect
-      .soft(tblCompared.length, `only ${tblCompared.length} table selector(s) were compared`)
-      .toBe(TABLE_SELECTORS.length);
+      .soft(
+        [...new Set(tblCompared.map(selectorOf))].sort(),
+        `only ${new Set(tblCompared.map(selectorOf)).size} of ${TABLE_SELECTORS.length} table selectors were compared`,
+      )
+      .toEqual([...TABLE_SELECTORS].sort());
     /* Guard the guard, the way the picker's height does for Compare. A table whose rows failed
      * to render measures a few px high and a th that never laid out measures 0 wide, and either
      * would compare 0 against 0 and pass. 55 rows of seventeen 10px/7px-padded headings is
@@ -393,7 +410,22 @@ for (const theme of ['nocturne', 'modernist'] as Theme[]) {
 }
 
 /** One selector list, two captures. Appends to `compared` and `diffs` rather than asserting, so
- * a run reports every category of difference at once instead of stopping at the first. */
+ * a run reports every category of difference at once instead of stopping at the first.
+ *
+ * TASK 12: EVERY MATCH. The capture now measures up to `MATCH_CAP` matches per selector and
+ * counts them all (see measure.ts for what the first-match-only version missed). This loop
+ * therefore does two things it did not before:
+ *
+ *   - compares the MATCH COUNT, uncapped. A selector that matches 55 nodes in the original and
+ *     54 in the rebuild is a missing element, and under first-match-only it read as identical.
+ *   - compares matches 2..n, each against its counterpart at the same index.
+ *
+ * EXEMPTIONS COME AT BOTH GRAINS, because the spec does. `PENDING` and `CONTENT_PENDING` name
+ * selectors. An `ALLOWED_DIFFS` box entry may name either a selector (`.card2`, sanctioned
+ * wherever it appears) or one match (`.kpi «6»`): §9.1 bug 7 is about the LAST KPI tile, so the
+ * per-match target is the honest one and a blanket `.kpi` entry would stop comparing all six
+ * boxes in order to excuse one.
+ */
 function compare(
   selectors: readonly string[],
   orig: Capture,
@@ -413,24 +445,92 @@ function compare(
     /* Present but not yet sized by its content (CONTENT_PENDING): presence is required, the
      * measurements are not comparable until the owning task lands. */
     if (contentPendingSelectors.has(sel)) continue;
-    compared.push(sel);
-    for (const p of TYPE_PROPS) {
-      if (o.style[p] !== r.style[p]) diffs.push(`${sel} ${p}: ${o.style[p]} vs ${r.style[p]}`);
+
+    /* The count, before any measurement. `countExempt` carries its own citations: a handful of
+     * selectors legitimately match a different number of nodes because §3's sanctioned changes
+     * added or removed an element. */
+    const [oc, rc] = [orig.counts[sel] ?? 0, built.counts[sel] ?? 0];
+    if (oc !== rc) {
+      const sanctioned = countExempt.get(sel);
+      if (!sanctioned) diffs.push(`${sel} match count: ${oc} vs ${rc}`);
+      else if (sanctioned[0] !== oc || sanctioned[1] !== rc) {
+        /* The exemption exists but the numbers moved. This is the case the `counts` field was
+         * added for: a sanctioned 25-vs-20 that becomes 25-vs-19 is a deleted element hiding
+         * behind someone else's citation. */
+        diffs.push(`${sel} match count: ${oc} vs ${rc}, but ALLOWED_DIFFS sanctions ${sanctioned[0]} vs ${sanctioned[1]}`);
+      }
     }
-    if (boxExempt.has(sel)) continue;
-    for (const p of BOX_PROPS) {
-      if (o.style[p] !== r.style[p]) diffs.push(`${sel} ${p}: ${o.style[p]} vs ${r.style[p]}`);
+
+    /* WHEN THE COUNTS DISAGREE, ONLY MATCH 0 IS COMPARED, and that is not timidity - it is the
+     * only comparison that still means anything. Index alignment assumes the nth match on one
+     * page is the nth on the other, which stops being true the moment a node is added or
+     * removed before it: the first run of this loop reported `.seg button «3» font-size: 10.5px
+     * vs 11.5px` three times over, and those were the basemap segment's buttons on one page
+     * lined up against the contour segment's on the other. Three differences that said nothing,
+     * which is how a guard loses its reader. The COUNT difference above is the real finding in
+     * that case, and it is reported whether or not the measurements are comparable. */
+    const aligned = oc === rc ? Math.min(MATCH_CAP, oc) : 1;
+
+    for (let i = 0; i < aligned; i += 1) {
+      const key = matchKey(sel, i);
+      const om = orig.boxes[key];
+      const rm = built.boxes[key];
+      if (!om?.present || !rm?.present) continue;
+      compared.push(key);
+      for (const p of TYPE_PROPS) {
+        if (om.style[p] !== rm.style[p]) diffs.push(`${key} ${p}: ${om.style[p]} vs ${rm.style[p]}`);
+      }
+      /* Per match as well as per selector: `.kpi «6»` exempts the one tile §9.1 bug 7 changed,
+       * where a blanket `.kpi` entry would stop comparing all six boxes to excuse one. */
+      if (boxExempt.has(sel) || boxExempt.has(key)) continue;
+      for (const p of BOX_PROPS) {
+        if (om.style[p] !== rm.style[p]) diffs.push(`${key} ${p}: ${om.style[p]} vs ${rm.style[p]}`);
+      }
+      if (Math.abs(om.width - rm.width) > TOLERANCE) diffs.push(`${key} width: ${om.width} vs ${rm.width}`);
+      if (Math.abs(om.height - rm.height) > TOLERANCE) diffs.push(`${key} height: ${om.height} vs ${rm.height}`);
     }
-    if (Math.abs(o.width - r.width) > TOLERANCE) diffs.push(`${sel} width: ${o.width} vs ${r.width}`);
-    if (Math.abs(o.height - r.height) > TOLERANCE) diffs.push(`${sel} height: ${o.height} vs ${r.height}`);
   }
 }
 
+/* RULING 2, AND THIS IS THE TEST IT ASKED FOR. Both lists are exemptions from the comparison -
+ * PENDING means the element is absent, CONTENT_PENDING that it is present but cannot be sized
+ * yet - and both were only ever meant to hold work in flight. "Not built yet" becomes a
+ * permanent exemption the moment nothing fails when the last task ships, and the guard would
+ * then report green over selectors it never compares. Tasks 6, 9 and 10 emptied them as they
+ * went; this is what stops them refilling.
+ *
+ * It is deliberately NOT lenient: a future task that genuinely needs an exemption must delete
+ * this test and argue for it in the plan, which is the point - the argument should be visible
+ * in a diff rather than in a list nobody reads. ALLOWED_DIFFS is the list that may grow, and
+ * every entry there cites a spec section (the test below). */
+test('RULING 2: PENDING and CONTENT_PENDING are both EMPTY, so every selector is compared', () => {
+  expect(PENDING.map((p) => p.selector), 'a PENDING selector is a selector nothing compares').toEqual([]);
+  expect(
+    CONTENT_PENDING.map((c) => c.selector),
+    'a CONTENT_PENDING selector has its box and type skipped',
+  ).toEqual([]);
+});
+
 test('every CONTENT_PENDING entry names the task that resolves it and why', () => {
-  // Task 12 asserts this list is empty. Until then, each entry has to justify itself.
+  // Kept alongside the emptiness check above: if a future task argues its way to an entry, the
+  // entry still has to say which task owns it and why it cannot be compared.
   for (const c of CONTENT_PENDING) {
     expect(c.task, `${c.selector} must name an owning task`).toBeGreaterThan(2);
     expect(c.why.length, `${c.selector} must explain why it cannot be compared`).toBeGreaterThan(40);
+  }
+});
+
+test('every count exemption names the exact pair it sanctions (task 12)', () => {
+  /* A count entry without a pair would permit ANY count difference on that selector, which is
+   * the blanket exemption `counts` exists to prevent - see the field's comment in
+   * allowed-diffs.ts for the `.note` case that demands it. */
+  const counted = ALLOWED_DIFFS.filter((d) => d.property === 'count');
+  expect(counted.length, 'task 12 registered eight count exemptions').toBeGreaterThan(5);
+  for (const d of counted) {
+    expect(d.counts, `${d.target} must name [original, rebuild]`).toHaveLength(2);
+    const [o, r] = d.counts!;
+    expect(Number.isInteger(o) && Number.isInteger(r), `${d.target} counts must be integers`).toBe(true);
+    expect(o, `${d.target} sanctions a difference, so the two counts must differ`).not.toBe(r);
   }
 });
 

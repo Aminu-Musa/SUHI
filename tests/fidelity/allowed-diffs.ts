@@ -13,6 +13,17 @@ export interface AllowedDiff {
   /** Spec section or §9.1 bug number. Required. */
   readonly cite: string;
   readonly why: string;
+  /**
+   * TASK 12, `property: 'count'` only: the sanctioned pair [original, rebuild].
+   *
+   * Required for a count entry, and it is what stops a count exemption becoming a blanket one.
+   * `.note` is the case that demands it: the rebuild drops six export-card notes (§7.7) and
+   * adds `#cmpLegend` (§7.5), netting 25 vs 20. An exemption that only said "this selector may
+   * differ" would go on passing after someone deleted `#cmpLegend` as well - 25 vs 19 - which
+   * is a real regression wearing a sanctioned difference's clothes. The guard requires the
+   * observed pair to equal this one exactly.
+   */
+  readonly counts?: readonly [number, number];
 }
 
 /* Spec §3's Changed table - the four sanctioned changes. */
@@ -80,7 +91,59 @@ const FROM_TASK_8: readonly AllowedDiff[] = [
     why: 'the sign fix: the original renders `+-0.66 °C` for the 18 negative cities, while formatting the same value correctly at prototype lines 812, 861 and 886' },
 ];
 
-export const ALLOWED_DIFFS: readonly AllowedDiff[] = [...FROM_SPEC_3, ...FROM_SPEC_8, ...FROM_SPEC_9];
+/* ══ TASK 12: MATCH COUNTS, AND THE THREE PER-MATCH EXEMPTIONS ══
+ *
+ * `tests/fidelity/measure.ts` measured only the FIRST match of each selector until this task
+ * (Task 5 found it; the note at the top of that file says what it cost). With every match
+ * compared and every count checked, the guard reported eleven differences it had never been
+ * able to see. All eleven are sanctioned changes that no entry existed for, because until now
+ * nothing could detect them - so they are registered here with the section that permits each.
+ *
+ * NONE OF THE ELEVEN IS A NEW DEPARTURE. Each is a consequence of a change already approved
+ * and already cited elsewhere in this file; what is new is that the guard can now see them.
+ *
+ * A PER-MATCH TARGET is written `selector «n»`, the key `matchKey` builds, and exempts that one
+ * match. The grain matters: §9.1 bug 7 is about the LAST KPI tile, so `.kpi «6»` is the honest
+ * target and a blanket `.kpi` entry would stop comparing all six boxes to excuse one. */
+const FROM_TASK_12_COUNTS: readonly AllowedDiff[] = [
+  { target: '.ghost', property: 'count', counts: [8, 2], cite: 'spec §7.7',
+    why: "the original's export panel held SIX `.ghost` Download buttons, one per export card, and ruling 40 found that none of them downloaded anything - they were a promise the UI made and did not keep. §7.7's export is one `#exportFormat` select plus a single Download button that is ABSENT until a format is chosen (not disabled: a disabled control is something a reader can see and cannot use), so at first paint the rebuild has only the header's `#frameToggle` and `#exportBtn`. `.expgrid`'s own box exemption below is the same change measured from the container's side" },
+  { target: '.mini-sel', property: 'count', counts: [2, 3], cite: 'spec §7.7',
+    why: 'the third is `#exportFormat`, the select that replaced the six export cards. The original has only the header pair (`#lang`, `#theme`); the class is reused rather than invented, because §7.7 asked for the export control to look like the page it sits on' },
+  { target: '.kpi .val', property: 'count', counts: [5, 6], cite: 'spec §9.1 bug 7',
+    why: 'the sixth is the one bug 7 adds. The "Typology & confidence" tile was the only one of the six with no `.val`, which broke the tile grammar of the other five; the fix moves `0.64 °C` out of its `.sub` and into a `.val`. `.kpi.wide:last-of-type .val` already carries an `exists` entry for the same fix - this is its count' },
+  { target: '.seg button', property: 'count', counts: [14, 11], cite: 'spec §8.3',
+    why: "the basemap segment had FIVE buttons - Dark, Topo, Relief, Gray, Imagery - one per Esri/Carto tile service. §8.3 retired those services for a self-hosted Protomaps extract, which ships two styles, so the segment has two: Dark and Light. The other three segments are unchanged at 4, 2 and 3. `.seg button`'s box entry below cites the same section for the same reason" },
+  { target: '.note', property: 'count', counts: [25, 20],
+    cite: 'spec §7.7 / spec §7.5',
+    why: "two sanctioned changes netting five: §7.7 drops the six per-card notes with the six export cards, and §7.5 adds `#cmpLegend`, the one element in the Compare panel that is not in the original - it says which bar is day and which is night, which the doubled bars made necessary (`#cmpLegend` has its own `exists` entry below). The rail's seven and the brief's three are unchanged, including `basemap_note`, whose TEXT changed with §8.3 while its element did not" },
+  { target: '.card2', property: 'count', counts: [10, 4], cite: 'spec §7.7',
+    why: "four Compare cards in both pages; the original's other six are the export cards §7.7 collapses into one control row. `#panel-compare .card2` carries a box entry for the four that remain, and `#panel-report .expgrid` for the row that replaced the six" },
+  { target: '.cbar .track', property: 'count', counts: [45, 81], cite: 'spec §7.5',
+    why: 'nine in the rail on both pages. In Compare the original draws one bar per measure per card (9 x 4 = 36) and §7.5 doubles them, day against night (9 x 2 x 4 = 72), which is the change `#cmpLegend` exists to label' },
+  { target: '.cbar .v', property: 'count', counts: [45, 81], cite: 'spec §7.5',
+    why: 'the fill inside each `.cbar .track`, so it follows that count exactly - see the entry above' },
+];
+
+/* The three per-match box exemptions the count work surfaced. Each is a box difference at ONE
+ * match of a repeated selector, and each is the geometric consequence of a change already
+ * sanctioned above or elsewhere in this file. */
+const FROM_TASK_12_MATCHES: readonly AllowedDiff[] = [
+  { target: '.kpi «6»', property: 'box', cite: 'spec §9.1 bug 7',
+    why: "the sixth tile is 72.63px tall in the original and 82.36px here (82.25 / 91.98 in Modernist), because bug 7's fix gives it the `.val` the other five have. `.kpis` already carries a box entry for the grid this makes taller; this is the tile itself. The other five `.kpi` boxes are compared and match" },
+  { target: '.kpi .sub «5»', property: 'box', cite: 'spec §9.1 bug 7',
+    why: 'the same fix seen from the other side: the fifth `.sub` reads "0.64 °C · 16 clusters · city-level" in the original and wraps to two lines (32.53px), while here the figure has moved up into the new `.val` and the `.sub` is one line (16.27px). Four `.sub` boxes are compared and match' },
+  { target: '.ly .chip «4»', property: 'box', cite: 'spec §9.1 bug 6 / spec §8.3',
+    why: 'the states chip, 64.97px wide reading "placeholder" and 23.25px here reading "37". The layer WAS a placeholder - a 1.6-degree graticule - and the user approved real ADM1 boundaries on 2026-10-24, reversing ruling 31; a chip still reading "placeholder" would be the only thing on screen contradicting the 37 features now drawn. Same citation as the `path.stategrid` entry above, which is the layer itself' },
+];
+
+export const ALLOWED_DIFFS: readonly AllowedDiff[] = [
+  ...FROM_SPEC_3,
+  ...FROM_SPEC_8,
+  ...FROM_SPEC_9,
+  ...FROM_TASK_12_COUNTS,
+  ...FROM_TASK_12_MATCHES,
+];
 
 /* Attributes and properties the guard NEVER compares, with the reason each is excluded. */
 export const IGNORED_PROPERTIES: readonly { readonly name: string; readonly why: string }[] = [

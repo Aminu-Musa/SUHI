@@ -17,11 +17,15 @@
  * This file is the guard that stops it reopening. It reads the shipped CSS, so a declaration
  * added tomorrow is caught by the same rule rather than by someone remembering.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
+/* `?raw`, as print.test.ts reads its four stylesheets - `node:fs` has no types in this
+ * tsconfig, and the whole point of reading the SHIPPED text is to read what Vite ships. The
+ * first test below is the counterweight: `?raw` is exactly what returned an empty string for
+ * 18,087 characters of CSS once (see the README), so the length is asserted before anything
+ * is concluded from the contents. */
+import rawCss from './app.css?raw';
 
-const APP_CSS = readFileSync(resolve(import.meta.dirname, 'app.css'), 'utf8');
+const APP_CSS = rawCss;
 
 /** Every `color:` declaration in the file, with the selector block it belongs to. */
 function colorDeclarations(css: string): { selector: string; value: string }[] {
